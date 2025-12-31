@@ -1,0 +1,214 @@
+services:
+  db:
+    image: postgres:17
+    container_name: go_skeleton_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: zyrobyte
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./database:/docker-entrypoint-initdb.d
+    restart: always
+
+  redis:
+    image: redis:8
+    container_name: go_skeleton_redis
+    ports:
+      - "6379:6379"
+    restart: always
+
+  nats:
+    image: nats:2.10
+    container_name: go_skeleton_nats
+    command:
+      - "--jetstream"
+      - "--store_dir=/data/jetstream"
+      - "--http_port=8222"     # optional: monitoring
+    ports:
+      - "4222:4222"            # NATS client port
+      - "8222:8222"            # monitoring dashboard
+    volumes:
+      - nats_data:/data
+    restart: always
+
+  api:
+    build:
+      context: ../
+      dockerfile: infra/Dockerfile
+    container_name: go_skeleton_api
+    ports:
+      - "8081:8080"
+    environment:
+      # ============================================
+      # APPLICATION CONFIGURATION
+      # ============================================
+      APP_NAME: "Go API System"
+      APP_ENV: "development"              # development, staging, production
+      APP_PORT: "8080"
+      APP_VERSION: "v1"
+      LOG_LEVEL: "info"                   # debug, info, warn, error
+      TRUSTED_PROXIES: "127.0.0.1"        # Comma-separated list
+      ALLOW_ORIGINS: "http://localhost:3000,http://localhost:8081"  # CORS origins
+      RATE_LIMIT_RPS: "100"               # Requests per second
+
+      # ============================================
+      # DATABASE CONFIGURATION
+      # ============================================
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_USER: postgres
+      DB_PASSWORD: secret
+      DB_NAME: zyrobyte
+      DB_SSLMODE: "disable"               # disable, require, verify-ca, verify-full
+      DB_MAX_OPEN_CONNS: "25"             # Maximum open connections
+      DB_MAX_IDLE_CONNS: "5"              # Maximum idle connections
+      DB_CONN_MAX_LIFETIME: "5"           # Connection max lifetime (minutes)
+
+      # ============================================
+      # REDIS CONFIGURATION
+      # ============================================
+      REDIS_ADDRESSES: redis:6379         # Comma-separated: host1:port1,host2:port2
+      REDIS_PASSWORD: ""                  # Leave empty if no password
+      REDIS_DB: "0"                       # Redis database number
+      REDIS_POOL_SIZE: "10"               # Connection pool size
+      REDIS_MIN_IDLE_CONNS: "2"           # Minimum idle connections
+      REDIS_USE_SENTINEL: "false"         # Enable Redis Sentinel
+      REDIS_MASTER_NAME: "mymaster"       # Sentinel master name
+
+      # ============================================
+      # NATS CONFIGURATION
+      # ============================================
+      NATS_URLS: nats://nats:4222         # Comma-separated NATS URLs
+      NATS_TOKEN: ""                      # NATS authentication token
+      NATS_STREAM_NAME: "NOTIFICATIONS"   # JetStream stream name
+
+      # ============================================
+      # JWT & OAUTH CONFIGURATION
+      # ============================================
+      JWT_SECRET: "your-secret-key-change-in-production"  # HS256 secret (if using HS256)
+      JWT_ALGORITHM: "RS256"              # HS256 or RS256
+      JWT_KID: "docker-key-2025"          # Key ID for RS256
+      JWT_PRIVATE_KEY_PATH: /keys/private_key.pem
+      JWT_PUBLIC_KEY_PATH: /keys/public_key.pem
+      JWT_ISSUER: "http://localhost:8081"
+      OAUTH_ACCESS_TOKEN_EXPIRY: "3600"   # Access token expiry (seconds) - 1 hour
+      OAUTH_REFRESH_TOKEN_EXPIRY: "2592000"  # Refresh token expiry (seconds) - 30 days
+
+      # ============================================
+      # GOOGLE OAUTH CONFIGURATION
+      # ============================================
+      GOOGLE_CLIENT_ID: "270360282606-h1tt146fsie9omf50hfh748f1k4sb91i.apps.googleusercontent.com"
+      GOOGLE_CLIENT_SECRET: "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"
+      GOOGLE_REDIRECT_URL: "http://localhost:8081/api/v1/auth/google/callback"
+
+      # ============================================
+      # FACEBOOK OAUTH CONFIGURATION
+      # ============================================
+      FACEBOOK_APP_ID: "936849019005770"
+      FACEBOOK_APP_SECRET: "c8e387433cc5a4f4c008f12814d091f7"
+      FACEBOOK_REDIRECT_URL: "http://localhost:8081/api/v1/auth/facebook/callback"
+
+      # ============================================
+      # SENDGRID EMAIL CONFIGURATION
+      # ============================================
+      SENDGRID_API_KEY: "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"                # Your SendGrid API key
+      SENDGRID_FROM_EMAIL: "noreply@zyrobyte.co"             # From email address
+      SENDGRID_FROM_NAME: "Go API"        # From name
+      SENDGRID_REPLY_TO_EMAIL: ""         # Reply-to email
+
+      # ============================================
+      # TWILIO SMS CONFIGURATION
+      # ============================================
+      TWILIO_ACCOUNT_SID: "AC9d903c06d417e854618c187a5ec26be9"              # Twilio Account SID
+      TWILIO_AUTH_TOKEN: "49654eaa5ee3fb3a5dd7e00a6a1fd82f"               # Twilio Auth Token
+      TWILIO_FROM_NUMBER: "+12362427447"              # Twilio phone number
+      TWILIO_API_KEY: "SK55f39e881cde3bb71314facbe744a1a9"
+      TWILIO_API_SECRET: "fg6yOotSzgmZkelFrTjwXiCBXun0VvP8"
+
+      # ============================================
+      # STORAGE CONFIGURATION
+      # ============================================
+      STORAGE_TYPE: "local"               # local or s3
+      STORAGE_BASE_PATH: "./uploads"      # Local storage path
+      S3_BUCKET: ""                       # AWS S3 bucket name
+      S3_REGION: "us-east-1"              # AWS region
+      S3_ACCESS_KEY: ""                   # AWS access key
+      S3_SECRET_KEY: ""                   # AWS secret key
+      MAX_FILE_SIZE: "10485760"           # Max file size in bytes (10MB)
+
+      # ============================================
+      # GOOGLE ANALYTICS 4 CONFIGURATION
+      # ============================================
+      GA4_MEASUREMENT_ID: ""              # GA4 Measurement ID
+      GA4_API_SECRET: ""                  # GA4 API Secret
+      GA4_ENABLED: "false"                # Enable GA4 tracking
+
+    depends_on:
+      - db
+      - redis
+      - nats
+    volumes:
+      - ./database:/sql
+      - ../keys:/keys:ro  # Mount RSA keys read-only
+    restart: always
+
+  worker:
+    build:
+      context: ../
+      dockerfile: infra/Dockerfile
+    container_name: go_skeleton_worker
+    command: ["/app/api", "worker"]
+    environment:
+      # Worker uses same configuration as API
+      APP_NAME: "Go API System - Worker"
+      APP_ENV: "development"
+      LOG_LEVEL: "info"
+
+      # Database
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_USER: postgres
+      DB_PASSWORD: secret
+      DB_NAME: zyrobyte
+      DB_SSLMODE: "disable"
+      DB_MAX_OPEN_CONNS: "25"
+      DB_MAX_IDLE_CONNS: "5"
+      DB_CONN_MAX_LIFETIME: "5"
+
+      # Redis
+      REDIS_ADDRESSES: redis:6379
+      REDIS_PASSWORD: ""
+      REDIS_DB: "0"
+      REDIS_POOL_SIZE: "10"
+      REDIS_MIN_IDLE_CONNS: "2"
+
+      # NATS
+      NATS_URLS: nats://nats:4222
+      NATS_TOKEN: ""
+      NATS_STREAM_NAME: "NOTIFICATIONS"
+
+    depends_on:
+      - db
+      - redis
+      - nats
+    restart: always
+
+  swagger-ui:
+    image: swaggerapi/swagger-ui:latest
+    container_name: go_skeleton_swagger
+    ports:
+      - "8083:8080"
+    environment:
+      SWAGGER_JSON: /openapi/openapi.yaml
+      BASE_URL: /swagger
+      URLS: "[{ url: '/openapi/openapi.yaml', name: 'OAuth2/OIDC API' }]"
+    volumes:
+      - ../docs:/openapi:ro
+    restart: always
+
+volumes:
+  db_data:
+  nats_data:

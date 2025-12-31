@@ -1,0 +1,825 @@
+openapi: 3.0.3
+info:
+  title: Go API Skeleton - OAuth2/OIDC with PKCE
+  description: |
+    This API implements OAuth 2.1 Authorization Server with OpenID Connect (OIDC) support.
+
+    ## Features
+    - OAuth 2.1 Authorization Code Flow with mandatory PKCE
+    - Client Credentials Flow
+    - Refresh Token Flow with rotation
+    - OpenID Connect (OIDC) with ID Tokens
+    - Token Revocation (RFC 7009)
+    - Token Introspection (RFC 7662)
+    - JWKS endpoint for public key distribution
+    - Discovery endpoint (/.well-known/openid-configuration)
+
+    ## PKCE Flow
+    1. Generate `code_verifier` (43-128 characters, URL-safe)
+    2. Generate `code_challenge = BASE64URL(SHA256(code_verifier))`
+    3. Call `/oauth/authorize` with `code_challenge` and `code_challenge_method=S256`
+    4. Exchange authorization code at `/oauth/token` with `code_verifier`
+
+    ## Testing with Swagger UI
+    The `/authorize` endpoint performs browser redirects, so testing directly in Swagger UI is limited.
+    Use the curl examples provided or use the PKCE client example application.
+
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@zyrobyte.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development server
+  - url: https://api.example.com/api/v1
+    description: Production server
+
+tags:
+  - name: OAuth2 / OIDC
+    description: OAuth2 and OpenID Connect endpoints
+  - name: Users
+    description: User management endpoints
+
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      description: OAuth 2.1 with PKCE
+      flows:
+        authorizationCode:
+          authorizationUrl: /oauth/authorize
+          tokenUrl: /oauth/token
+          scopes:
+            openid: OpenID Connect scope
+            profile: Access to profile information
+            email: Access to email address
+            phone: Access to phone number
+            offline_access: Request refresh token
+
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT access token
+
+    openIdConnect:
+      type: openIdConnect
+      openIdConnectUrl: /.well-known/openid-configuration
+
+  schemas:
+    # Authorization Request/Response
+    AuthorizeRequest:
+      type: object
+      required:
+        - client_id
+        - redirect_uri
+        - response_type
+        - scope
+        - state
+        - code_challenge
+        - code_challenge_method
+      properties:
+        client_id:
+          type: string
+          description: OAuth2 client identifier
+          example: "web-app-client"
+        redirect_uri:
+          type: string
+          format: uri
+          description: Callback URI (must be HTTPS in production)
+          example: "http://localhost:8085/callback"
+        response_type:
+          type: string
+          enum: [code]
+          description: Must be "code" for authorization code flow
+          example: "code"
+        scope:
+          type: string
+          description: Space-separated list of scopes (must include "openid" for OIDC)
+          example: "openid profile email"
+        state:
+          type: string
+          description: CSRF protection token (recommended)
+          example: "xyz123abc"
+        nonce:
+          type: string
+          description: OIDC nonce for replay protection (required for OIDC)
+          example: "n-0S6_WzA2Mj"
+        code_challenge:
+          type: string
+          description: BASE64URL(SHA256(code_verifier)) for S256, or code_verifier for plain
+          example: "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
+        code_challenge_method:
+          type: string
+          enum: [S256, plain]
+          description: PKCE challenge method (S256 recommended)
+          example: "S256"
+
+    AuthorizeResponse:
+      type: object
+      description: Returns a 302 redirect to redirect_uri with code and state
+      properties:
+        code:
+          type: string
+          description: Authorization code (single-use, expires in 10 minutes)
+          example: "abc123def456"
+        state:
+          type: string
+          description: State value from the request
+          example: "xyz123abc"
+
+    # Token Request/Response
+    TokenRequest:
+      type: object
+      required:
+        - grant_type
+      properties:
+        grant_type:
+          type: string
+          enum: [authorization_code, refresh_token, client_credentials]
+          description: OAuth2 grant type
+          example: "authorization_code"
+        code:
+          type: string
+          description: Authorization code (required for authorization_code grant)
+          example: "abc123def456"
+        redirect_uri:
+          type: string
+          format: uri
+          description: Must match the redirect_uri from authorize request
+          example: "http://localhost:8085/callback"
+        client_id:
+          type: string
+          description: OAuth2 client identifier
+          example: "web-app-client"
+        client_secret:
+          type: string
+          description: Client secret (for confidential clients)
+          example: "secret123"
+        code_verifier:
+          type: string
+          description: PKCE code verifier (required if PKCE was used)
+          example: "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+        refresh_token:
+          type: string
+          description: Refresh token (required for refresh_token grant)
+          example: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
+        scope:
+          type: string
+          description: Space-separated scopes (for client_credentials grant)
+          example: "api.read api.write"
+
+    TokenResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: JWT access token
+          example: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImRlZmF1bHQta2V5LTIwMjUifQ..."
+        token_type:
+          type: string
+          enum: [Bearer]
+          example: "Bearer"
+        expires_in:
+          type: integer
+          description: Access token lifetime in seconds
+          example: 3600
+        refresh_token:
+          type: string
+          description: Refresh token (if offline_access scope requested)
+          example: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
+        id_token:
+          type: string
+          description: OIDC ID Token (if openid scope requested)
+          example: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImRlZmF1bHQta2V5LTIwMjUifQ..."
+        scope:
+          type: string
+          description: Granted scopes
+          example: "openid profile email"
+
+    # Token Revocation
+    RevokeRequest:
+      type: object
+      required:
+        - token
+      properties:
+        token:
+          type: string
+          description: The token to revoke
+          example: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
+        token_type_hint:
+          type: string
+          enum: [access_token, refresh_token]
+          description: Hint about token type
+          example: "access_token"
+
+    # Token Introspection
+    IntrospectRequest:
+      type: object
+      required:
+        - token
+      properties:
+        token:
+          type: string
+          description: The token to introspect
+          example: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+    IntrospectResponse:
+      type: object
+      properties:
+        active:
+          type: boolean
+          description: Whether the token is active
+          example: true
+        scope:
+          type: string
+          description: Space-separated scopes
+          example: "openid profile email"
+        client_id:
+          type: string
+          example: "web-app-client"
+        username:
+          type: string
+          example: "john.doe"
+        token_type:
+          type: string
+          enum: [Bearer]
+          example: "Bearer"
+        exp:
+          type: integer
+          description: Expiration timestamp
+          example: 1735689600
+        iat:
+          type: integer
+          description: Issued at timestamp
+          example: 1735686000
+        sub:
+          type: string
+          description: Subject (user ID)
+          example: "user-uuid-123"
+
+    # OIDC Discovery
+    OIDCDiscovery:
+      type: object
+      properties:
+        issuer:
+          type: string
+          example: "http://localhost:8080"
+        authorization_endpoint:
+          type: string
+          example: "http://localhost:8080/api/v1/oauth/authorize"
+        token_endpoint:
+          type: string
+          example: "http://localhost:8080/api/v1/oauth/token"
+        jwks_uri:
+          type: string
+          example: "http://localhost:8080/api/v1/oauth/jwks.json"
+        revocation_endpoint:
+          type: string
+          example: "http://localhost:8080/api/v1/oauth/revoke"
+        introspection_endpoint:
+          type: string
+          example: "http://localhost:8080/api/v1/oauth/introspect"
+        scopes_supported:
+          type: array
+          items:
+            type: string
+          example: ["openid", "profile", "email", "phone", "offline_access"]
+        response_types_supported:
+          type: array
+          items:
+            type: string
+          example: ["code"]
+        grant_types_supported:
+          type: array
+          items:
+            type: string
+          example: ["authorization_code", "refresh_token", "client_credentials"]
+        code_challenge_methods_supported:
+          type: array
+          items:
+            type: string
+          example: ["S256", "plain"]
+        token_endpoint_auth_methods_supported:
+          type: array
+          items:
+            type: string
+          example: ["client_secret_post", "client_secret_basic", "none"]
+        subject_types_supported:
+          type: array
+          items:
+            type: string
+          example: ["public"]
+        id_token_signing_alg_values_supported:
+          type: array
+          items:
+            type: string
+          example: ["RS256"]
+
+    # JWKS
+    JWK:
+      type: object
+      properties:
+        kty:
+          type: string
+          description: Key type
+          example: "RSA"
+        use:
+          type: string
+          description: Public key use
+          example: "sig"
+        kid:
+          type: string
+          description: Key ID
+          example: "default-key-2025"
+        alg:
+          type: string
+          description: Algorithm
+          example: "RS256"
+        n:
+          type: string
+          description: RSA modulus (base64url encoded)
+          example: "0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2aiAFbWhM78LhWx4cbbfAAtVT86zwu1RK7aPFFxuhDR1L6tSoc_BJECPebWKRXjBZCiFV4n3oknjhMstn64tZ_2W-5JsGY4Hc5n9yBXArwl93lqt7_RN5w6Cf0h4QyQ5v-65YGjQR0_FDW2QvzqY368QQMicAtaSqzs8KJZgnYb9c7d0zgdAZHzu6qMQvRL5hajrn1n91CbOpbISD08qNLyrdkt-bFTWhAI4vMQFh6WeZu0fM4lFd2NcRwr3XPksINHaQ-G_xBniIqbw0Ls1jF44-csFCur-kEgU8awapJzKnqDKgw"
+        e:
+          type: string
+          description: RSA exponent (base64url encoded)
+          example: "AQAB"
+
+    JWKS:
+      type: object
+      properties:
+        keys:
+          type: array
+          items:
+            $ref: '#/components/schemas/JWK'
+
+    # User Info
+    UserInfo:
+      type: object
+      properties:
+        sub:
+          type: string
+          description: Subject identifier
+          example: "user-uuid-123"
+        name:
+          type: string
+          example: "John Doe"
+        given_name:
+          type: string
+          example: "John"
+        family_name:
+          type: string
+          example: "Doe"
+        preferred_username:
+          type: string
+          example: "johndoe"
+        email:
+          type: string
+          format: email
+          example: "john.doe@example.com"
+        email_verified:
+          type: boolean
+          example: true
+        phone_number:
+          type: string
+          example: "+1234567890"
+        phone_number_verified:
+          type: boolean
+          example: true
+        picture:
+          type: string
+          format: uri
+          example: "https://example.com/avatar.jpg"
+        locale:
+          type: string
+          example: "en_US"
+        zoneinfo:
+          type: string
+          example: "America/New_York"
+        updated_at:
+          type: integer
+          description: Unix timestamp
+          example: 1735689600
+
+    # Error Response
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          enum:
+            - invalid_request
+            - invalid_client
+            - invalid_grant
+            - unauthorized_client
+            - unsupported_grant_type
+            - invalid_scope
+            - access_denied
+          example: "invalid_grant"
+        error_description:
+          type: string
+          example: "The authorization code is invalid or expired"
+        error_uri:
+          type: string
+          format: uri
+          example: "https://tools.ietf.org/html/rfc6749#section-5.2"
+
+paths:
+  /.well-known/openid-configuration:
+    get:
+      tags:
+        - OAuth2 / OIDC
+      summary: OpenID Connect Discovery
+      description: |
+        Returns the OpenID Connect discovery document (RFC 8414).
+        This endpoint provides metadata about the authorization server's configuration,
+        including supported endpoints, grant types, scopes, and PKCE methods.
+      operationId: getOIDCDiscovery
+      responses:
+        '200':
+          description: OIDC discovery document
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OIDCDiscovery'
+              example:
+                issuer: "http://localhost:8080"
+                authorization_endpoint: "http://localhost:8080/api/v1/oauth/authorize"
+                token_endpoint: "http://localhost:8080/api/v1/oauth/token"
+                jwks_uri: "http://localhost:8080/api/v1/oauth/jwks.json"
+                code_challenge_methods_supported: ["S256", "plain"]
+
+  /oauth/jwks.json:
+    get:
+      tags:
+        - OAuth2 / OIDC
+      summary: JSON Web Key Set
+      description: |
+        Returns the public keys used for JWT signature verification (RFC 7517).
+        Clients should use these keys to validate ID tokens and access tokens signed with RS256.
+      operationId: getJWKS
+      responses:
+        '200':
+          description: JWKS document
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JWKS'
+              example:
+                keys:
+                  - kty: "RSA"
+                    use: "sig"
+                    kid: "default-key-2025"
+                    alg: "RS256"
+                    n: "0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2aiAFbWhM78LhWx..."
+                    e: "AQAB"
+
+  /oauth/authorize:
+    get:
+      tags:
+        - OAuth2 / OIDC
+      summary: OAuth2 Authorization Endpoint (GET)
+      description: |
+        Initiates the OAuth 2.1 authorization code flow with PKCE.
+
+        **PKCE is REQUIRED**. Generate a code_verifier and code_challenge before calling this endpoint.
+
+        This endpoint performs a browser redirect, so it cannot be fully tested in Swagger UI.
+        Use the curl example or the PKCE client application.
+
+        **Response**: 302 redirect to `redirect_uri?code={code}&state={state}`
+
+        **PKCE Example**:
+        ```bash
+        # Generate code_verifier (43-128 chars, URL-safe)
+        CODE_VERIFIER=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-43)
+
+        # Generate code_challenge
+        CODE_CHALLENGE=$(echo -n $CODE_VERIFIER | openssl dgst -sha256 -binary | base64 | tr -d "=+/" | tr "/+" "_-")
+
+        # Call authorize endpoint
+        curl "http://localhost:8080/api/v1/oauth/authorize?\
+client_id=web-app-client&\
+redirect_uri=http://localhost:8085/callback&\
+response_type=code&\
+scope=openid%20profile%20email&\
+state=xyz123&\
+nonce=n-0S6_WzA2Mj&\
+code_challenge=$CODE_CHALLENGE&\
+code_challenge_method=S256" \
+          -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+        ```
+      operationId: authorizeGET
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: client_id
+          in: query
+          required: true
+          schema:
+            type: string
+          example: "web-app-client"
+          description: OAuth2 client identifier
+        - name: redirect_uri
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uri
+          example: "http://localhost:8085/callback"
+          description: Callback URI (must match registered URI)
+        - name: response_type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [code]
+          example: "code"
+          description: Must be "code"
+        - name: scope
+          in: query
+          required: true
+          schema:
+            type: string
+          example: "openid profile email"
+          description: Space-separated scopes (include "openid" for OIDC)
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+          example: "xyz123abc"
+          description: CSRF protection token
+        - name: nonce
+          in: query
+          required: false
+          schema:
+            type: string
+          example: "n-0S6_WzA2Mj"
+          description: OIDC replay protection (recommended for openid scope)
+        - name: code_challenge
+          in: query
+          required: true
+          schema:
+            type: string
+          example: "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
+          description: BASE64URL(SHA256(code_verifier)) for S256
+        - name: code_challenge_method
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [S256, plain]
+          example: "S256"
+          description: PKCE method (use S256)
+      responses:
+        '302':
+          description: Redirect to redirect_uri with authorization code
+          headers:
+            Location:
+              schema:
+                type: string
+              example: "http://localhost:8085/callback?code=abc123def456&state=xyz123abc"
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized (user not authenticated)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags:
+        - OAuth2 / OIDC
+      summary: OAuth2 Authorization Endpoint (POST)
+      description: |
+        Same as GET /authorize but accepts parameters as JSON body.
+        Useful for API-based flows without browser redirects.
+      operationId: authorizePOST
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthorizeRequest'
+            example:
+              client_id: "web-app-client"
+              redirect_uri: "http://localhost:8085/callback"
+              response_type: "code"
+              scope: "openid profile email"
+              state: "xyz123abc"
+              nonce: "n-0S6_WzA2Mj"
+              code_challenge: "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
+              code_challenge_method: "S256"
+      responses:
+        '200':
+          description: Authorization code issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizeResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /oauth/token:
+    post:
+      tags:
+        - OAuth2 / OIDC
+      summary: OAuth2 Token Endpoint
+      description: |
+        Exchange authorization code for access token, refresh token, and ID token.
+
+        **IMPORTANT**: Include `code_verifier` if PKCE was used in the authorize request.
+
+        Supported grant types:
+        - `authorization_code`: Exchange auth code for tokens
+        - `refresh_token`: Refresh access token
+        - `client_credentials`: Machine-to-machine authentication
+
+        **Try it with curl**:
+        ```bash
+        curl -X POST http://localhost:8080/api/v1/oauth/token \
+          -H "Content-Type: application/x-www-form-urlencoded" \
+          -d "grant_type=authorization_code" \
+          -d "code=abc123def456" \
+          -d "redirect_uri=http://localhost:8085/callback" \
+          -d "client_id=web-app-client" \
+          -d "code_verifier=$CODE_VERIFIER"
+        ```
+      operationId: token
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenRequest'
+            examples:
+              authorization_code:
+                summary: Authorization Code Grant
+                value:
+                  grant_type: "authorization_code"
+                  code: "abc123def456"
+                  redirect_uri: "http://localhost:8085/callback"
+                  client_id: "web-app-client"
+                  code_verifier: "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+              refresh_token:
+                summary: Refresh Token Grant
+                value:
+                  grant_type: "refresh_token"
+                  refresh_token: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  client_id: "web-app-client"
+              client_credentials:
+                summary: Client Credentials Grant
+                value:
+                  grant_type: "client_credentials"
+                  client_id: "api-service"
+                  client_secret: "secret123"
+                  scope: "api.read api.write"
+      responses:
+        '200':
+          description: Tokens issued successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+              example:
+                access_token: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImRlZmF1bHQta2V5LTIwMjUifQ..."
+                token_type: "Bearer"
+                expires_in: 3600
+                refresh_token: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
+                id_token: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImRlZmF1bHQta2V5LTIwMjUifQ..."
+                scope: "openid profile email"
+        '400':
+          description: Bad request (invalid code_verifier, expired code, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalid_grant:
+                  value:
+                    error: "invalid_grant"
+                    error_description: "The authorization code is invalid or expired"
+                invalid_code_verifier:
+                  value:
+                    error: "invalid_grant"
+                    error_description: "Code verifier does not match code challenge"
+
+  /oauth/revoke:
+    post:
+      tags:
+        - OAuth2 / OIDC
+      summary: Token Revocation Endpoint
+      description: |
+        Revoke an access token or refresh token (RFC 7009).
+        Requires authentication with a valid access token.
+      operationId: revoke
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RevokeRequest'
+            example:
+              token: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
+              token_type_hint: "access_token"
+      responses:
+        '200':
+          description: Token revoked successfully
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /oauth/introspect:
+    post:
+      tags:
+        - OAuth2 / OIDC
+      summary: Token Introspection Endpoint
+      description: |
+        Introspect a token to get metadata (RFC 7662).
+        Requires authentication with a valid access token.
+      operationId: introspect
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/IntrospectRequest'
+            example:
+              token: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
+      responses:
+        '200':
+          description: Token metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntrospectResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /oauth/userinfo:
+    get:
+      tags:
+        - OAuth2 / OIDC
+      summary: OIDC UserInfo Endpoint
+      description: |
+        Returns claims about the authenticated user.
+        Requires a valid access token with the `openid` scope.
+      operationId: getUserInfo
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserInfo'
+              example:
+                sub: "user-uuid-123"
+                name: "John Doe"
+                given_name: "John"
+                family_name: "Doe"
+                email: "john.doe@example.com"
+                email_verified: true
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+security:
+  - bearerAuth: []

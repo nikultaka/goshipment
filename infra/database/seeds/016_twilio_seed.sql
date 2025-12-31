@@ -1,0 +1,65 @@
+-- Seed Twilio messaging services
+
+INSERT INTO twilio_messaging_services (
+    id,
+    service_name,
+    twilio_service_sid,
+    use_case,
+    sender_pool,
+    use_alphanumeric_sender,
+    default_sender,
+    validity_period,
+    delivery_callback_url,
+    smart_encoding,
+    sticky_sender,
+    fallback_to_long_code,
+    supported_countries,
+    is_active,
+    is_default,
+    created_at,
+    updated_at,
+    last_synced_at,
+    created_by
+) VALUES
+    (
+        uuid_generate_v4(),
+        'primary_notifications',
+        'MGXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX', -- TODO: replace with real SID
+        'notifications',
+        ARRAY['+15550000001'],
+        FALSE,
+        '+15550000001',
+        14400,
+        'https://api.example.com/v1/webhooks/twilio/status',
+        TRUE,
+        TRUE,
+        TRUE,
+        ARRAY['CA','US'],
+        TRUE,
+        TRUE,
+        NOW(),
+        NOW(),
+        NULL,
+        '00000000-0000-0000-0000-000000000001'
+    ),
+    (
+        uuid_generate_v4(),
+        'verification_codes',
+        'MGYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY', -- TODO: replace
+        'verification',
+        ARRAY['+15550000002'],
+        TRUE,
+        'ParcelHub',
+        600,
+        'https://api.example.com/v1/webhooks/twilio/verification',
+        TRUE,
+        TRUE,
+        TRUE,
+        ARRAY['CA','US'],
+        TRUE,
+        FALSE,
+        NOW(),
+        NOW(),
+        NULL,
+        '00000000-0000-0000-0000-000000000001'
+    );

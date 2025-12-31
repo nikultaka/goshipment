@@ -1,0 +1,18 @@
+services:
+  # Database GUI
+  adminer:
+    image: adminer
+    container_name: go_skeleton_adminer
+    ports:
+      - "8082:8080"
+    depends_on:
+      - db
+    restart: always
+
+  # File-based logs
+  api:
+    volumes:
+      - ../logs:/app/logs
+      - ./database:/sql  # ensure DB SQL folder still mounted
+    environment:
+      - LOG_LEVEL=debug
