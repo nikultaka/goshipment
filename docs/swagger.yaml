@@ -1,49 +1,6 @@
 basePath: /api/v1
 definitions:
-  gogin_internal_response.Actor:
-    properties:
-      client_id:
-        type: string
-      role:
-        type: string
-      user_id:
-        type: string
-    type: object
-  gogin_internal_response.Meta:
-    properties:
-      actor:
-        $ref: '#/definitions/gogin_internal_response.Actor'
-      request_id:
-        type: string
-      timestamp:
-        type: string
-      version:
-        type: string
-    type: object
-  gogin_internal_response.Response:
-    properties:
-      data: {}
-      errors:
-        items:
-          $ref: '#/definitions/gogin_internal_response.ResponseError'
-        type: array
-      message:
-        type: string
-      meta:
-        $ref: '#/definitions/gogin_internal_response.Meta'
-      success:
-        type: boolean
-    type: object
-  gogin_internal_response.ResponseError:
-    properties:
-      code:
-        type: string
-      field:
-        type: string
-      message:
-        type: string
-    type: object
-  internal_modules_apiclient.ClientResponse:
+  apiclient.ClientResponse:
     properties:
       access_token_lifetime:
         type: integer
@@ -86,11 +43,11 @@ definitions:
       updated_at:
         type: string
     type: object
-  internal_modules_apiclient.ClientsListResponse:
+  apiclient.ClientsListResponse:
     properties:
       clients:
         items:
-          $ref: '#/definitions/internal_modules_apiclient.ClientResponse'
+          $ref: '#/definitions/apiclient.ClientResponse'
         type: array
       limit:
         type: integer
@@ -101,7 +58,7 @@ definitions:
       total_pages:
         type: integer
     type: object
-  internal_modules_apiclient.CreateClientRequest:
+  apiclient.CreateClientRequest:
     properties:
       description:
         type: string
@@ -127,7 +84,7 @@ definitions:
     - redirect_uris
     - scopes
     type: object
-  internal_modules_apiclient.UpdateClientRequest:
+  apiclient.UpdateClientRequest:
     properties:
       description:
         type: string
@@ -151,7 +108,7 @@ definitions:
     - redirect_uris
     - scopes
     type: object
-  internal_modules_audit.AuditLogResponse:
+  audit.AuditLogResponse:
     properties:
       action:
         type: string
@@ -190,13 +147,13 @@ definitions:
       user_id:
         type: string
     type: object
-  internal_modules_audit.AuditLogsListResponse:
+  audit.AuditLogsListResponse:
     properties:
       limit:
         type: integer
       logs:
         items:
-          $ref: '#/definitions/internal_modules_audit.AuditLogResponse'
+          $ref: '#/definitions/audit.AuditLogResponse'
         type: array
       page:
         type: integer
@@ -205,7 +162,7 @@ definitions:
       total_pages:
         type: integer
     type: object
-  internal_modules_notifications.CreateNotificationTemplateRequest:
+  notifications.CreateNotificationTemplateRequest:
     properties:
       body_template:
         type: string
@@ -248,7 +205,7 @@ definitions:
     - name
     - template_id
     type: object
-  internal_modules_notifications.NotificationResponse:
+  notifications.NotificationResponse:
     properties:
       channel:
         type: string
@@ -273,7 +230,7 @@ definitions:
       user_id:
         type: string
     type: object
-  internal_modules_notifications.NotificationTemplateResponse:
+  notifications.NotificationTemplateResponse:
     properties:
       body_template:
         type: string
@@ -312,7 +269,7 @@ definitions:
       updated_at:
         type: string
     type: object
-  internal_modules_notifications.NotificationTemplatesListResponse:
+  notifications.NotificationTemplatesListResponse:
     properties:
       limit:
         type: integer
@@ -320,20 +277,20 @@ definitions:
         type: integer
       templates:
         items:
-          $ref: '#/definitions/internal_modules_notifications.NotificationTemplateResponse'
+          $ref: '#/definitions/notifications.NotificationTemplateResponse'
         type: array
       total:
         type: integer
       total_pages:
         type: integer
     type: object
-  internal_modules_notifications.NotificationsListResponse:
+  notifications.NotificationsListResponse:
     properties:
       limit:
         type: integer
       notifications:
         items:
-          $ref: '#/definitions/internal_modules_notifications.NotificationResponse'
+          $ref: '#/definitions/notifications.NotificationResponse'
         type: array
       page:
         type: integer
@@ -344,7 +301,7 @@ definitions:
       unread:
         type: integer
     type: object
-  internal_modules_notifications.SendNotificationRequest:
+  notifications.SendNotificationRequest:
     properties:
       channel:
         enum:
@@ -370,7 +327,7 @@ definitions:
     - type
     - user_id
     type: object
-  internal_modules_notifications.TestEmailRequest:
+  notifications.TestEmailRequest:
     properties:
       body:
         type: string
@@ -383,7 +340,7 @@ definitions:
     - subject
     - to
     type: object
-  internal_modules_notifications.TestSMSRequest:
+  notifications.TestSMSRequest:
     properties:
       body:
         type: string
@@ -393,7 +350,7 @@ definitions:
     - body
     - to
     type: object
-  internal_modules_notifications.UpdateNotificationTemplateRequest:
+  notifications.UpdateNotificationTemplateRequest:
     properties:
       body_template:
         type: string
@@ -418,7 +375,7 @@ definitions:
       subject:
         type: string
     type: object
-  internal_modules_oauth2.AuthorizeRequest:
+  oauth2.AuthorizeRequest:
     properties:
       client_id:
         type: string
@@ -444,14 +401,14 @@ definitions:
     - redirect_uri
     - response_type
     type: object
-  internal_modules_oauth2.AuthorizeResponse:
+  oauth2.AuthorizeResponse:
     properties:
       code:
         type: string
       state:
         type: string
     type: object
-  internal_modules_oauth2.IntrospectRequest:
+  oauth2.IntrospectRequest:
     properties:
       token:
         type: string
@@ -463,7 +420,7 @@ definitions:
     required:
     - token
     type: object
-  internal_modules_oauth2.IntrospectResponse:
+  oauth2.IntrospectResponse:
     properties:
       active:
         type: boolean
@@ -480,7 +437,7 @@ definitions:
       user_id:
         type: string
     type: object
-  internal_modules_oauth2.OIDCDiscoveryResponse:
+  oauth2.OIDCDiscoveryResponse:
     properties:
       authorization_endpoint:
         type: string
@@ -549,7 +506,7 @@ definitions:
       userinfo_endpoint:
         type: string
     type: object
-  internal_modules_oauth2.RevokeRequest:
+  oauth2.RevokeRequest:
     properties:
       token:
         type: string
@@ -561,7 +518,7 @@ definitions:
     required:
     - token
     type: object
-  internal_modules_oauth2.TokenRequest:
+  oauth2.TokenRequest:
     properties:
       client_id:
         type: string
@@ -587,7 +544,7 @@ definitions:
     - client_id
     - grant_type
     type: object
-  internal_modules_oauth2.TokenResponse:
+  oauth2.TokenResponse:
     properties:
       access_token:
         type: string
@@ -603,7 +560,50 @@ definitions:
       token_type:
         type: string
     type: object
-  internal_modules_reviews.CreateReviewRequest:
+  response.Actor:
+    properties:
+      client_id:
+        type: string
+      role:
+        type: string
+      user_id:
+        type: string
+    type: object
+  response.Meta:
+    properties:
+      actor:
+        $ref: '#/definitions/response.Actor'
+      request_id:
+        type: string
+      timestamp:
+        type: string
+      version:
+        type: string
+    type: object
+  response.Response:
+    properties:
+      data: {}
+      errors:
+        items:
+          $ref: '#/definitions/response.ResponseError'
+        type: array
+      message:
+        type: string
+      meta:
+        $ref: '#/definitions/response.Meta'
+      success:
+        type: boolean
+    type: object
+  response.ResponseError:
+    properties:
+      code:
+        type: string
+      field:
+        type: string
+      message:
+        type: string
+    type: object
+  reviews.CreateReviewRequest:
     properties:
       cons:
         description: Optional
@@ -630,7 +630,7 @@ definitions:
     - target_id
     - target_type
     type: object
-  internal_modules_reviews.ReviewResponse:
+  reviews.ReviewResponse:
     properties:
       cons:
         type: string
@@ -659,7 +659,7 @@ definitions:
       user_id:
         type: string
     type: object
-  internal_modules_reviews.ReviewsListResponse:
+  reviews.ReviewsListResponse:
     properties:
       average_rating:
         type: number
@@ -669,14 +669,14 @@ definitions:
         type: integer
       reviews:
         items:
-          $ref: '#/definitions/internal_modules_reviews.ReviewResponse'
+          $ref: '#/definitions/reviews.ReviewResponse'
         type: array
       total:
         type: integer
       total_pages:
         type: integer
     type: object
-  internal_modules_reviews.UpdateReviewRequest:
+  reviews.UpdateReviewRequest:
     properties:
       cons:
         type: string
@@ -694,7 +694,7 @@ definitions:
     - rating
     - review_body
     type: object
-  internal_modules_settings.CreateSettingRequest:
+  settings.CreateSettingRequest:
     properties:
       category:
         type: string
@@ -718,7 +718,7 @@ definitions:
     - type
     - value
     type: object
-  internal_modules_settings.SettingResponse:
+  settings.SettingResponse:
     properties:
       category:
         type: string
@@ -743,7 +743,7 @@ definitions:
       value:
         type: string
     type: object
-  internal_modules_settings.SettingsListResponse:
+  settings.SettingsListResponse:
     properties:
       limit:
         type: integer
@@ -751,14 +751,14 @@ definitions:
         type: integer
       settings:
         items:
-          $ref: '#/definitions/internal_modules_settings.SettingResponse'
+          $ref: '#/definitions/settings.SettingResponse'
         type: array
       total:
         type: integer
       total_pages:
         type: integer
     type: object
-  internal_modules_settings.UpdateSettingRequest:
+  settings.UpdateSettingRequest:
     properties:
       description:
         type: string
@@ -777,7 +777,7 @@ definitions:
     - type
     - value
     type: object
-  internal_modules_social_auth.OAuthLoginResponse:
+  social_auth.OAuthLoginResponse:
     properties:
       access_token:
         type: string
@@ -788,9 +788,9 @@ definitions:
       token_type:
         type: string
       user:
-        $ref: '#/definitions/internal_modules_social_auth.UserResponse'
+        $ref: '#/definitions/social_auth.UserResponse'
     type: object
-  internal_modules_social_auth.OAuthURLResponse:
+  social_auth.OAuthURLResponse:
     properties:
       authorization_url:
         type: string
@@ -799,7 +799,7 @@ definitions:
       provider:
         type: string
     type: object
-  internal_modules_social_auth.UserResponse:
+  social_auth.UserResponse:
     properties:
       avatar:
         type: string
@@ -822,7 +822,7 @@ definitions:
       role:
         type: string
     type: object
-  internal_modules_storage.FileResponse:
+  storage.FileResponse:
     properties:
       created_at:
         type: string
@@ -850,16 +850,16 @@ definitions:
       visibility:
         type: string
     type: object
-  internal_modules_storage.FileUploadResponse:
+  storage.FileUploadResponse:
     properties:
       file:
-        $ref: '#/definitions/internal_modules_storage.FileResponse'
+        $ref: '#/definitions/storage.FileResponse'
     type: object
-  internal_modules_storage.FilesListResponse:
+  storage.FilesListResponse:
     properties:
       files:
         items:
-          $ref: '#/definitions/internal_modules_storage.FileResponse'
+          $ref: '#/definitions/storage.FileResponse'
         type: array
       limit:
         type: integer
@@ -870,7 +870,7 @@ definitions:
       total_pages:
         type: integer
     type: object
-  internal_modules_storage.UpdateFileRequest:
+  storage.UpdateFileRequest:
     properties:
       metadata:
         description: Optional JSON metadata
@@ -881,7 +881,7 @@ definitions:
         - private
         type: string
     type: object
-  internal_modules_tickets.AdminCreateTicketRequest:
+  tickets.AdminCreateTicketRequest:
     properties:
       assigned_to:
         description: Optional assignment
@@ -912,14 +912,14 @@ definitions:
     - subject
     - user_id
     type: object
-  internal_modules_tickets.AssignTicketRequest:
+  tickets.AssignTicketRequest:
     properties:
       assigned_to:
         type: string
     required:
     - assigned_to
     type: object
-  internal_modules_tickets.AttachmentResponse:
+  tickets.AttachmentResponse:
     properties:
       attachment_type:
         type: string
@@ -948,16 +948,16 @@ definitions:
       visible_to_customer:
         type: boolean
     type: object
-  internal_modules_tickets.AttachmentsListResponse:
+  tickets.AttachmentsListResponse:
     properties:
       attachments:
         items:
-          $ref: '#/definitions/internal_modules_tickets.AttachmentResponse'
+          $ref: '#/definitions/tickets.AttachmentResponse'
         type: array
       total:
         type: integer
     type: object
-  internal_modules_tickets.CreateReplyRequest:
+  tickets.CreateReplyRequest:
     properties:
       content:
         minLength: 1
@@ -965,7 +965,7 @@ definitions:
     required:
     - content
     type: object
-  internal_modules_tickets.CreateTicketRequest:
+  tickets.CreateTicketRequest:
     properties:
       category:
         type: string
@@ -991,7 +991,7 @@ definitions:
     - priority
     - subject
     type: object
-  internal_modules_tickets.ReplyResponse:
+  tickets.ReplyResponse:
     properties:
       content:
         type: string
@@ -1010,16 +1010,16 @@ definitions:
       user_id:
         type: string
     type: object
-  internal_modules_tickets.TicketDetailResponse:
+  tickets.TicketDetailResponse:
     properties:
       replies:
         items:
-          $ref: '#/definitions/internal_modules_tickets.ReplyResponse'
+          $ref: '#/definitions/tickets.ReplyResponse'
         type: array
       ticket:
-        $ref: '#/definitions/internal_modules_tickets.TicketResponse'
+        $ref: '#/definitions/tickets.TicketResponse'
     type: object
-  internal_modules_tickets.TicketResponse:
+  tickets.TicketResponse:
     properties:
       assigned_to:
         type: string
@@ -1048,7 +1048,7 @@ definitions:
       user_id:
         type: string
     type: object
-  internal_modules_tickets.TicketsListResponse:
+  tickets.TicketsListResponse:
     properties:
       limit:
         type: integer
@@ -1056,14 +1056,14 @@ definitions:
         type: integer
       tickets:
         items:
-          $ref: '#/definitions/internal_modules_tickets.TicketResponse'
+          $ref: '#/definitions/tickets.TicketResponse'
         type: array
       total:
         type: integer
       total_pages:
         type: integer
     type: object
-  internal_modules_tickets.UpdateTicketRequest:
+  tickets.UpdateTicketRequest:
     properties:
       category:
         type: string
@@ -1082,7 +1082,7 @@ definitions:
         minLength: 5
         type: string
     type: object
-  internal_modules_tickets.UpdateTicketStatusRequest:
+  tickets.UpdateTicketStatusRequest:
     properties:
       status:
         enum:
@@ -1094,7 +1094,7 @@ definitions:
     required:
     - status
     type: object
-  internal_modules_users.AddEmailRequest:
+  users.AddEmailRequest:
     properties:
       email:
         type: string
@@ -1103,7 +1103,7 @@ definitions:
     required:
     - email
     type: object
-  internal_modules_users.AddPhoneRequest:
+  users.AddPhoneRequest:
     properties:
       is_primary:
         type: boolean
@@ -1112,7 +1112,7 @@ definitions:
     required:
     - phone
     type: object
-  internal_modules_users.AdminCreateUserRequest:
+  users.AdminCreateUserRequest:
     properties:
       email:
         type: string
@@ -1136,7 +1136,7 @@ definitions:
     - last_name
     - password
     type: object
-  internal_modules_users.BusinessResponse:
+  users.BusinessResponse:
     properties:
       address:
         description: Formatted full address
@@ -1170,7 +1170,7 @@ definitions:
       updated_at:
         type: string
     type: object
-  internal_modules_users.ChangePasswordRequest:
+  users.ChangePasswordRequest:
     properties:
       new_password:
         minLength: 8
@@ -1181,7 +1181,7 @@ definitions:
     - new_password
     - old_password
     type: object
-  internal_modules_users.CreateBusinessRequest:
+  users.CreateBusinessRequest:
     properties:
       address_line1:
         maxLength: 255
@@ -1217,14 +1217,14 @@ definitions:
     required:
     - name
     type: object
-  internal_modules_users.ForgotPasswordRequest:
+  users.ForgotPasswordRequest:
     properties:
       email:
         type: string
     required:
     - email
     type: object
-  internal_modules_users.LoginRequest:
+  users.LoginRequest:
     properties:
       email:
         type: string
@@ -1235,7 +1235,7 @@ definitions:
     required:
     - password
     type: object
-  internal_modules_users.LoginResponse:
+  users.LoginResponse:
     properties:
       2fa_method:
         description: sms or authenticator
@@ -1255,9 +1255,9 @@ definitions:
       token_type:
         type: string
       user:
-        $ref: '#/definitions/internal_modules_users.UserResponse'
+        $ref: '#/definitions/users.UserResponse'
     type: object
-  internal_modules_users.PhoneOTPRequest:
+  users.PhoneOTPRequest:
     properties:
       phone:
         description: E.164 format recommended
@@ -1267,7 +1267,7 @@ definitions:
     required:
     - phone
     type: object
-  internal_modules_users.PhoneOTPResponse:
+  users.PhoneOTPResponse:
     properties:
       expires_at:
         type: string
@@ -1276,14 +1276,14 @@ definitions:
       phone:
         type: string
     type: object
-  internal_modules_users.RefreshTokenRequest:
+  users.RefreshTokenRequest:
     properties:
       refresh_token:
         type: string
     required:
     - refresh_token
     type: object
-  internal_modules_users.RefreshTokenResponse:
+  users.RefreshTokenResponse:
     properties:
       access_token:
         type: string
@@ -1295,7 +1295,7 @@ definitions:
       token_type:
         type: string
     type: object
-  internal_modules_users.RegisterRequest:
+  users.RegisterRequest:
     properties:
       email:
         type: string
@@ -1312,7 +1312,7 @@ definitions:
     - last_name
     - password
     type: object
-  internal_modules_users.ResetPasswordRequest:
+  users.ResetPasswordRequest:
     properties:
       new_password:
         minLength: 8
@@ -1323,7 +1323,7 @@ definitions:
     - new_password
     - token
     type: object
-  internal_modules_users.SessionResponse:
+  users.SessionResponse:
     properties:
       browser_name:
         type: string
@@ -1358,7 +1358,7 @@ definitions:
       session_id:
         type: string
     type: object
-  internal_modules_users.Setup2FARequest:
+  users.Setup2FARequest:
     properties:
       method:
         enum:
@@ -1369,7 +1369,7 @@ definitions:
     required:
     - method
     type: object
-  internal_modules_users.Setup2FAResponse:
+  users.Setup2FAResponse:
     properties:
       backup_codes:
         items:
@@ -1384,14 +1384,14 @@ definitions:
       secret:
         type: string
     type: object
-  internal_modules_users.TwoFAStatusResponse:
+  users.TwoFAStatusResponse:
     properties:
       enabled:
         type: boolean
       method:
         type: string
     type: object
-  internal_modules_users.UpdateBusinessRequest:
+  users.UpdateBusinessRequest:
     properties:
       address_line1:
         maxLength: 255
@@ -1424,7 +1424,7 @@ definitions:
         maxLength: 100
         type: string
     type: object
-  internal_modules_users.UpdateProfileRequest:
+  users.UpdateProfileRequest:
     properties:
       first_name:
         type: string
@@ -1436,7 +1436,7 @@ definitions:
     - first_name
     - last_name
     type: object
-  internal_modules_users.UserEmailResponse:
+  users.UserEmailResponse:
     properties:
       created_at:
         type: string
@@ -1455,16 +1455,16 @@ definitions:
       verified_at:
         type: string
     type: object
-  internal_modules_users.UserEmailsListResponse:
+  users.UserEmailsListResponse:
     properties:
       emails:
         items:
-          $ref: '#/definitions/internal_modules_users.UserEmailResponse'
+          $ref: '#/definitions/users.UserEmailResponse'
         type: array
       total:
         type: integer
     type: object
-  internal_modules_users.UserPhoneResponse:
+  users.UserPhoneResponse:
     properties:
       created_at:
         type: string
@@ -1485,16 +1485,16 @@ definitions:
       verified_at:
         type: string
     type: object
-  internal_modules_users.UserPhonesListResponse:
+  users.UserPhonesListResponse:
     properties:
       phones:
         items:
-          $ref: '#/definitions/internal_modules_users.UserPhoneResponse'
+          $ref: '#/definitions/users.UserPhoneResponse'
         type: array
       total:
         type: integer
     type: object
-  internal_modules_users.UserResponse:
+  users.UserResponse:
     properties:
       avatar:
         type: string
@@ -1521,7 +1521,7 @@ definitions:
       updated_at:
         type: string
     type: object
-  internal_modules_users.Verify2FALoginRequest:
+  users.Verify2FALoginRequest:
     properties:
       code:
         type: string
@@ -1531,14 +1531,14 @@ definitions:
     - code
     - session_id
     type: object
-  internal_modules_users.Verify2FASetupRequest:
+  users.Verify2FASetupRequest:
     properties:
       code:
         type: string
     required:
     - code
     type: object
-  internal_modules_users.VerifyOTPRequest:
+  users.VerifyOTPRequest:
     properties:
       otp:
         type: string
@@ -1571,7 +1571,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_modules_oauth2.OIDCDiscoveryResponse'
+            $ref: '#/definitions/oauth2.OIDCDiscoveryResponse'
       summary: OIDC Discovery Document
       tags:
       - OAuth2.1 / OIDC
@@ -1637,27 +1637,27 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_audit.AuditLogsListResponse'
+                  $ref: '#/definitions/audit.AuditLogsListResponse'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Get audit logs
@@ -1682,27 +1682,27 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_audit.AuditLogResponse'
+                  $ref: '#/definitions/audit.AuditLogResponse'
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Get audit log detail
@@ -1763,19 +1763,19 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Export audit logs
@@ -1791,7 +1791,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
@@ -1804,7 +1804,7 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: List business types
@@ -1820,19 +1820,19 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_users.UserResponse'
+                  $ref: '#/definitions/users.UserResponse'
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Get admin profile
@@ -1847,15 +1847,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Logout all admin sessions
@@ -1870,21 +1870,21 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   items:
-                    $ref: '#/definitions/internal_modules_users.SessionResponse'
+                    $ref: '#/definitions/users.SessionResponse'
                   type: array
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: List admin sessions
@@ -1905,15 +1905,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Logout specific admin session
@@ -1940,23 +1940,23 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_notifications.NotificationTemplatesListResponse'
+                  $ref: '#/definitions/notifications.NotificationTemplatesListResponse'
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: List notification templates
@@ -1972,7 +1972,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_notifications.CreateNotificationTemplateRequest'
+          $ref: '#/definitions/notifications.CreateNotificationTemplateRequest'
       produces:
       - application/json
       responses:
@@ -1980,32 +1980,32 @@ paths:
           description: Created
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_notifications.NotificationTemplateResponse'
+                  $ref: '#/definitions/notifications.NotificationTemplateResponse'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "422":
           description: Unprocessable Entity
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 errors:
                   items:
-                    $ref: '#/definitions/gogin_internal_response.ResponseError'
+                    $ref: '#/definitions/response.ResponseError'
                   type: array
               type: object
       security:
@@ -2029,23 +2029,23 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_notifications.NotificationTemplateResponse'
+                  $ref: '#/definitions/notifications.NotificationTemplateResponse'
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Get notification template
@@ -2066,7 +2066,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_notifications.UpdateNotificationTemplateRequest'
+          $ref: '#/definitions/notifications.UpdateNotificationTemplateRequest'
       produces:
       - application/json
       responses:
@@ -2074,36 +2074,36 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_notifications.NotificationTemplateResponse'
+                  $ref: '#/definitions/notifications.NotificationTemplateResponse'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "422":
           description: Unprocessable Entity
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 errors:
                   items:
-                    $ref: '#/definitions/gogin_internal_response.ResponseError'
+                    $ref: '#/definitions/response.ResponseError'
                   type: array
               type: object
       security:
@@ -2136,19 +2136,19 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_notifications.NotificationsListResponse'
+                  $ref: '#/definitions/notifications.NotificationsListResponse'
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Admin notifications list
@@ -2169,19 +2169,19 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Mark admin notification as read
@@ -2196,15 +2196,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Mark all admin notifications as read
@@ -2221,7 +2221,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_tickets.AdminCreateTicketRequest'
+          $ref: '#/definitions/tickets.AdminCreateTicketRequest'
       produces:
       - application/json
       responses:
@@ -2229,30 +2229,30 @@ paths:
           description: Created
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
                     ticket:
-                      $ref: '#/definitions/internal_modules_tickets.TicketResponse'
+                      $ref: '#/definitions/tickets.TicketResponse'
                   type: object
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Create ticket and assign (Admin)
@@ -2294,34 +2294,34 @@ paths:
           description: Created
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
                     attachment:
-                      $ref: '#/definitions/internal_modules_tickets.AttachmentResponse'
+                      $ref: '#/definitions/tickets.AttachmentResponse'
                   type: object
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Attach file (Admin)
@@ -2343,7 +2343,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_tickets.CreateReplyRequest'
+          $ref: '#/definitions/tickets.CreateReplyRequest'
       produces:
       - application/json
       responses:
@@ -2351,34 +2351,34 @@ paths:
           description: Created
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
                     reply:
-                      $ref: '#/definitions/internal_modules_tickets.ReplyResponse'
+                      $ref: '#/definitions/tickets.ReplyResponse'
                   type: object
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Admin reply/message (Admin)
@@ -2407,7 +2407,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
@@ -2418,15 +2418,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Set user avatar (Admin)
@@ -2448,7 +2448,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   items:
@@ -2458,11 +2458,11 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: View user emails (Admin)
@@ -2483,26 +2483,26 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_users.AddEmailRequest'
+          $ref: '#/definitions/users.AddEmailRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Add email to user (Admin)
@@ -2524,7 +2524,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   items:
@@ -2534,11 +2534,11 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: View user phones (Admin)
@@ -2559,26 +2559,26 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_users.AddPhoneRequest'
+          $ref: '#/definitions/users.AddPhoneRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Add phone to user (Admin)
@@ -2600,19 +2600,19 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_users.BusinessResponse'
+                  $ref: '#/definitions/users.BusinessResponse'
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Business profile not found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: View user business profile
@@ -2633,26 +2633,26 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_users.UpdateBusinessRequest'
+          $ref: '#/definitions/users.UpdateBusinessRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Update user business
@@ -2673,7 +2673,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_users.CreateBusinessRequest'
+          $ref: '#/definitions/users.CreateBusinessRequest'
       produces:
       - application/json
       responses:
@@ -2681,19 +2681,19 @@ paths:
           description: Created
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_users.BusinessResponse'
+                  $ref: '#/definitions/users.BusinessResponse'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Create business for user
@@ -2722,7 +2722,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
@@ -2733,19 +2733,19 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Business profile not found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "413":
           description: File too large
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Upload user business avatar
@@ -2785,23 +2785,23 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_tickets.TicketsListResponse'
+                  $ref: '#/definitions/tickets.TicketsListResponse'
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: List tickets for specific user (Admin)
@@ -2818,7 +2818,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
@@ -2831,11 +2831,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Get 2FA backup codes
@@ -2852,7 +2852,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
@@ -2865,11 +2865,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Regenerate 2FA backup codes
@@ -2887,19 +2887,19 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_users.TwoFAStatusResponse'
+                  $ref: '#/definitions/users.TwoFAStatusResponse'
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Disable 2FA
@@ -2916,7 +2916,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_users.Verify2FALoginRequest'
+          $ref: '#/definitions/users.Verify2FALoginRequest'
       produces:
       - application/json
       responses:
@@ -2924,19 +2924,19 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_users.LoginResponse'
+                  $ref: '#/definitions/users.LoginResponse'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       summary: Verify 2FA During Login
       tags:
       - Authentication
@@ -2952,7 +2952,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_users.Setup2FARequest'
+          $ref: '#/definitions/users.Setup2FARequest'
       produces:
       - application/json
       responses:
@@ -2960,19 +2960,19 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_users.Setup2FAResponse'
+                  $ref: '#/definitions/users.Setup2FAResponse'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Setup 2FA
@@ -2990,15 +2990,15 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_users.TwoFAStatusResponse'
+                  $ref: '#/definitions/users.TwoFAStatusResponse'
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Get 2FA Status
@@ -3015,7 +3015,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_users.Verify2FASetupRequest'
+          $ref: '#/definitions/users.Verify2FASetupRequest'
       produces:
       - application/json
       responses:
@@ -3023,19 +3023,19 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_users.TwoFAStatusResponse'
+                  $ref: '#/definitions/users.TwoFAStatusResponse'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Verify and Enable 2FA
@@ -3064,23 +3064,23 @@ paths:
           description: Login successful - JWT tokens and user info returned
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_social_auth.OAuthLoginResponse'
+                  $ref: '#/definitions/social_auth.OAuthLoginResponse'
               type: object
         "400":
           description: Bad request - missing code or state parameter
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized - invalid state or authentication failed
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       summary: Facebook OAuth callback
       tags:
       - Social Auth
@@ -3096,15 +3096,15 @@ paths:
           description: Authorization URL generated successfully
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_social_auth.OAuthURLResponse'
+                  $ref: '#/definitions/social_auth.OAuthURLResponse'
               type: object
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       summary: Facebook OAuth login
       tags:
       - Social Auth
@@ -3131,23 +3131,23 @@ paths:
           description: Login successful - JWT tokens and user info returned
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_social_auth.OAuthLoginResponse'
+                  $ref: '#/definitions/social_auth.OAuthLoginResponse'
               type: object
         "400":
           description: Bad request - missing code or state parameter
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized - invalid state or authentication failed
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       summary: Google OAuth callback
       tags:
       - Social Auth
@@ -3163,15 +3163,15 @@ paths:
           description: Authorization URL generated successfully
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_social_auth.OAuthURLResponse'
+                  $ref: '#/definitions/social_auth.OAuthURLResponse'
               type: object
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       summary: Google OAuth login
       tags:
       - Social Auth
@@ -3187,7 +3187,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_users.PhoneOTPRequest'
+          $ref: '#/definitions/users.PhoneOTPRequest'
       produces:
       - application/json
       responses:
@@ -3195,19 +3195,19 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_users.PhoneOTPResponse'
+                  $ref: '#/definitions/users.PhoneOTPResponse'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "429":
           description: Too Many Requests
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       summary: Send OTP to phone
       tags:
       - Phone Auth
@@ -3222,7 +3222,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_users.VerifyOTPRequest'
+          $ref: '#/definitions/users.VerifyOTPRequest'
       produces:
       - application/json
       responses:
@@ -3230,19 +3230,19 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_users.LoginResponse'
+                  $ref: '#/definitions/users.LoginResponse'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       summary: Verify OTP and login
       tags:
       - Phone Auth
@@ -3257,7 +3257,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_users.RefreshTokenRequest'
+          $ref: '#/definitions/users.RefreshTokenRequest'
       produces:
       - application/json
       responses:
@@ -3265,28 +3265,28 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_users.RefreshTokenResponse'
+                  $ref: '#/definitions/users.RefreshTokenResponse'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "422":
           description: Unprocessable Entity
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 errors:
                   items:
-                    $ref: '#/definitions/gogin_internal_response.ResponseError'
+                    $ref: '#/definitions/response.ResponseError'
                   type: array
               type: object
       summary: Refresh access token
@@ -3313,19 +3313,19 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_apiclient.ClientsListResponse'
+                  $ref: '#/definitions/apiclient.ClientsListResponse'
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: List API Clients
@@ -3341,7 +3341,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_apiclient.CreateClientRequest'
+          $ref: '#/definitions/apiclient.CreateClientRequest'
       produces:
       - application/json
       responses:
@@ -3349,28 +3349,28 @@ paths:
           description: Created
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_apiclient.ClientResponse'
+                  $ref: '#/definitions/apiclient.ClientResponse'
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "422":
           description: Unprocessable Entity
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 errors:
                   items:
-                    $ref: '#/definitions/gogin_internal_response.ResponseError'
+                    $ref: '#/definitions/response.ResponseError'
                   type: array
               type: object
       security:
@@ -3393,19 +3393,19 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Delete API Client
@@ -3426,23 +3426,23 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_apiclient.ClientResponse'
+                  $ref: '#/definitions/apiclient.ClientResponse'
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Get API Client
@@ -3463,7 +3463,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_apiclient.UpdateClientRequest'
+          $ref: '#/definitions/apiclient.UpdateClientRequest'
       produces:
       - application/json
       responses:
@@ -3471,32 +3471,32 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_apiclient.ClientResponse'
+                  $ref: '#/definitions/apiclient.ClientResponse'
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "422":
           description: Unprocessable Entity
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 errors:
                   items:
-                    $ref: '#/definitions/gogin_internal_response.ResponseError'
+                    $ref: '#/definitions/response.ResponseError'
                   type: array
               type: object
       security:
@@ -3520,7 +3520,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
@@ -3531,15 +3531,15 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Regenerate Client Secret
@@ -3571,19 +3571,19 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Update Client Status
@@ -3600,18 +3600,18 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_users.ForgotPasswordRequest'
+          $ref: '#/definitions/users.ForgotPasswordRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       summary: Request password reset
       tags:
       - Users
@@ -3625,7 +3625,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
@@ -3659,15 +3659,15 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_notifications.NotificationsListResponse'
+                  $ref: '#/definitions/notifications.NotificationsListResponse'
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: List Notifications
@@ -3683,7 +3683,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_notifications.SendNotificationRequest'
+          $ref: '#/definitions/notifications.SendNotificationRequest'
       produces:
       - application/json
       responses:
@@ -3691,28 +3691,28 @@ paths:
           description: Created
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_notifications.NotificationResponse'
+                  $ref: '#/definitions/notifications.NotificationResponse'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "422":
           description: Unprocessable Entity
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 errors:
                   items:
-                    $ref: '#/definitions/gogin_internal_response.ResponseError'
+                    $ref: '#/definitions/response.ResponseError'
                   type: array
               type: object
       security:
@@ -3735,15 +3735,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Delete Notification
@@ -3764,19 +3764,19 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_notifications.NotificationResponse'
+                  $ref: '#/definitions/notifications.NotificationResponse'
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Get Notification
@@ -3797,15 +3797,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Mark Notification as Read
@@ -3821,7 +3821,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
@@ -3832,11 +3832,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Mark all notifications as read
@@ -3853,27 +3853,27 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_notifications.TestEmailRequest'
+          $ref: '#/definitions/notifications.TestEmailRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "422":
           description: Unprocessable Entity
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 errors:
                   items:
-                    $ref: '#/definitions/gogin_internal_response.ResponseError'
+                    $ref: '#/definitions/response.ResponseError'
                   type: array
               type: object
       security:
@@ -3892,27 +3892,27 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_notifications.TestSMSRequest'
+          $ref: '#/definitions/notifications.TestSMSRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "422":
           description: Unprocessable Entity
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 errors:
                   items:
-                    $ref: '#/definitions/gogin_internal_response.ResponseError'
+                    $ref: '#/definitions/response.ResponseError'
                   type: array
               type: object
       security:
@@ -3931,7 +3931,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_oauth2.AuthorizeRequest'
+          $ref: '#/definitions/oauth2.AuthorizeRequest'
       produces:
       - application/json
       responses:
@@ -3939,19 +3939,19 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_oauth2.AuthorizeResponse'
+                  $ref: '#/definitions/oauth2.AuthorizeResponse'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: OAuth2 Authorization
@@ -3968,7 +3968,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_oauth2.IntrospectRequest'
+          $ref: '#/definitions/oauth2.IntrospectRequest'
       produces:
       - application/json
       responses:
@@ -3976,19 +3976,19 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_oauth2.IntrospectResponse'
+                  $ref: '#/definitions/oauth2.IntrospectResponse'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Introspect Token
@@ -4019,22 +4019,22 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_oauth2.RevokeRequest'
+          $ref: '#/definitions/oauth2.RevokeRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Revoke Token
@@ -4052,7 +4052,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_oauth2.TokenRequest'
+          $ref: '#/definitions/oauth2.TokenRequest'
       produces:
       - application/json
       responses:
@@ -4060,19 +4060,19 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_oauth2.TokenResponse'
+                  $ref: '#/definitions/oauth2.TokenResponse'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       summary: OAuth2 Token
       tags:
       - OAuth2.1
@@ -4089,7 +4089,7 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: OIDC UserInfo Endpoint
@@ -4106,18 +4106,18 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_users.ResetPasswordRequest'
+          $ref: '#/definitions/users.ResetPasswordRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       summary: Reset password
       tags:
       - Users
@@ -4149,10 +4149,10 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_reviews.ReviewsListResponse'
+                  $ref: '#/definitions/reviews.ReviewsListResponse'
               type: object
       summary: List Reviews
       tags:
@@ -4166,7 +4166,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_reviews.CreateReviewRequest'
+          $ref: '#/definitions/reviews.CreateReviewRequest'
       produces:
       - application/json
       responses:
@@ -4174,10 +4174,10 @@ paths:
           description: Created
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_reviews.ReviewResponse'
+                  $ref: '#/definitions/reviews.ReviewResponse'
               type: object
       security:
       - BearerAuth: []
@@ -4198,7 +4198,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Delete Review
@@ -4218,10 +4218,10 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_reviews.ReviewResponse'
+                  $ref: '#/definitions/reviews.ReviewResponse'
               type: object
       summary: Get Review
       tags:
@@ -4240,7 +4240,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_reviews.UpdateReviewRequest'
+          $ref: '#/definitions/reviews.UpdateReviewRequest'
       produces:
       - application/json
       responses:
@@ -4248,10 +4248,10 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_reviews.ReviewResponse'
+                  $ref: '#/definitions/reviews.ReviewResponse'
               type: object
       security:
       - BearerAuth: []
@@ -4279,23 +4279,23 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_settings.SettingsListResponse'
+                  $ref: '#/definitions/settings.SettingsListResponse'
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: List system settings
@@ -4311,7 +4311,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_settings.CreateSettingRequest'
+          $ref: '#/definitions/settings.CreateSettingRequest'
       produces:
       - application/json
       responses:
@@ -4319,30 +4319,30 @@ paths:
           description: Created
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
                     setting:
-                      $ref: '#/definitions/internal_modules_settings.SettingResponse'
+                      $ref: '#/definitions/settings.SettingResponse'
                   type: object
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Create system setting
@@ -4363,23 +4363,23 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Delete system setting
@@ -4400,30 +4400,30 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
                     setting:
-                      $ref: '#/definitions/internal_modules_settings.SettingResponse'
+                      $ref: '#/definitions/settings.SettingResponse'
                   type: object
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Get system setting
@@ -4444,7 +4444,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_settings.UpdateSettingRequest'
+          $ref: '#/definitions/settings.UpdateSettingRequest'
       produces:
       - application/json
       responses:
@@ -4452,34 +4452,34 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
                     setting:
-                      $ref: '#/definitions/internal_modules_settings.SettingResponse'
+                      $ref: '#/definitions/settings.SettingResponse'
                   type: object
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Update system setting
@@ -4506,19 +4506,19 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_settings.SettingsListResponse'
+                  $ref: '#/definitions/settings.SettingsListResponse'
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: List user settings
@@ -4540,19 +4540,19 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Delete user setting
@@ -4574,26 +4574,26 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
                     setting:
-                      $ref: '#/definitions/internal_modules_settings.SettingResponse'
+                      $ref: '#/definitions/settings.SettingResponse'
                   type: object
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Get user setting
@@ -4615,7 +4615,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_settings.UpdateSettingRequest'
+          $ref: '#/definitions/settings.UpdateSettingRequest'
       produces:
       - application/json
       responses:
@@ -4623,26 +4623,26 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
                     setting:
-                      $ref: '#/definitions/internal_modules_settings.SettingResponse'
+                      $ref: '#/definitions/settings.SettingResponse'
                   type: object
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Create or update user setting
@@ -4659,7 +4659,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
@@ -4677,7 +4677,7 @@ paths:
           description: Service Unavailable
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
@@ -4718,15 +4718,15 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_storage.FilesListResponse'
+                  $ref: '#/definitions/storage.FilesListResponse'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       summary: List files
       tags:
       - Storage
@@ -4745,19 +4745,19 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Delete a file
@@ -4778,22 +4778,22 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
                     file:
-                      $ref: '#/definitions/internal_modules_storage.FileResponse'
+                      $ref: '#/definitions/storage.FileResponse'
                   type: object
               type: object
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       summary: Get file metadata
       tags:
       - Storage
@@ -4812,7 +4812,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_storage.UpdateFileRequest'
+          $ref: '#/definitions/storage.UpdateFileRequest'
       produces:
       - application/json
       responses:
@@ -4820,30 +4820,30 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
                     file:
-                      $ref: '#/definitions/internal_modules_storage.FileResponse'
+                      $ref: '#/definitions/storage.FileResponse'
                   type: object
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Update file metadata
@@ -4868,11 +4868,11 @@ paths:
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       summary: Download a file
       tags:
       - Storage
@@ -4903,23 +4903,23 @@ paths:
           description: Created
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_storage.FileUploadResponse'
+                  $ref: '#/definitions/storage.FileUploadResponse'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "413":
           description: Request Entity Too Large
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Upload a file
@@ -4964,23 +4964,23 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_tickets.TicketsListResponse'
+                  $ref: '#/definitions/tickets.TicketsListResponse'
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: List all tickets
@@ -4996,7 +4996,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_tickets.CreateTicketRequest'
+          $ref: '#/definitions/tickets.CreateTicketRequest'
       produces:
       - application/json
       responses:
@@ -5004,26 +5004,26 @@ paths:
           description: Created
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
                     ticket:
-                      $ref: '#/definitions/internal_modules_tickets.TicketResponse'
+                      $ref: '#/definitions/tickets.TicketResponse'
                   type: object
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Create support ticket
@@ -5044,23 +5044,23 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Delete ticket
@@ -5081,27 +5081,27 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_tickets.TicketDetailResponse'
+                  $ref: '#/definitions/tickets.TicketDetailResponse'
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Get ticket details
@@ -5122,7 +5122,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_tickets.UpdateTicketRequest'
+          $ref: '#/definitions/tickets.UpdateTicketRequest'
       produces:
       - application/json
       responses:
@@ -5130,34 +5130,34 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
                     ticket:
-                      $ref: '#/definitions/internal_modules_tickets.TicketResponse'
+                      $ref: '#/definitions/tickets.TicketResponse'
                   type: object
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Update ticket
@@ -5179,7 +5179,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_tickets.AssignTicketRequest'
+          $ref: '#/definitions/tickets.AssignTicketRequest'
       produces:
       - application/json
       responses:
@@ -5187,34 +5187,34 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
                     ticket:
-                      $ref: '#/definitions/internal_modules_tickets.TicketResponse'
+                      $ref: '#/definitions/tickets.TicketResponse'
                   type: object
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Assign ticket
@@ -5236,27 +5236,27 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_tickets.AttachmentsListResponse'
+                  $ref: '#/definitions/tickets.AttachmentsListResponse'
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: List attachments
@@ -5297,34 +5297,34 @@ paths:
           description: Created
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
                     attachment:
-                      $ref: '#/definitions/internal_modules_tickets.AttachmentResponse'
+                      $ref: '#/definitions/tickets.AttachmentResponse'
                   type: object
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Upload attachment
@@ -5350,23 +5350,23 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Delete attachment
@@ -5388,7 +5388,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_tickets.CreateReplyRequest'
+          $ref: '#/definitions/tickets.CreateReplyRequest'
       produces:
       - application/json
       responses:
@@ -5396,30 +5396,30 @@ paths:
           description: Created
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
                     reply:
-                      $ref: '#/definitions/internal_modules_tickets.ReplyResponse'
+                      $ref: '#/definitions/tickets.ReplyResponse'
                   type: object
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Add reply to ticket
@@ -5441,7 +5441,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_tickets.UpdateTicketStatusRequest'
+          $ref: '#/definitions/tickets.UpdateTicketStatusRequest'
       produces:
       - application/json
       responses:
@@ -5449,34 +5449,34 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
                     ticket:
-                      $ref: '#/definitions/internal_modules_tickets.TicketResponse'
+                      $ref: '#/definitions/tickets.TicketResponse'
                   type: object
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Update ticket status
@@ -5512,19 +5512,19 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_tickets.TicketsListResponse'
+                  $ref: '#/definitions/tickets.TicketsListResponse'
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: List my tickets
@@ -5551,7 +5551,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
@@ -5565,22 +5565,22 @@ paths:
                       type: integer
                     users:
                       items:
-                        $ref: '#/definitions/internal_modules_users.UserResponse'
+                        $ref: '#/definitions/users.UserResponse'
                       type: array
                   type: object
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: List all users
@@ -5596,7 +5596,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_users.AdminCreateUserRequest'
+          $ref: '#/definitions/users.AdminCreateUserRequest'
       produces:
       - application/json
       responses:
@@ -5604,35 +5604,35 @@ paths:
           description: Created
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
                     user:
-                      $ref: '#/definitions/internal_modules_users.UserResponse'
+                      $ref: '#/definitions/users.UserResponse'
                   type: object
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "422":
           description: Unprocessable Entity
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 errors:
                   items:
-                    $ref: '#/definitions/gogin_internal_response.ResponseError'
+                    $ref: '#/definitions/response.ResponseError'
                   type: array
               type: object
       security:
@@ -5655,19 +5655,19 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Delete user
@@ -5688,26 +5688,26 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
                     user:
-                      $ref: '#/definitions/internal_modules_users.UserResponse'
+                      $ref: '#/definitions/users.UserResponse'
                   type: object
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Get user by ID
@@ -5728,7 +5728,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_users.UpdateProfileRequest'
+          $ref: '#/definitions/users.UpdateProfileRequest'
       produces:
       - application/json
       responses:
@@ -5736,35 +5736,35 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
                     user:
-                      $ref: '#/definitions/internal_modules_users.UserResponse'
+                      $ref: '#/definitions/users.UserResponse'
                   type: object
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "422":
           description: Unprocessable Entity
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 errors:
                   items:
-                    $ref: '#/definitions/gogin_internal_response.ResponseError'
+                    $ref: '#/definitions/response.ResponseError'
                   type: array
               type: object
       security:
@@ -5787,15 +5787,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Terminate all user sessions (Admin)
@@ -5816,7 +5816,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
@@ -5829,11 +5829,11 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Get user sessions (Admin)
@@ -5859,15 +5859,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Terminate user session (Admin)
@@ -5889,7 +5889,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   type: object
@@ -5930,7 +5930,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Update user settings (Admin)
@@ -5965,7 +5965,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
@@ -5976,30 +5976,30 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "422":
           description: Unprocessable Entity
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 errors:
                   items:
-                    $ref: '#/definitions/gogin_internal_response.ResponseError'
+                    $ref: '#/definitions/response.ResponseError'
                   type: array
               type: object
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Update user status
@@ -6017,7 +6017,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_users.LoginRequest'
+          $ref: '#/definitions/users.LoginRequest'
       produces:
       - application/json
       responses:
@@ -6025,24 +6025,24 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_users.LoginResponse'
+                  $ref: '#/definitions/users.LoginResponse'
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "422":
           description: Unprocessable Entity
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 errors:
                   items:
-                    $ref: '#/definitions/gogin_internal_response.ResponseError'
+                    $ref: '#/definitions/response.ResponseError'
                   type: array
               type: object
       summary: User login
@@ -6057,11 +6057,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: User logout
@@ -6076,15 +6076,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Delete account
@@ -6099,22 +6099,22 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
                     user:
-                      $ref: '#/definitions/internal_modules_users.UserResponse'
+                      $ref: '#/definitions/users.UserResponse'
                   type: object
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Get user profile
@@ -6130,7 +6130,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_users.UpdateProfileRequest'
+          $ref: '#/definitions/users.UpdateProfileRequest'
       produces:
       - application/json
       responses:
@@ -6138,31 +6138,31 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
                     user:
-                      $ref: '#/definitions/internal_modules_users.UserResponse'
+                      $ref: '#/definitions/users.UserResponse'
                   type: object
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "422":
           description: Unprocessable Entity
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 errors:
                   items:
-                    $ref: '#/definitions/gogin_internal_response.ResponseError'
+                    $ref: '#/definitions/response.ResponseError'
                   type: array
               type: object
       security:
@@ -6179,15 +6179,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Delete user avatar
@@ -6210,7 +6210,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
@@ -6221,15 +6221,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "413":
           description: Request Entity Too Large
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Upload user avatar
@@ -6245,19 +6245,19 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_users.BusinessResponse'
+                  $ref: '#/definitions/users.BusinessResponse'
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Business profile not found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Get business profile
@@ -6274,26 +6274,26 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_users.UpdateBusinessRequest'
+          $ref: '#/definitions/users.UpdateBusinessRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Update business profile
@@ -6309,7 +6309,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_users.CreateBusinessRequest'
+          $ref: '#/definitions/users.CreateBusinessRequest'
       produces:
       - application/json
       responses:
@@ -6317,19 +6317,19 @@ paths:
           description: Created
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_users.BusinessResponse'
+                  $ref: '#/definitions/users.BusinessResponse'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Create business profile
@@ -6346,11 +6346,11 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Business profile not found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Delete business avatar
@@ -6373,7 +6373,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
@@ -6384,19 +6384,19 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Business profile not found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "413":
           description: File too large
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Upload business avatar
@@ -6413,19 +6413,19 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_users.UserEmailsListResponse'
+                  $ref: '#/definitions/users.UserEmailsListResponse'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: List user emails
@@ -6441,7 +6441,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_users.AddEmailRequest'
+          $ref: '#/definitions/users.AddEmailRequest'
       produces:
       - application/json
       responses:
@@ -6449,31 +6449,31 @@ paths:
           description: Created
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
                     email:
-                      $ref: '#/definitions/internal_modules_users.UserEmailResponse'
+                      $ref: '#/definitions/users.UserEmailResponse'
                   type: object
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "422":
           description: Unprocessable Entity
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 errors:
                   items:
-                    $ref: '#/definitions/gogin_internal_response.ResponseError'
+                    $ref: '#/definitions/response.ResponseError'
                   type: array
               type: object
       security:
@@ -6496,15 +6496,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Delete user email
@@ -6526,15 +6526,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Set primary email
@@ -6555,15 +6555,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Resend email verification
@@ -6580,31 +6580,31 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_users.ChangePasswordRequest'
+          $ref: '#/definitions/users.ChangePasswordRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "422":
           description: Unprocessable Entity
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 errors:
                   items:
-                    $ref: '#/definitions/gogin_internal_response.ResponseError'
+                    $ref: '#/definitions/response.ResponseError'
                   type: array
               type: object
       security:
@@ -6623,19 +6623,19 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_modules_users.UserPhonesListResponse'
+                  $ref: '#/definitions/users.UserPhonesListResponse'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: List user phones
@@ -6651,7 +6651,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_users.AddPhoneRequest'
+          $ref: '#/definitions/users.AddPhoneRequest'
       produces:
       - application/json
       responses:
@@ -6659,31 +6659,31 @@ paths:
           description: Created
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
                     phone:
-                      $ref: '#/definitions/internal_modules_users.UserPhoneResponse'
+                      $ref: '#/definitions/users.UserPhoneResponse'
                   type: object
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "422":
           description: Unprocessable Entity
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 errors:
                   items:
-                    $ref: '#/definitions/gogin_internal_response.ResponseError'
+                    $ref: '#/definitions/response.ResponseError'
                   type: array
               type: object
       security:
@@ -6706,15 +6706,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Delete user phone
@@ -6736,15 +6736,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Set primary phone
@@ -6765,15 +6765,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Resend phone verification
@@ -6790,13 +6790,13 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
                     sessions:
                       items:
-                        $ref: '#/definitions/internal_modules_users.SessionResponse'
+                        $ref: '#/definitions/users.SessionResponse'
                       type: array
                     total:
                       type: integer
@@ -6805,11 +6805,11 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Get active sessions
@@ -6830,15 +6830,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Terminate a session
@@ -6859,15 +6859,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Trust a device
@@ -6883,7 +6883,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
@@ -6894,11 +6894,11 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Logout from all devices
@@ -6914,7 +6914,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
@@ -6925,11 +6925,11 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
       summary: Logout from other devices
@@ -6946,7 +6946,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_users.RegisterRequest'
+          $ref: '#/definitions/users.RegisterRequest'
       produces:
       - application/json
       responses:
@@ -6954,27 +6954,27 @@ paths:
           description: Created
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 data:
                   properties:
                     user:
-                      $ref: '#/definitions/internal_modules_users.UserResponse'
+                      $ref: '#/definitions/users.UserResponse'
                   type: object
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "422":
           description: Unprocessable Entity
           schema:
             allOf:
-            - $ref: '#/definitions/gogin_internal_response.Response'
+            - $ref: '#/definitions/response.Response'
             - properties:
                 errors:
                   items:
-                    $ref: '#/definitions/gogin_internal_response.ResponseError'
+                    $ref: '#/definitions/response.ResponseError'
                   type: array
               type: object
       summary: Register a new user
@@ -6996,11 +6996,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
+            $ref: '#/definitions/response.Response'
       summary: Verify email address
       tags:
       - Users

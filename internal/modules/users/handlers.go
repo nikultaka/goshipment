@@ -1233,6 +1233,10 @@ func (m *UsersModule) adminTerminateUserSession(c *gin.Context) {
 // @Router /users/{id}/sessions [delete]
 func (m *UsersModule) adminTerminateAllUserSessions(c *gin.Context) {
 	userID := c.Param("id")
+
+	// Store logout-all timestamp in Redis to invalidate all access tokens
+	m.service.redisHelper.SetLogoutAllTimestamp(userID)
+
 	err := m.sessionService.LogoutAllDevices(userID)
 	if err != nil {
 		response.BadRequest(c, err.Error())
@@ -1398,6 +1402,10 @@ func (m *UsersModule) deleteAllAdminSessions(c *gin.Context) {
 		return
 	}
 
+	// Store logout-all timestamp in Redis to invalidate all access tokens
+	m.service.redisHelper.SetLogoutAllTimestamp(userID.(string))
+
+	// Terminate all sessions
 	err := m.sessionService.LogoutAllDevices(userID.(string))
 	if err != nil {
 		response.BadRequest(c, err.Error())
