@@ -345,21 +345,25 @@ func (s *UserService) GetUserByID(userID string) (*models.User, *models.UserEmai
 	}
 
 	// Populate email if exists
+	var finalEmail *models.UserEmail
 	if emailID.Valid {
 		userEmail.ID = emailID.String
 		userEmail.UserID = user.ID
 		userEmail.Email = email.String
 		userEmail.IsPrimary = true
 		userEmail.IsVerified = emailVerified.Bool
+		finalEmail = userEmail
 	}
 
 	// Populate phone if exists
+	var finalPhone *models.UserPhone
 	if phoneID.Valid {
 		userPhone.ID = phoneID.String
 		userPhone.UserID = user.ID
 		userPhone.Phone = phone.String
 		userPhone.IsPrimary = true
 		userPhone.IsVerified = phoneVerified.Bool
+		finalPhone = userPhone
 	}
 
 	role := "user"
@@ -367,7 +371,7 @@ func (s *UserService) GetUserByID(userID string) (*models.User, *models.UserEmai
 		role = roleName.String
 	}
 
-	return user, userEmail, userPhone, role, nil
+	return user, finalEmail, finalPhone, role, nil
 }
 
 // UpdateUser updates user information
@@ -950,16 +954,23 @@ func (s *UserService) sanitizeUser(user *models.User, email *models.UserEmail, r
 		avatar = user.AvatarURL.String
 	}
 
+	emailAddr := ""
+	emailVerified := false
+	if email != nil {
+		emailAddr = email.Email
+		emailVerified = email.IsVerified
+	}
+
 	return &UserResponse{
 		ID:            user.ID,
-		Email:         email.Email,
+		Email:         emailAddr,
 		FirstName:     user.FirstName,
 		LastName:      user.LastName,
 		Phone:         "",
 		Avatar:        avatar,
 		Role:          roleName,
 		Status:        status,
-		EmailVerified: email.IsVerified,
+		EmailVerified: emailVerified,
 		PhoneVerified: false,
 		CreatedAt:     user.CreatedAt,
 		UpdatedAt:     user.UpdatedAt,

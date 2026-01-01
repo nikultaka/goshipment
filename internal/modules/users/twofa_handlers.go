@@ -106,7 +106,7 @@ func (m *UsersModule) setup2FA(c *gin.Context) {
 	// Get user info for email/phone
 	_, userEmail, userPhone, _, err := m.service.GetUserByID(userID)
 	if err != nil {
-		response.InternalError(c, "Failed to get user info")
+		response.InternalError(c, fmt.Sprintf("Failed to get user info: %v", err))
 		return
 	}
 
@@ -114,21 +114,26 @@ func (m *UsersModule) setup2FA(c *gin.Context) {
 
 	if req.Method == "authenticator" {
 		// Generate TOTP secret and QR code
-		email := ""
-		if userEmail != nil {
-			email = userEmail.Email
+		// Use email if available, otherwise use phone number
+		accountName := ""
+		if userEmail != nil && userEmail.Email != "" {
+			accountName = userEmail.Email
+		} else if userPhone != nil && userPhone.Phone != "" {
+			accountName = userPhone.Phone
+		} else {
+			accountName = userID // Fallback to userID
 		}
 
-		secret, qrURL, err := m.twofaService.GenerateTOTP(userID, email)
+		secret, qrURL, err := m.twofaService.GenerateTOTP(userID, accountName)
 		if err != nil {
-			response.InternalError(c, "Failed to generate TOTP")
+			response.InternalError(c, fmt.Sprintf("Failed to generate TOTP: %v", err))
 			return
 		}
 
 		// Generate backup codes
 		backupCodes, err := m.twofaService.GenerateBackupCodes()
 		if err != nil {
-			response.InternalError(c, "Failed to generate backup codes")
+			response.InternalError(c, fmt.Sprintf("Failed to generate backup codes: %v", err))
 			return
 		}
 
