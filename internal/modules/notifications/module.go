@@ -68,7 +68,17 @@ func (m *NotificationsModule) RegisterRoutes(router *gin.RouterGroup) {
 	adminTemplates.Use(authMiddleware.RequireAuth(), middleware.RequireAdmin())
 	{
 		adminTemplates.GET("", m.listNotificationTemplates)
+		adminTemplates.GET("/:id", m.getNotificationTemplate) // NEW
 		adminTemplates.POST("", m.createNotificationTemplate)
 		adminTemplates.PUT("/:id", m.updateNotificationTemplate)
+	}
+
+	// Admin notifications (NEW)
+	adminNotifications := router.Group("/admin/notifications")
+	adminNotifications.Use(authMiddleware.RequireAuth(), middleware.RequireAdmin())
+	{
+		adminNotifications.GET("", m.getAdminNotifications)
+		adminNotifications.POST("/:id/read", m.markAdminNotificationAsRead)
+		adminNotifications.POST("/read-all", m.markAllAdminNotificationsAsRead)
 	}
 }

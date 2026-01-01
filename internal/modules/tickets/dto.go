@@ -100,3 +100,14 @@ type AttachmentsListResponse struct {
 	Attachments []*AttachmentResponse `json:"attachments"`
 	Total       int                   `json:"total"`
 }
+
+// AdminCreateTicketRequest represents the request body for admin creating a ticket
+type AdminCreateTicketRequest struct {
+	UserID        string  `json:"user_id" binding:"required,uuid"`
+	Subject       string  `json:"subject" binding:"required,min=5,max=255"`
+	Description   string  `json:"description" binding:"required,min=10"`
+	Priority      string  `json:"priority" binding:"required,oneof=low medium high urgent"`
+	Category      string  `json:"category"`
+	CustomerEmail string  `json:"customer_email"`
+	AssignedTo    *string `json:"assigned_to" binding:"omitempty,uuid"` // Optional assignment
+}

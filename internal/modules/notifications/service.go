@@ -1,6 +1,7 @@
 package notifications
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -36,22 +37,20 @@ func NewNotificationsService(db *clients.Database, nats *clients.NATSClient, sg 
 func (s *NotificationsService) SendNotification(req *SendNotificationRequest) (*NotificationResponse, error) {
 	id := uuid.New().String()
 	query := `
-		INSERT INTO notifications (id, user_id, type, channel, title, content, is_read, status, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
-		RETURNING created_at, updated_at
+		INSERT INTO user_notifications (id, user_id, type, title, message, is_read)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING created_at
 	`
 
-	var createdAt, updatedAt time.Time
+	var createdAt time.Time
 	err := s.db.QueryRow(query,
 		id,
 		req.UserID,
 		req.Type,
-		req.Channel,
 		req.Title,
 		req.Content,
 		false,
-		"pending",
-	).Scan(&createdAt, &updatedAt)
+	).Scan(&createdAt)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create notification: %w", err)
@@ -72,7 +71,7 @@ func (s *NotificationsService) SendNotification(req *SendNotificationRequest) (*
 		IsRead:    false,
 		Status:    "pending",
 		CreatedAt: createdAt,
-		UpdatedAt: updatedAt,
+		UpdatedAt: createdAt,
 	}, nil
 }
 
@@ -84,7 +83,7 @@ func (s *NotificationsService) ListNotifications(userID string, page, limit int)
 	var total, unread int
 	err := s.db.QueryRow(`
 		SELECT COUNT(*), COALESCE(SUM(CASE WHEN is_read = FALSE THEN 1 ELSE 0 END), 0)
-		FROM notifications
+		FROM user_notifications
 		WHERE user_id = $1
 	`, userID).Scan(&total, &unread)
 	if err != nil {
@@ -93,8 +92,8 @@ func (s *NotificationsService) ListNotifications(userID string, page, limit int)
 
 	// Get notifications
 	query := `
-		SELECT id, user_id, type, channel, title, content, is_read, read_at, status, created_at, updated_at
-		FROM notifications
+		SELECT id, user_id, type, title, message, is_read, created_at
+		FROM user_notifications
 		WHERE user_id = $1
 		ORDER BY created_at DESC
 		LIMIT $2 OFFSET $3
@@ -108,24 +107,20 @@ func (s *NotificationsService) ListNotifications(userID string, page, limit int)
 
 	var notifications []*NotificationResponse
 	for rows.Next() {
-		var notif models.Notification
+		var notif models.UserNotification
 		err := rows.Scan(
 			&notif.ID,
 			&notif.UserID,
 			&notif.Type,
-			&notif.Channel,
 			&notif.Title,
-			&notif.Content,
+			&notif.Message,
 			&notif.IsRead,
-			&notif.ReadAt,
-			&notif.Status,
 			&notif.CreatedAt,
-			&notif.UpdatedAt,
 		)
 		if err != nil {
 			return nil, 0, 0, err
 		}
-		notifications = append(notifications, s.toNotificationResponse(&notif))
+		notifications = append(notifications, s.toUserNotificationResponse(&notif))
 	}
 
 	return notifications, total, unread, nil
@@ -133,10 +128,10 @@ func (s *NotificationsService) ListNotifications(userID string, page, limit int)
 
 // GetNotification retrieves a notification by ID
 func (s *NotificationsService) GetNotification(id, userID string) (*NotificationResponse, error) {
-	var notif models.Notification
+	var notif models.UserNotification
 	query := `
-		SELECT id, user_id, type, channel, title, content, is_read, read_at, status, created_at, updated_at
-		FROM notifications
+		SELECT id, user_id, type, title, message, is_read, created_at
+		FROM user_notifications
 		WHERE id = $1 AND user_id = $2
 	`
 
@@ -144,26 +139,22 @@ func (s *NotificationsService) GetNotification(id, userID string) (*Notification
 		&notif.ID,
 		&notif.UserID,
 		&notif.Type,
-		&notif.Channel,
 		&notif.Title,
-		&notif.Content,
+		&notif.Message,
 		&notif.IsRead,
-		&notif.ReadAt,
-		&notif.Status,
 		&notif.CreatedAt,
-		&notif.UpdatedAt,
 	)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return s.toNotificationResponse(&notif), nil
+	return s.toUserNotificationResponse(&notif), nil
 }
 
 // MarkAsRead marks a notification as read
 func (s *NotificationsService) MarkAsRead(id, userID string) error {
-	query := `UPDATE notifications SET is_read = TRUE, read_at = NOW(), updated_at = NOW() WHERE id = $1 AND user_id = $2`
+	query := `UPDATE user_notifications SET is_read = TRUE WHERE id = $1 AND user_id = $2`
 	result, err := s.db.Exec(query, id, userID)
 	if err != nil {
 		return err
@@ -179,7 +170,7 @@ func (s *NotificationsService) MarkAsRead(id, userID string) error {
 
 // MarkAllAsRead marks all notifications as read for a user
 func (s *NotificationsService) MarkAllAsRead(userID string) (int64, error) {
-	query := `UPDATE notifications SET is_read = TRUE, read_at = NOW(), updated_at = NOW() WHERE user_id = $1 AND is_read = FALSE`
+	query := `UPDATE user_notifications SET is_read = TRUE WHERE user_id = $1 AND is_read = FALSE`
 	result, err := s.db.Exec(query, userID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to mark notifications as read: %w", err)
@@ -195,7 +186,7 @@ func (s *NotificationsService) MarkAllAsRead(userID string) (int64, error) {
 
 // DeleteNotification deletes a notification
 func (s *NotificationsService) DeleteNotification(id, userID string) error {
-	query := `DELETE FROM notifications WHERE id = $1 AND user_id = $2`
+	query := `DELETE FROM user_notifications WHERE id = $1 AND user_id = $2`
 	result, err := s.db.Exec(query, id, userID)
 	if err != nil {
 		return err
@@ -551,6 +542,24 @@ func (s *NotificationsService) UpdateNotificationTemplate(id string, req *Update
 
 // Helper functions
 
+func (s *NotificationsService) toUserNotificationResponse(notif *models.UserNotification) *NotificationResponse {
+	resp := &NotificationResponse{
+		ID:        notif.ID,
+		UserID:    notif.UserID,
+		Type:      notif.Type,
+		Channel:   "",     // Not stored in user_notifications
+		Title:     notif.Title,
+		Content:   notif.Message,
+		IsRead:    notif.IsRead,
+		Status:    "",     // Not stored in user_notifications
+		CreatedAt: notif.CreatedAt,
+		UpdatedAt: notif.CreatedAt, // user_notifications doesn't have updated_at
+	}
+
+	return resp
+}
+
+// Deprecated: Use toUserNotificationResponse instead
 func (s *NotificationsService) toNotificationResponse(notif *models.Notification) *NotificationResponse {
 	resp := &NotificationResponse{
 		ID:        notif.ID,
@@ -578,4 +587,170 @@ func nullStringOrNil(s string) interface{} {
 		return nil
 	}
 	return s
+}
+
+// GetUserNotifications retrieves notifications for a user with pagination (NEW)
+func (s *NotificationsService) GetUserNotifications(userID string, page, limit int, unreadOnly bool) ([]*NotificationResponse, int, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 10
+	}
+
+	offset := (page - 1) * limit
+
+	// Build where clause
+	whereClause := "WHERE user_id = $1"
+	args := []interface{}{userID}
+	if unreadOnly {
+		whereClause += " AND is_read = false"
+	}
+
+	// Count total
+	var total int
+	countQuery := `SELECT COUNT(*) FROM user_notifications ` + whereClause
+	err := s.db.QueryRow(countQuery, args...).Scan(&total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to count notifications: %w", err)
+	}
+
+	// Get notifications
+	query := `
+		SELECT id, user_id, type, title, message, is_read, created_at
+		FROM user_notifications
+		` + whereClause + `
+		ORDER BY created_at DESC
+		LIMIT $2 OFFSET $3
+	`
+
+	rows, err := s.db.Query(query, userID, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to fetch notifications: %w", err)
+	}
+	defer rows.Close()
+
+	var notifications []*NotificationResponse
+	for rows.Next() {
+		var notif models.UserNotification
+		err := rows.Scan(&notif.ID, &notif.UserID, &notif.Type, &notif.Title,
+			&notif.Message, &notif.IsRead, &notif.CreatedAt)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to scan notification: %w", err)
+		}
+		notifications = append(notifications, s.toUserNotificationResponse(&notif))
+	}
+
+	if notifications == nil {
+		notifications = []*NotificationResponse{}
+	}
+
+	return notifications, total, nil
+}
+
+// MarkNotificationAsRead marks a notification as read (NEW)
+func (s *NotificationsService) MarkNotificationAsRead(notificationID, userID string) error {
+	query := `
+		UPDATE user_notifications
+		SET is_read = true
+		WHERE id = $1 AND user_id = $2
+	`
+
+	result, err := s.db.Exec(query, notificationID, userID)
+	if err != nil {
+		return fmt.Errorf("failed to mark notification as read: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rows == 0 {
+		return fmt.Errorf("notification not found")
+	}
+
+	return nil
+}
+
+// MarkAllNotificationsAsRead marks all notifications as read for a user (NEW)
+func (s *NotificationsService) MarkAllNotificationsAsRead(userID string) error {
+	query := `
+		UPDATE user_notifications
+		SET is_read = true
+		WHERE user_id = $1 AND is_read = false
+	`
+
+	_, err := s.db.Exec(query, userID)
+	if err != nil {
+		return fmt.Errorf("failed to mark all notifications as read: %w", err)
+	}
+
+	return nil
+}
+
+// GetNotificationTemplate retrieves a specific notification template by ID (NEW)
+func (s *NotificationsService) GetNotificationTemplate(id string) (*NotificationTemplateResponse, error) {
+	query := `
+		SELECT id, name, description, channel, subject, body_template,
+		       required_variables, optional_variables, is_active, created_at, updated_at
+		FROM notification_templates
+		WHERE id = $1
+	`
+
+	row := s.db.QueryRow(query, id)
+
+	var (
+		template                       models.NotificationTemplate
+		description, subject           sql.NullString
+		requiredVars, optionalVars     []byte
+	)
+
+	err := row.Scan(
+		&template.ID, &template.Name, &description, &template.Channel,
+		&subject, &template.BodyTemplate,
+		&requiredVars, &optionalVars, &template.IsActive,
+		&template.CreatedAt, &template.UpdatedAt,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("template not found")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch template: %w", err)
+	}
+
+	// Convert to response
+	resp := &NotificationTemplateResponse{
+		ID:                template.ID,
+		TemplateID:        template.ID,
+		Name:              template.Name,
+		Channel:           template.Channel,
+		BodyTemplate:      template.BodyTemplate,
+		IsActive:          template.IsActive,
+		IsTransactional:   false, // default
+		Priority:          "normal", // default
+		Locale:            "en", // default
+		RequiredVariables: []string{},
+		OptionalVariables: []string{},
+		CreatedAt:         template.CreatedAt,
+		UpdatedAt:         template.UpdatedAt,
+	}
+
+	if description.Valid {
+		resp.Description = &description.String
+	}
+	if subject.Valid {
+		resp.Subject = &subject.String
+	}
+
+	// Parse JSON arrays
+	if requiredVars != nil && len(requiredVars) > 0 {
+		json.Unmarshal(requiredVars, &resp.RequiredVariables)
+	}
+	if optionalVars != nil && len(optionalVars) > 0 {
+		json.Unmarshal(optionalVars, &resp.OptionalVariables)
+	}
+
+	return resp, nil
 }

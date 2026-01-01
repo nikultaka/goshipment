@@ -97,6 +97,13 @@ func (m *UsersModule) RegisterRoutes(router *gin.RouterGroup) {
 			auth.POST("/me/avatar", m.uploadAvatar)
 			auth.DELETE("/me/avatar", m.deleteAvatar)
 
+			// Business profile routes
+			auth.GET("/me/business", m.getBusiness)
+			auth.POST("/me/business", m.createBusiness)
+			auth.PATCH("/me/business", m.updateBusiness)
+			auth.POST("/me/business/avatar", m.uploadBusinessAvatar)
+			auth.DELETE("/me/business/avatar", m.deleteBusinessAvatar)
+
 			// Multi-email management
 			auth.GET("/me/emails", m.listUserEmails)
 			auth.POST("/me/emails", m.addUserEmail)
@@ -142,6 +149,38 @@ func (m *UsersModule) RegisterRoutes(router *gin.RouterGroup) {
 			// Admin user settings
 			admin.GET("/:id/settings", m.adminGetUserSettings)
 			admin.PUT("/:id/settings", m.adminUpdateUserSettings)
+
+		}
+	}
+
+	// Admin routes under /admin
+	adminGroup := router.Group("/admin")
+	adminGroup.Use(m.authMiddleware.RequireAuth())
+	adminGroup.Use(middleware.RequireAdmin())
+	{
+		// Admin profile routes
+		adminGroup.GET("/me", m.getAdminProfile)
+		adminGroup.GET("/me/sessions", m.getAdminSessions)
+		adminGroup.DELETE("/me/sessions/:session_id", m.deleteAdminSession)
+		adminGroup.DELETE("/me/sessions", m.deleteAllAdminSessions)
+
+		// Business utilities
+		adminGroup.GET("/business-types", m.adminGetBusinessTypes)
+
+		// Admin user management routes
+		adminUsers := adminGroup.Group("/users")
+		{
+			adminUsers.POST("/:id/avatar", m.adminUploadUserAvatar)
+			adminUsers.GET("/:id/emails", m.adminGetUserEmails)
+			adminUsers.POST("/:id/emails", m.adminAddUserEmail)
+			adminUsers.GET("/:id/phones", m.adminGetUserPhones)
+			adminUsers.POST("/:id/phones", m.adminAddUserPhone)
+
+			// Admin business management routes
+			adminUsers.GET("/:id/business", m.adminGetUserBusiness)
+			adminUsers.POST("/:id/business", m.adminCreateUserBusiness)
+			adminUsers.PATCH("/:id/business", m.adminUpdateUserBusiness)
+			adminUsers.POST("/:id/business/avatar", m.adminUploadUserBusinessAvatar)
 		}
 	}
 }

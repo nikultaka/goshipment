@@ -146,7 +146,7 @@ func (m *UsersModule) login(c *gin.Context) {
 // refreshToken handles token refresh requests
 // @Summary Refresh access token
 // @Description Refresh an expired access token using a valid refresh token
-// @Tags Auth
+// @Tags Authentication
 // @Accept json
 // @Produce json
 // @Param request body RefreshTokenRequest true "Refresh token"
@@ -1168,7 +1168,7 @@ func (m *UsersModule) adminCreateUser(c *gin.Context) {
 // @Tags Admin
 // @Produce json
 // @Security BearerAuth
-// @Param user_id path string true "User ID"
+// @Param id path string true "User ID"
 // @Success 200 {object} response.Response{data=object{sessions=[]object}}
 // @Failure 401 {object} response.Response
 // @Failure 403 {object} response.Response
@@ -1189,7 +1189,7 @@ func (m *UsersModule) adminGetUserSessions(c *gin.Context) {
 // @Tags Admin
 // @Produce json
 // @Security BearerAuth
-// @Param user_id path string true "User ID"
+// @Param id path string true "User ID"
 // @Param session_id path string true "Session ID"
 // @Success 200 {object} response.Response
 // @Failure 401 {object} response.Response
@@ -1212,7 +1212,7 @@ func (m *UsersModule) adminTerminateUserSession(c *gin.Context) {
 // @Tags Admin
 // @Produce json
 // @Security BearerAuth
-// @Param user_id path string true "User ID"
+// @Param id path string true "User ID"
 // @Success 200 {object} response.Response
 // @Failure 401 {object} response.Response
 // @Failure 403 {object} response.Response
@@ -1283,4 +1283,340 @@ func (m *UsersModule) adminUpdateUserSettings(c *gin.Context) {
 		return
 	}
 	response.Success(c, http.StatusOK, "Settings updated", nil)
+}
+
+// ========== New Admin Endpoints ==========
+
+// getAdminProfile gets the admin's own profile
+// @Summary Get admin profile
+// @Description Get the authenticated admin's profile information
+// @Tags Admin
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} response.Response{data=UserResponse}
+// @Failure 401 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Router /admin/me [get]
+func (m *UsersModule) getAdminProfile(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		response.Unauthorized(c, "Unauthorized")
+		return
+	}
+
+	user, userEmail, _, roleName, err := m.service.GetUserByID(userID.(string))
+	if err != nil {
+		response.NotFound(c, "User not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Admin profile retrieved", m.service.sanitizeUser(user, userEmail, roleName))
+}
+
+// getAdminSessions lists all sessions for the authenticated admin
+// @Summary List admin sessions
+// @Description Get all active sessions for the authenticated admin
+// @Tags Admin
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} response.Response{data=[]SessionResponse}
+// @Failure 401 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Router /admin/me/sessions [get]
+func (m *UsersModule) getAdminSessions(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		response.Unauthorized(c, "Unauthorized")
+		return
+	}
+
+	sessions, err := m.sessionService.GetUserSessions(userID.(string))
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Sessions retrieved", gin.H{"sessions": sessions})
+}
+
+// deleteAdminSession terminates a specific admin session
+// @Summary Logout specific admin session
+// @Description Terminate a specific session for the authenticated admin
+// @Tags Admin
+// @Produce json
+// @Security BearerAuth
+// @Param session_id path string true "Session ID"
+// @Success 200 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Router /admin/me/sessions/{session_id} [delete]
+func (m *UsersModule) deleteAdminSession(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		response.Unauthorized(c, "Unauthorized")
+		return
+	}
+
+	sessionID := c.Param("session_id")
+	err := m.sessionService.TerminateSession(sessionID, userID.(string))
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Session terminated successfully", nil)
+}
+
+// deleteAllAdminSessions terminates all admin sessions
+// @Summary Logout all admin sessions
+// @Description Terminate all active sessions for the authenticated admin
+// @Tags Admin
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Router /admin/me/sessions [delete]
+func (m *UsersModule) deleteAllAdminSessions(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		response.Unauthorized(c, "Unauthorized")
+		return
+	}
+
+	err := m.sessionService.LogoutAllDevices(userID.(string))
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "All sessions terminated successfully", nil)
+}
+
+// adminUploadUserAvatar uploads avatar for a user (admin only)
+// @Summary Set user avatar (Admin)
+// @Description Upload and set avatar for a specific user (admin only)
+// @Tags Admin
+// @Accept multipart/form-data
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "User ID"
+// @Param avatar formData file true "Avatar image file"
+// @Success 200 {object} response.Response{data=object{avatar_url=string}}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Router /admin/users/{id}/avatar [post]
+func (m *UsersModule) adminUploadUserAvatar(c *gin.Context) {
+	userID := c.Param("id")
+
+	// Check if user exists
+	_, _, _, _, err := m.service.GetUserByID(userID)
+	if err != nil {
+		response.NotFound(c, "User not found")
+		return
+	}
+
+	// Get the uploaded file
+	file, err := c.FormFile("avatar")
+	if err != nil {
+		response.BadRequest(c, "Avatar file is required")
+		return
+	}
+
+	// Validate file size (5MB max)
+	maxSize := int64(5 * 1024 * 1024) // 5MB
+	if file.Size > maxSize {
+		response.Error(c, http.StatusRequestEntityTooLarge, "File size exceeds maximum allowed (5MB)", "FILE_TOO_LARGE")
+		return
+	}
+
+	// Validate file type
+	mimeType := file.Header.Get("Content-Type")
+	allowedTypes := map[string]bool{
+		"image/jpeg": true,
+		"image/jpg":  true,
+		"image/png":  true,
+		"image/gif":  true,
+		"image/webp": true,
+	}
+	if !allowedTypes[mimeType] {
+		response.BadRequest(c, "Invalid file type. Allowed types: JPEG, PNG, GIF, WebP")
+		return
+	}
+
+	// Get old avatar file ID for cleanup
+	oldAvatarFileID, _ := m.service.DeleteAvatar(userID)
+
+	// Upload the file using storage service
+	uploadReq := &storage.UploadRequest{
+		Visibility: "public",
+		Metadata:   `{"type":"avatar"}`,
+	}
+	uploadedFile, err := m.storageService.UploadFile(file, uploadReq, userID)
+	if err != nil {
+		response.BadRequest(c, fmt.Sprintf("Failed to upload avatar file: %v", err))
+		return
+	}
+
+	// Update user's avatar file reference
+	err = m.service.UpdateAvatar(userID, uploadedFile.ID)
+	if err != nil {
+		// Delete the uploaded file since we couldn't update the reference
+		m.storageService.DeleteFile(uploadedFile.ID, userID)
+		response.BadRequest(c, fmt.Sprintf("Failed to link avatar to user profile: %v", err))
+		return
+	}
+
+	// Delete old avatar file if it exists
+	if oldAvatarFileID != "" {
+		_ = m.storageService.DeleteFile(oldAvatarFileID, userID)
+	}
+
+	// Build avatar URL
+	baseURL := fmt.Sprintf("%s://%s", c.Request.URL.Scheme, c.Request.Host)
+	if baseURL == "://" {
+		baseURL = "http://localhost:8080"
+	}
+	avatarURL := fmt.Sprintf("%s/api/v1/storage/files/%s/download", baseURL, uploadedFile.ID)
+
+	response.Success(c, http.StatusOK, "Avatar uploaded and replaced successfully", gin.H{
+		"avatar_url": avatarURL,
+	})
+}
+
+// adminGetUserEmails gets all emails for a user (admin only)
+// @Summary View user emails (Admin)
+// @Description Get all email addresses associated with a user (admin only)
+// @Tags Admin
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "User ID"
+// @Success 200 {object} response.Response{data=[]object}
+// @Failure 401 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Router /admin/users/{id}/emails [get]
+func (m *UsersModule) adminGetUserEmails(c *gin.Context) {
+	userID := c.Param("id")
+
+	emails, err := m.service.ListUserEmails(userID)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "User emails retrieved", gin.H{"emails": emails})
+}
+
+// adminAddUserEmail adds a new email to a user (admin only)
+// @Summary Add email to user (Admin)
+// @Description Add a new email address to a user's account (admin only)
+// @Tags Admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "User ID"
+// @Param request body AddEmailRequest true "Email details"
+// @Success 201 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Router /admin/users/{id}/emails [post]
+func (m *UsersModule) adminAddUserEmail(c *gin.Context) {
+	userID := c.Param("id")
+
+	var req AddEmailRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		errors := []response.ResponseError{
+			response.NewError("VALIDATION_ERROR", err.Error(), ""),
+		}
+		response.ValidationError(c, errors)
+		return
+	}
+
+	email, err := m.service.AddUserEmail(userID, req.Email)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	// If IsPrimary is true, set this email as primary
+	if req.IsPrimary {
+		setPrimaryErr := m.service.SetPrimaryEmail(userID, email.ID)
+		if setPrimaryErr != nil {
+			// Email was added but couldn't be set as primary - not critical
+			response.Success(c, http.StatusCreated, "Email added but couldn't be set as primary: "+setPrimaryErr.Error(), nil)
+			return
+		}
+	}
+
+	response.Success(c, http.StatusCreated, "Email added successfully", nil)
+}
+
+// adminGetUserPhones gets all phones for a user (admin only)
+// @Summary View user phones (Admin)
+// @Description Get all phone numbers associated with a user (admin only)
+// @Tags Admin
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "User ID"
+// @Success 200 {object} response.Response{data=[]object}
+// @Failure 401 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Router /admin/users/{id}/phones [get]
+func (m *UsersModule) adminGetUserPhones(c *gin.Context) {
+	userID := c.Param("id")
+
+	phones, err := m.service.ListUserPhones(userID)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "User phones retrieved", gin.H{"phones": phones})
+}
+
+// adminAddUserPhone adds a new phone to a user (admin only)
+// @Summary Add phone to user (Admin)
+// @Description Add a new phone number to a user's account (admin only)
+// @Tags Admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "User ID"
+// @Param request body AddPhoneRequest true "Phone details"
+// @Success 201 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Router /admin/users/{id}/phones [post]
+func (m *UsersModule) adminAddUserPhone(c *gin.Context) {
+	userID := c.Param("id")
+
+	var req AddPhoneRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		errors := []response.ResponseError{
+			response.NewError("VALIDATION_ERROR", err.Error(), ""),
+		}
+		response.ValidationError(c, errors)
+		return
+	}
+
+	phone, err := m.service.AddUserPhone(userID, req.Phone)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	// If IsPrimary is true, set this phone as primary
+	if req.IsPrimary {
+		setPrimaryErr := m.service.SetPrimaryPhone(userID, phone.ID)
+		if setPrimaryErr != nil {
+			// Phone was added but couldn't be set as primary - not critical
+			response.Success(c, http.StatusCreated, "Phone added but couldn't be set as primary: "+setPrimaryErr.Error(), nil)
+			return
+		}
+	}
+
+	response.Success(c, http.StatusCreated, "Phone added successfully", nil)
 }

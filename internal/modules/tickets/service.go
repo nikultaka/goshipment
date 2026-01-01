@@ -195,7 +195,7 @@ func (s *TicketsService) GetTicketWithReplies(ticketID string) (*TicketDetailRes
 	// Get replies
 	query := `
 		SELECT id, ticket_id, user_id, is_staff, content, created_at, updated_at, deleted_at
-		FROM support_ticket_replies
+		FROM support_ticket_messages
 		WHERE ticket_id = $1 AND deleted_at IS NULL
 		ORDER BY created_at ASC
 	`
@@ -556,31 +556,60 @@ func (s *TicketsService) AssignTicket(ticketID string, req *AssignTicketRequest)
 
 // CreateReply creates a reply to a ticket
 func (s *TicketsService) CreateReply(ticketID, userID string, isStaff bool, req *CreateReplyRequest) (*ReplyResponse, error) {
+	// Generate external ID for the message
+	externalID := fmt.Sprintf("msg_%s", uuid.New().String()[:8])
+
+	// Determine sender type
+	senderType := "customer"
+	if isStaff {
+		senderType = "agent"
+	}
+
 	query := `
-		INSERT INTO support_ticket_replies (ticket_id, user_id, is_staff, content, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, ticket_id, user_id, is_staff, content, created_at, updated_at, deleted_at
+		INSERT INTO support_ticket_messages (
+			external_id, ticket_id, message_text, sender_type, sender_user_id,
+			message_type, is_internal, delivery_method
+		)
+		VALUES ($1, $2, $3, $4, $5, 'reply', false, 'web')
+		RETURNING id, external_id, ticket_id, message_text, sender_type, sender_user_id,
+		          message_type, created_at
 	`
 
-	now := time.Now().UTC()
-	var reply models.SupportTicketReply
+	var reply struct {
+		ID           string
+		ExternalID   string
+		TicketID     string
+		MessageText  string
+		SenderType   string
+		SenderUserID sql.NullString
+		MessageType  string
+		CreatedAt    time.Time
+	}
 
-	err := s.db.QueryRow(query, ticketID, userID, isStaff, req.Content, now, now).Scan(
+	err := s.db.QueryRow(query, externalID, ticketID, req.Content, senderType, userID).Scan(
 		&reply.ID,
+		&reply.ExternalID,
 		&reply.TicketID,
-		&reply.UserID,
-		&reply.IsStaff,
-		&reply.Content,
+		&reply.MessageText,
+		&reply.SenderType,
+		&reply.SenderUserID,
+		&reply.MessageType,
 		&reply.CreatedAt,
-		&reply.UpdatedAt,
-		&reply.DeletedAt,
 	)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create reply: %w", err)
 	}
 
-	return s.toReplyResponse(&reply), nil
+	return &ReplyResponse{
+		ID:        reply.ID,
+		TicketID:  reply.TicketID,
+		UserID:    userID,
+		IsStaff:   isStaff,
+		Content:   reply.MessageText,
+		CreatedAt: reply.CreatedAt,
+		UpdatedAt: reply.CreatedAt,
+	}, nil
 }
 
 // DeleteTicket deletes a ticket (user can only delete their own open tickets)
@@ -847,4 +876,225 @@ func (s *TicketsService) DeleteAttachment(ticketID, attachmentID, userID string)
 	}
 
 	return nil
+}
+
+// ========== Admin Service Methods ==========
+
+// AdminCreateTicket creates a ticket on behalf of a user (admin only)
+func (s *TicketsService) AdminCreateTicket(adminID string, req *AdminCreateTicketRequest) (*TicketResponse, error) {
+	ticketID := uuid.New().String()
+	externalID := fmt.Sprintf("TKT-%s", time.Now().Format("20060102-150405"))
+	ticketNumber := fmt.Sprintf("TICKET-%d", time.Now().Unix())
+
+	// Get user's email
+	var customerEmail string
+	emailQuery := `
+		SELECT ue.email
+		FROM users u
+		LEFT JOIN user_emails ue ON u.primary_email_id = ue.id
+		WHERE u.id = $1
+	`
+	err := s.db.QueryRow(emailQuery, req.UserID).Scan(&customerEmail)
+	if err != nil || customerEmail == "" {
+		customerEmail = "noreply@support.com" // Fallback email
+	}
+
+	query := `
+		INSERT INTO support_tickets (id, external_id, ticket_number, user_id, customer_email, subject, description, status, priority, category, assigned_to, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
+		RETURNING id, external_id, user_id, subject, description, status, priority, category, assigned_to, created_at, updated_at
+	`
+
+	var ticket models.SupportTicket
+	err = s.db.QueryRow(query, ticketID, externalID, ticketNumber, req.UserID, customerEmail, req.Subject, req.Description, "open", req.Priority,
+		sql.NullString{String: req.Category, Valid: req.Category != ""}, req.AssignedTo).
+		Scan(&ticket.ID, &ticket.ExternalID, &ticket.UserID, &ticket.Subject, &ticket.Description, &ticket.Status, &ticket.Priority,
+			&ticket.Category, &ticket.AssignedTo, &ticket.CreatedAt, &ticket.UpdatedAt)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create ticket: %w", err)
+	}
+
+	return s.toTicketResponse(&ticket), nil
+}
+
+// AdminCreateReply creates a reply to a ticket (admin only)
+func (s *TicketsService) AdminCreateReply(ticketID, adminID, content string) (*ReplyResponse, error) {
+	// Verify ticket exists
+	_, err := s.GetTicketByID(ticketID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Generate external ID for the message
+	externalID := fmt.Sprintf("msg_%s", uuid.New().String()[:8])
+
+	query := `
+		INSERT INTO support_ticket_messages (
+			external_id, ticket_id, message_text, sender_type, sender_user_id,
+			message_type, is_internal, delivery_method
+		)
+		VALUES ($1, $2, $3, 'agent', $4, 'reply', false, 'web')
+		RETURNING id, external_id, ticket_id, message_text, sender_type, sender_user_id,
+		          message_type, created_at
+	`
+
+	var reply struct {
+		ID           string
+		ExternalID   string
+		TicketID     string
+		MessageText  string
+		SenderType   string
+		SenderUserID sql.NullString
+		MessageType  string
+		CreatedAt    time.Time
+	}
+
+	err = s.db.QueryRow(query, externalID, ticketID, content, adminID).
+		Scan(&reply.ID, &reply.ExternalID, &reply.TicketID, &reply.MessageText,
+			&reply.SenderType, &reply.SenderUserID, &reply.MessageType, &reply.CreatedAt)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create reply: %w", err)
+	}
+
+	// Update ticket's updated_at timestamp
+	updateQuery := `UPDATE support_tickets SET updated_at = NOW() WHERE id = $1`
+	_, _ = s.db.Exec(updateQuery, ticketID)
+
+	return &ReplyResponse{
+		ID:        reply.ID,
+		TicketID:  reply.TicketID,
+		UserID:    adminID,
+		IsStaff:   true,
+		Content:   reply.MessageText,
+		CreatedAt: reply.CreatedAt,
+		UpdatedAt: reply.CreatedAt,
+	}, nil
+}
+
+// AdminUploadAttachment uploads an attachment to a ticket (admin only)
+func (s *TicketsService) AdminUploadAttachment(ticketID, adminID string, file *multipart.FileHeader, attachmentType, description string) (*AttachmentResponse, error) {
+	// Verify ticket exists
+	_, err := s.GetTicketByID(ticketID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Upload file using storage service
+	uploadReq := &storage.UploadRequest{
+		Visibility: "private",
+		Metadata:   "",
+	}
+	uploadedFile, err := s.storageService.UploadFile(file, uploadReq, adminID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to upload file: %w", err)
+	}
+
+	// Create attachment record
+	attachmentID := uuid.New().String()
+	query := `
+		INSERT INTO support_ticket_attachments (id, ticket_id, file_id, attachment_type, description, visible_to_customer, uploaded_by, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+		RETURNING id, ticket_id, file_id, attachment_type, description, visible_to_customer, uploaded_by, created_at
+	`
+
+	var attachment models.SupportTicketAttachment
+	var desc sql.NullString
+	if description != "" {
+		desc = sql.NullString{String: description, Valid: true}
+	}
+
+	err = s.db.QueryRow(query, attachmentID, ticketID, uploadedFile.ID, attachmentType, desc, true, adminID).
+		Scan(&attachment.ID, &attachment.TicketID, &attachment.FileID, &attachment.AttachmentType, &attachment.Description,
+			&attachment.VisibleToCustomer, &attachment.UploadedBy, &attachment.CreatedAt)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create attachment record: %w", err)
+	}
+
+	return &AttachmentResponse{
+		ID:                attachment.ID,
+		TicketID:          attachment.TicketID,
+		FileID:            attachment.FileID,
+		FileName:          uploadedFile.FileName,
+		OriginalName:      uploadedFile.OriginalName,
+		MimeType:          uploadedFile.MimeType,
+		Size:              uploadedFile.Size,
+		AttachmentType:    attachment.AttachmentType,
+		Description:       &description,
+		VisibleToCustomer: attachment.VisibleToCustomer,
+		DownloadURL:       fmt.Sprintf("/api/v1/storage/files/%s/download", uploadedFile.ID),
+		CreatedAt:         attachment.CreatedAt,
+	}, nil
+}
+
+// GetTicketsByUser gets all tickets for a specific user (admin only)
+func (s *TicketsService) GetTicketsByUser(userID string, page, limit int, status, priority string) ([]*TicketResponse, int, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 10
+	}
+
+	offset := (page - 1) * limit
+
+	// Build query with filters
+	baseQuery := `FROM support_tickets WHERE user_id = $1`
+	args := []interface{}{userID}
+	argCount := 1
+
+	if status != "" {
+		argCount++
+		baseQuery += fmt.Sprintf(" AND status = $%d", argCount)
+		args = append(args, status)
+	}
+
+	if priority != "" {
+		argCount++
+		baseQuery += fmt.Sprintf(" AND priority = $%d", argCount)
+		args = append(args, priority)
+	}
+
+	// Count total
+	var total int
+	countQuery := `SELECT COUNT(*) ` + baseQuery
+	err := s.db.QueryRow(countQuery, args...).Scan(&total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to count tickets: %w", err)
+	}
+
+	// Get tickets
+	query := `
+		SELECT id, user_id, subject, description, status, priority, category, assigned_to, resolved_at, closed_at, created_at, updated_at
+		` + baseQuery + `
+		ORDER BY created_at DESC
+		LIMIT $` + fmt.Sprintf("%d", argCount+1) + ` OFFSET $` + fmt.Sprintf("%d", argCount+2)
+
+	args = append(args, limit, offset)
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to fetch tickets: %w", err)
+	}
+	defer rows.Close()
+
+	var tickets []*TicketResponse
+	for rows.Next() {
+		var ticket models.SupportTicket
+		err := rows.Scan(&ticket.ID, &ticket.UserID, &ticket.Subject, &ticket.Description, &ticket.Status,
+			&ticket.Priority, &ticket.Category, &ticket.AssignedTo, &ticket.ResolvedAt, &ticket.ClosedAt,
+			&ticket.CreatedAt, &ticket.UpdatedAt)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to scan ticket: %w", err)
+		}
+		tickets = append(tickets, s.toTicketResponse(&ticket))
+	}
+
+	if tickets == nil {
+		tickets = []*TicketResponse{}
+	}
+
+	return tickets, total, nil
 }

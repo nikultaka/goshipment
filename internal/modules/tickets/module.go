@@ -57,4 +57,22 @@ func (m *TicketsModule) RegisterRoutes(router *gin.RouterGroup) {
 		admin.PUT("/:id/status", m.updateTicketStatus) // Update status
 		admin.PUT("/:id/assign", m.assignTicket)       // Assign ticket
 	}
+
+	// Admin ticket management (NEW)
+	adminGroup := router.Group("/admin")
+	adminGroup.Use(m.authMiddleware.RequireAuth())
+	adminGroup.Use(middleware.RequireAdmin())
+	{
+		adminGroup.POST("/tickets", m.adminCreateTicket)
+		adminGroup.POST("/tickets/:ticket_id/messages", m.adminCreateMessage)
+		adminGroup.POST("/tickets/:ticket_id/attachments", m.adminUploadAttachment)
+	}
+
+	// Admin user tickets (NEW)
+	adminUsersGroup := router.Group("/admin/users")
+	adminUsersGroup.Use(m.authMiddleware.RequireAuth())
+	adminUsersGroup.Use(middleware.RequireAdmin())
+	{
+		adminUsersGroup.GET("/:id/tickets", m.adminGetUserTickets)
+	}
 }

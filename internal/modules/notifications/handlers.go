@@ -1,6 +1,7 @@
 package notifications
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -242,7 +243,7 @@ func (m *NotificationsModule) testSMS(c *gin.Context) {
 // listNotificationTemplates lists all notification templates
 // @Summary List notification templates
 // @Description Get paginated list of notification templates (Admin only)
-// @Tags Admin - Notification Templates
+// @Tags Admin
 // @Produce json
 // @Security BearerAuth
 // @Param page query int false "Page number" default(1)
@@ -268,7 +269,7 @@ func (m *NotificationsModule) listNotificationTemplates(c *gin.Context) {
 // createNotificationTemplate creates a new notification template
 // @Summary Create notification template
 // @Description Create a new notification template (Admin only)
-// @Tags Admin - Notification Templates
+// @Tags Admin
 // @Accept json
 // @Produce json
 // @Security BearerAuth
@@ -307,7 +308,7 @@ func (m *NotificationsModule) createNotificationTemplate(c *gin.Context) {
 // updateNotificationTemplate updates an existing notification template
 // @Summary Update notification template
 // @Description Update an existing notification template (Admin only)
-// @Tags Admin - Notification Templates
+// @Tags Admin
 // @Accept json
 // @Produce json
 // @Security BearerAuth
@@ -345,4 +346,139 @@ func (m *NotificationsModule) updateNotificationTemplate(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusOK, "Notification template updated successfully", template)
+}
+
+// ========== New Admin Endpoints ==========
+
+// getAdminNotifications retrieves notifications for the admin
+// @Summary Admin notifications list
+// @Description Get all notifications for the authenticated admin
+// @Tags Admin
+// @Produce json
+// @Security BearerAuth
+// @Param page query int false "Page number" default(1)
+// @Param limit query int false "Items per page" default(10)
+// @Param unread_only query boolean false "Filter unread notifications only"
+// @Success 200 {object} response.Response{data=NotificationsListResponse}
+// @Failure 401 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Router /admin/notifications [get]
+func (m *NotificationsModule) getAdminNotifications(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		response.Unauthorized(c, "Admin not authenticated")
+		return
+	}
+
+	page := 1
+	limit := 10
+	if p := c.Query("page"); p != "" {
+		fmt.Sscanf(p, "%d", &page)
+	}
+	if l := c.Query("limit"); l != "" {
+		fmt.Sscanf(l, "%d", &limit)
+	}
+
+	unreadOnly := c.Query("unread_only") == "true"
+
+	notifications, total, err := m.service.GetUserNotifications(userID.(string), page, limit, unreadOnly)
+	if err != nil {
+		response.InternalError(c, "Failed to retrieve notifications: "+err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Admin notifications retrieved successfully", gin.H{
+		"notifications": notifications,
+		"total":         total,
+		"page":          page,
+		"limit":         limit,
+	})
+}
+
+// markAdminNotificationAsRead marks a specific notification as read
+// @Summary Mark admin notification as read
+// @Description Mark a specific notification as read for the authenticated admin
+// @Tags Admin
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Notification ID"
+// @Success 200 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Router /admin/notifications/{id}/read [post]
+func (m *NotificationsModule) markAdminNotificationAsRead(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		response.Unauthorized(c, "Admin not authenticated")
+		return
+	}
+
+	notificationID := c.Param("id")
+
+	err := m.service.MarkNotificationAsRead(notificationID, userID.(string))
+	if err != nil {
+		if err.Error() == "notification not found" {
+			response.NotFound(c, err.Error())
+		} else {
+			response.BadRequest(c, "Failed to mark notification as read: "+err.Error())
+		}
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Notification marked as read", nil)
+}
+
+// markAllAdminNotificationsAsRead marks all notifications as read
+// @Summary Mark all admin notifications as read
+// @Description Mark all notifications as read for the authenticated admin
+// @Tags Admin
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Router /admin/notifications/read-all [post]
+func (m *NotificationsModule) markAllAdminNotificationsAsRead(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		response.Unauthorized(c, "Admin not authenticated")
+		return
+	}
+
+	err := m.service.MarkAllNotificationsAsRead(userID.(string))
+	if err != nil {
+		response.BadRequest(c, "Failed to mark all notifications as read: "+err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "All notifications marked as read", nil)
+}
+
+// getNotificationTemplate retrieves a specific notification template (NEW)
+// @Summary Get notification template
+// @Description Get a specific notification template by ID (Admin only)
+// @Tags Admin
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Template ID"
+// @Success 200 {object} response.Response{data=NotificationTemplateResponse}
+// @Failure 401 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Router /admin/notification-templates/{id} [get]
+func (m *NotificationsModule) getNotificationTemplate(c *gin.Context) {
+	id := c.Param("id")
+
+	template, err := m.service.GetNotificationTemplate(id)
+	if err != nil {
+		if err.Error() == "template not found" {
+			response.NotFound(c, err.Error())
+		} else {
+			response.BadRequest(c, "Failed to retrieve notification template: "+err.Error())
+		}
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Notification template retrieved successfully", template)
 }

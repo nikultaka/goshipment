@@ -1883,7 +1883,36 @@ func (s *UserService) AdminCreateUser(req *AdminCreateUserRequest) (*models.User
 	emailID := uuid.New().String()
 	externalID := fmt.Sprintf("usr_%s", uuid.New().String()[:8])
 
-	// Create user
+	// Create email record FIRST (to satisfy foreign key constraint)
+	emailQuery := `
+		INSERT INTO user_emails (
+			id, user_id, email, is_primary, is_verified, is_active, created_at, updated_at
+		)
+		VALUES ($1, $2, $3, true, false, true, $4, $5)
+		RETURNING id, email, is_primary, is_verified, created_at, updated_at
+	`
+
+	var userEmail models.UserEmail
+	err = tx.QueryRow(emailQuery,
+		emailID,
+		userID,
+		req.Email,
+		time.Now().UTC(),
+		time.Now().UTC(),
+	).Scan(
+		&userEmail.ID,
+		&userEmail.Email,
+		&userEmail.IsPrimary,
+		&userEmail.IsVerified,
+		&userEmail.CreatedAt,
+		&userEmail.UpdatedAt,
+	)
+
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("failed to create email: %w", err)
+	}
+
+	// Create user record (now email exists)
 	userQuery := `
 		INSERT INTO users (
 			id, external_id, primary_email_id, password_hash,
@@ -1918,35 +1947,6 @@ func (s *UserService) AdminCreateUser(req *AdminCreateUserRequest) (*models.User
 
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("failed to create user: %w", err)
-	}
-
-	// Create email record
-	emailQuery := `
-		INSERT INTO user_emails (
-			id, user_id, email, is_primary, is_verified, is_active, created_at, updated_at
-		)
-		VALUES ($1, $2, $3, true, false, true, $4, $5)
-		RETURNING id, email, is_primary, is_verified, created_at, updated_at
-	`
-
-	var userEmail models.UserEmail
-	err = tx.QueryRow(emailQuery,
-		emailID,
-		userID,
-		req.Email,
-		time.Now().UTC(),
-		time.Now().UTC(),
-	).Scan(
-		&userEmail.ID,
-		&userEmail.Email,
-		&userEmail.IsPrimary,
-		&userEmail.IsVerified,
-		&userEmail.CreatedAt,
-		&userEmail.UpdatedAt,
-	)
-
-	if err != nil {
-		return nil, nil, "", fmt.Errorf("failed to create email: %w", err)
 	}
 
 	// Get role ID

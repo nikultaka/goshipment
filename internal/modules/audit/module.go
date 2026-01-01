@@ -46,5 +46,6 @@ func (m *AuditModule) RegisterRoutes(router *gin.RouterGroup) {
 	{
 		admin.GET("", m.getAuditLogs)
 		admin.GET("/export", m.exportAuditLogs)
+		admin.GET("/:id", m.getAuditLogDetail) // NEW
 	}
 }

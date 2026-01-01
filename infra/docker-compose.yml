@@ -51,7 +51,7 @@ services:
       APP_VERSION: "v1"
       LOG_LEVEL: "info"                   # debug, info, warn, error
       TRUSTED_PROXIES: "127.0.0.1"        # Comma-separated list
-      ALLOW_ORIGINS: "http://localhost:3000,http://localhost:8081"  # CORS origins
+      ALLOW_ORIGINS: "http://localhost:3000,http://localhost:8081,http://localhost:8083"  # CORS origins
       RATE_LIMIT_RPS: "100"               # Requests per second
 
       # ============================================

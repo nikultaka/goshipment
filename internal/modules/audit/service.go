@@ -374,3 +374,84 @@ func nullInt32ToString(ni sql.NullInt32) string {
 	}
 	return ""
 }
+
+// GetAuditLogByID retrieves a specific audit log by ID (NEW)
+func (s *AuditService) GetAuditLogByID(id string) (*AuditLogResponse, error) {
+	query := `
+		SELECT id, user_id, client_id, actor_type, action, resource_type, resource_id,
+		       changes, metadata, ip_address, user_agent, session_id, trace_id,
+		       business_purpose, status, records_affected, response_time_ms,
+		       error_code, error_message, occurred_at, recorded_at
+		FROM audit_logs
+		WHERE id = $1
+	`
+
+	row := s.db.QueryRow(query, id)
+
+	var (
+		userID, clientID, resourceID, sessionID, traceID sql.NullString
+		changes, metadata                                 sql.NullString
+		ipAddress, userAgent                              sql.NullString
+		businessPurpose                                   sql.NullString
+		recordsAffected                                   int
+		responseTimeMs                                    sql.NullInt32
+		errorCode, errorMessage                           sql.NullString
+		occurredAt, recordedAt                            time.Time
+		logID, actorType, action, resourceType, status    string
+	)
+
+	err := row.Scan(
+		&logID, &userID, &clientID, &actorType, &action, &resourceType, &resourceID,
+		&changes, &metadata, &ipAddress, &userAgent, &sessionID, &traceID,
+		&businessPurpose, &status, &recordsAffected, &responseTimeMs,
+		&errorCode, &errorMessage, &occurredAt, &recordedAt,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("audit log not found")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch audit log: %w", err)
+	}
+
+	var responseTimeMsInt *int
+	if responseTimeMs.Valid {
+		val := int(responseTimeMs.Int32)
+		responseTimeMsInt = &val
+	}
+
+	return &AuditLogResponse{
+		ID:               logID,
+		EventID:          logID, // Using ID as EventID
+		UserID:           nullStringPointer(userID),
+		APIClientID:      nullStringPointer(clientID),
+		ActorIdentifier:  nullStringPointer(userID),
+		ActorIP:          nullStringPointer(ipAddress),
+		ActorType:        actorType,
+		Action:           action,
+		ResourceType:     &resourceType,
+		ResourceID:       nullStringPointer(resourceID),
+		BusinessPurpose:  nullStringToString(businessPurpose),
+		Status:           status,
+		RecordsAffected:  recordsAffected,
+		ResponseTimeMs:   responseTimeMsInt,
+		ErrorCode:        nullStringPointer(errorCode),
+		ErrorMessage:     nullStringPointer(errorMessage),
+		OccurredAt:       occurredAt,
+		RecordedAt:       recordedAt,
+	}, nil
+}
+
+func nullStringPointer(ns sql.NullString) *string {
+	if ns.Valid {
+		return &ns.String
+	}
+	return nil
+}
+
+func nullInt32Pointer(ni sql.NullInt32) *int32 {
+	if ni.Valid {
+		return &ni.Int32
+	}
+	return nil
+}

@@ -95,3 +95,33 @@ func (m *AuditModule) exportAuditLogs(c *gin.Context) {
 
 	c.Status(http.StatusOK)
 }
+
+// getAuditLogDetail retrieves a specific audit log by ID (NEW)
+// @Summary Get audit log detail
+// @Description Retrieve detailed information about a specific audit log entry (Admin only)
+// @Tags Admin - Audit Logs
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Audit Log ID"
+// @Success 200 {object} response.Response{data=AuditLogResponse}
+// @Failure 401 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Failure 500 {object} response.Response
+// @Router /admin/audit-logs/{id} [get]
+func (m *AuditModule) getAuditLogDetail(c *gin.Context) {
+	id := c.Param("id")
+
+	log, err := m.service.GetAuditLogByID(id)
+	if err != nil {
+		if err.Error() == "audit log not found" {
+			response.NotFound(c, err.Error())
+		} else {
+			response.InternalError(c, "Failed to retrieve audit log: "+err.Error())
+		}
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Audit log retrieved successfully", log)
+}

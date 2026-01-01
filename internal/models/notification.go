@@ -126,6 +126,20 @@ type UserNotificationPreference struct {
 	UpdatedAt                time.Time      `json:"updated_at" db:"updated_at"`
 }
 
+// UserNotification represents an in-app notification for users
+type UserNotification struct {
+	ID                  string         `json:"id" db:"id"`
+	UserID              string         `json:"user_id" db:"user_id"`
+	Type                string         `json:"type" db:"type"` // shipment_created, funds_added, pickup_scheduled
+	Title               string         `json:"title" db:"title"`
+	Message             string         `json:"message" db:"message"`
+	RelatedResourceType sql.NullString `json:"related_resource_type,omitempty" db:"related_resource_type"`
+	RelatedResourceID   sql.NullString `json:"related_resource_id,omitempty" db:"related_resource_id"`
+	IsRead              bool           `json:"is_read" db:"is_read"`
+	Metadata            json.RawMessage `json:"metadata,omitempty" db:"metadata"`
+	CreatedAt           time.Time      `json:"created_at" db:"created_at"`
+}
+
 // Notification represents a notification record (old model - kept for backward compatibility if needed)
 type Notification struct {
 	ID          string         `json:"id" db:"id"`

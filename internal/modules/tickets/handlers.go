@@ -543,3 +543,189 @@ func (m *TicketsModule) deleteAttachment(c *gin.Context) {
 
 	response.Success(c, http.StatusOK, "Attachment deleted successfully", nil)
 }
+
+// ========== Admin Ticket Endpoints ==========
+
+// @Summary Create ticket and assign (Admin)
+// @Description Admin creates a new support ticket and optionally assigns it
+// @Tags Admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body AdminCreateTicketRequest true "Ticket details"
+// @Success 201 {object} response.Response{data=object{ticket=TicketResponse}}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Failure 500 {object} response.Response
+// @Router /admin/tickets [post]
+func (m *TicketsModule) adminCreateTicket(c *gin.Context) {
+	adminID, exists := c.Get("user_id")
+	if !exists {
+		response.Unauthorized(c, "Admin not authenticated")
+		return
+	}
+
+	var req AdminCreateTicketRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.ValidationError(c, getValidationErrors(err))
+		return
+	}
+
+	ticket, err := m.service.AdminCreateTicket(adminID.(string), &req)
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusCreated, "Ticket created and assigned successfully", gin.H{
+		"ticket": ticket,
+	})
+}
+
+// @Summary Admin reply/message (Admin)
+// @Description Admin adds a reply or message to a ticket
+// @Tags Admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param ticket_id path string true "Ticket ID"
+// @Param request body CreateReplyRequest true "Message content"
+// @Success 201 {object} response.Response{data=object{reply=ReplyResponse}}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Failure 500 {object} response.Response
+// @Router /admin/tickets/{ticket_id}/messages [post]
+func (m *TicketsModule) adminCreateMessage(c *gin.Context) {
+	adminID, exists := c.Get("user_id")
+	if !exists {
+		response.Unauthorized(c, "Admin not authenticated")
+		return
+	}
+
+	ticketID := c.Param("ticket_id")
+
+	var req CreateReplyRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.ValidationError(c, getValidationErrors(err))
+		return
+	}
+
+	reply, err := m.service.AdminCreateReply(ticketID, adminID.(string), req.Content)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			response.NotFound(c, err.Error())
+		} else {
+			response.InternalError(c, err.Error())
+		}
+		return
+	}
+
+	response.Success(c, http.StatusCreated, "Message added successfully", gin.H{
+		"reply": reply,
+	})
+}
+
+// @Summary Attach file (Admin)
+// @Description Admin attaches a file to a ticket
+// @Tags Admin
+// @Accept multipart/form-data
+// @Produce json
+// @Security BearerAuth
+// @Param ticket_id path string true "Ticket ID"
+// @Param file formData file true "File to upload"
+// @Param attachment_type formData string false "Attachment type" Enums(document, screenshot, log_file) default(document)
+// @Param description formData string false "Description of the attachment"
+// @Success 201 {object} response.Response{data=object{attachment=AttachmentResponse}}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Failure 500 {object} response.Response
+// @Router /admin/tickets/{ticket_id}/attachments [post]
+func (m *TicketsModule) adminUploadAttachment(c *gin.Context) {
+	adminID, exists := c.Get("user_id")
+	if !exists {
+		response.Unauthorized(c, "Admin not authenticated")
+		return
+	}
+
+	ticketID := c.Param("ticket_id")
+
+	// Get file from form
+	file, err := c.FormFile("file")
+	if err != nil {
+		response.BadRequest(c, "File is required")
+		return
+	}
+
+	// Get optional fields
+	attachmentType := c.DefaultPostForm("attachment_type", "document")
+	description := c.PostForm("description")
+
+	// Validate attachment type
+	validTypes := map[string]bool{"document": true, "screenshot": true, "log_file": true}
+	if !validTypes[attachmentType] {
+		response.BadRequest(c, "attachment_type must be one of: document, screenshot, log_file")
+		return
+	}
+
+	attachment, err := m.service.AdminUploadAttachment(ticketID, adminID.(string), file, attachmentType, description)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			response.NotFound(c, err.Error())
+		} else {
+			response.InternalError(c, err.Error())
+		}
+		return
+	}
+
+	response.Success(c, http.StatusCreated, "Attachment uploaded successfully", gin.H{
+		"attachment": attachment,
+	})
+}
+
+// @Summary List tickets for specific user (Admin)
+// @Description Get all tickets created by a specific user
+// @Tags Admin
+// @Produce json
+// @Security BearerAuth
+// @Param user_id path string true "User ID"
+// @Param page query int false "Page number" default(1)
+// @Param limit query int false "Items per page" default(10)
+// @Param status query string false "Filter by status"
+// @Param priority query string false "Filter by priority"
+// @Success 200 {object} response.Response{data=TicketsListResponse}
+// @Failure 401 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Failure 500 {object} response.Response
+// @Router /admin/users/{user_id}/tickets [get]
+func (m *TicketsModule) adminGetUserTickets(c *gin.Context) {
+	userID := c.Param("id")
+
+	// Parse pagination
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	// Parse filters
+	status := c.Query("status")
+	priority := c.Query("priority")
+
+	tickets, total, err := m.service.GetTicketsByUser(userID, page, limit, status, priority)
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	totalPages := (total + limit - 1) / limit
+
+	response.Success(c, http.StatusOK, "User tickets retrieved successfully", TicketsListResponse{
+		Tickets:    tickets,
+		Total:      total,
+		Page:       page,
+		Limit:      limit,
+		TotalPages: totalPages,
+	})
+}

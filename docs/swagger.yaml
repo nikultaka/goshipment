@@ -881,6 +881,37 @@ definitions:
         - private
         type: string
     type: object
+  tickets.AdminCreateTicketRequest:
+    properties:
+      assigned_to:
+        description: Optional assignment
+        type: string
+      category:
+        type: string
+      customer_email:
+        type: string
+      description:
+        minLength: 10
+        type: string
+      priority:
+        enum:
+        - low
+        - medium
+        - high
+        - urgent
+        type: string
+      subject:
+        maxLength: 255
+        minLength: 5
+        type: string
+      user_id:
+        type: string
+    required:
+    - description
+    - priority
+    - subject
+    - user_id
+    type: object
   tickets.AssignTicketRequest:
     properties:
       assigned_to:
@@ -1067,11 +1098,15 @@ definitions:
     properties:
       email:
         type: string
+      is_primary:
+        type: boolean
     required:
     - email
     type: object
   users.AddPhoneRequest:
     properties:
+      is_primary:
+        type: boolean
       phone:
         type: string
     required:
@@ -1101,6 +1136,40 @@ definitions:
     - last_name
     - password
     type: object
+  users.BusinessResponse:
+    properties:
+      address:
+        description: Formatted full address
+        type: string
+      address_line1:
+        type: string
+      address_line2:
+        type: string
+      avatar_url:
+        type: string
+      city:
+        type: string
+      country:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      phone:
+        type: string
+      postal_code:
+        type: string
+      province:
+        type: string
+      updated_at:
+        type: string
+    type: object
   users.ChangePasswordRequest:
     properties:
       new_password:
@@ -1111,6 +1180,42 @@ definitions:
     required:
     - new_password
     - old_password
+    type: object
+  users.CreateBusinessRequest:
+    properties:
+      address_line1:
+        maxLength: 255
+        type: string
+      address_line2:
+        maxLength: 255
+        type: string
+      city:
+        maxLength: 100
+        type: string
+      country:
+        description: ISO 3166-1 alpha-2
+        type: string
+      description:
+        maxLength: 1000
+        type: string
+      email:
+        maxLength: 255
+        type: string
+      name:
+        maxLength: 255
+        minLength: 2
+        type: string
+      phone:
+        maxLength: 20
+        type: string
+      postal_code:
+        maxLength: 20
+        type: string
+      province:
+        maxLength: 100
+        type: string
+    required:
+    - name
     type: object
   users.ForgotPasswordRequest:
     properties:
@@ -1285,6 +1390,39 @@ definitions:
       method:
         type: string
     type: object
+  users.UpdateBusinessRequest:
+    properties:
+      address_line1:
+        maxLength: 255
+        type: string
+      address_line2:
+        maxLength: 255
+        type: string
+      city:
+        maxLength: 100
+        type: string
+      country:
+        type: string
+      description:
+        maxLength: 1000
+        type: string
+      email:
+        maxLength: 255
+        type: string
+      name:
+        maxLength: 255
+        minLength: 2
+        type: string
+      phone:
+        maxLength: 20
+        type: string
+      postal_code:
+        maxLength: 20
+        type: string
+      province:
+        maxLength: 100
+        type: string
+    type: object
   users.UpdateProfileRequest:
     properties:
       first_name:
@@ -1409,6 +1547,7 @@ definitions:
     - otp
     - phone
     type: object
+host: localhost:8081
 info:
   contact:
     email: support@gogin.com
@@ -1523,6 +1662,51 @@ paths:
       summary: Get audit logs
       tags:
       - Admin - Audit Logs
+  /admin/audit-logs/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve detailed information about a specific audit log entry
+        (Admin only)
+      parameters:
+      - description: Audit Log ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/audit.AuditLogResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Get audit log detail
+      tags:
+      - Admin - Audit Logs
   /admin/audit-logs/export:
     get:
       consumes:
@@ -1596,6 +1780,144 @@ paths:
       summary: Export audit logs
       tags:
       - Admin - Audit Logs
+  /admin/business-types:
+    get:
+      description: Get list of available business types for dropdown selection
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  properties:
+                    business_types:
+                      items:
+                        type: string
+                      type: array
+                  type: object
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: List business types
+      tags:
+      - Admin
+  /admin/me:
+    get:
+      description: Get the authenticated admin's profile information
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/users.UserResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Get admin profile
+      tags:
+      - Admin
+  /admin/me/sessions:
+    delete:
+      description: Terminate all active sessions for the authenticated admin
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Logout all admin sessions
+      tags:
+      - Admin
+    get:
+      description: Get all active sessions for the authenticated admin
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/users.SessionResponse'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: List admin sessions
+      tags:
+      - Admin
+  /admin/me/sessions/{session_id}:
+    delete:
+      description: Terminate a specific session for the authenticated admin
+      parameters:
+      - description: Session ID
+        in: path
+        name: session_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Logout specific admin session
+      tags:
+      - Admin
   /admin/notification-templates:
     get:
       description: Get paginated list of notification templates (Admin only)
@@ -1638,7 +1960,7 @@ paths:
       - BearerAuth: []
       summary: List notification templates
       tags:
-      - Admin - Notification Templates
+      - Admin
     post:
       consumes:
       - application/json
@@ -1689,8 +2011,45 @@ paths:
       - BearerAuth: []
       summary: Create notification template
       tags:
-      - Admin - Notification Templates
+      - Admin
   /admin/notification-templates/{id}:
+    get:
+      description: Get a specific notification template by ID (Admin only)
+      parameters:
+      - description: Template ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/notifications.NotificationTemplateResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Get notification template
+      tags:
+      - Admin
     put:
       consumes:
       - application/json
@@ -1750,7 +2109,703 @@ paths:
       - BearerAuth: []
       summary: Update notification template
       tags:
-      - Admin - Notification Templates
+      - Admin
+  /admin/notifications:
+    get:
+      description: Get all notifications for the authenticated admin
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      - description: Filter unread notifications only
+        in: query
+        name: unread_only
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/notifications.NotificationsListResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Admin notifications list
+      tags:
+      - Admin
+  /admin/notifications/{id}/read:
+    post:
+      description: Mark a specific notification as read for the authenticated admin
+      parameters:
+      - description: Notification ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Mark admin notification as read
+      tags:
+      - Admin
+  /admin/notifications/read-all:
+    post:
+      description: Mark all notifications as read for the authenticated admin
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Mark all admin notifications as read
+      tags:
+      - Admin
+  /admin/tickets:
+    post:
+      consumes:
+      - application/json
+      description: Admin creates a new support ticket and optionally assigns it
+      parameters:
+      - description: Ticket details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/tickets.AdminCreateTicketRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  properties:
+                    ticket:
+                      $ref: '#/definitions/tickets.TicketResponse'
+                  type: object
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Create ticket and assign (Admin)
+      tags:
+      - Admin
+  /admin/tickets/{ticket_id}/attachments:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Admin attaches a file to a ticket
+      parameters:
+      - description: Ticket ID
+        in: path
+        name: ticket_id
+        required: true
+        type: string
+      - description: File to upload
+        in: formData
+        name: file
+        required: true
+        type: file
+      - default: document
+        description: Attachment type
+        enum:
+        - document
+        - screenshot
+        - log_file
+        in: formData
+        name: attachment_type
+        type: string
+      - description: Description of the attachment
+        in: formData
+        name: description
+        type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  properties:
+                    attachment:
+                      $ref: '#/definitions/tickets.AttachmentResponse'
+                  type: object
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Attach file (Admin)
+      tags:
+      - Admin
+  /admin/tickets/{ticket_id}/messages:
+    post:
+      consumes:
+      - application/json
+      description: Admin adds a reply or message to a ticket
+      parameters:
+      - description: Ticket ID
+        in: path
+        name: ticket_id
+        required: true
+        type: string
+      - description: Message content
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/tickets.CreateReplyRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  properties:
+                    reply:
+                      $ref: '#/definitions/tickets.ReplyResponse'
+                  type: object
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Admin reply/message (Admin)
+      tags:
+      - Admin
+  /admin/users/{id}/avatar:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload and set avatar for a specific user (admin only)
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Avatar image file
+        in: formData
+        name: avatar
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  properties:
+                    avatar_url:
+                      type: string
+                  type: object
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Set user avatar (Admin)
+      tags:
+      - Admin
+  /admin/users/{id}/emails:
+    get:
+      description: Get all email addresses associated with a user (admin only)
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  items:
+                    type: object
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: View user emails (Admin)
+      tags:
+      - Admin
+    post:
+      consumes:
+      - application/json
+      description: Add a new email address to a user's account (admin only)
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Email details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/users.AddEmailRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Add email to user (Admin)
+      tags:
+      - Admin
+  /admin/users/{id}/phones:
+    get:
+      description: Get all phone numbers associated with a user (admin only)
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  items:
+                    type: object
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: View user phones (Admin)
+      tags:
+      - Admin
+    post:
+      consumes:
+      - application/json
+      description: Add a new phone number to a user's account (admin only)
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Phone details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/users.AddPhoneRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Add phone to user (Admin)
+      tags:
+      - Admin
+  /admin/users/{user_id}/business:
+    get:
+      description: Get business profile for a specific user (admin only)
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/users.BusinessResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Business profile not found
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: View user business profile
+      tags:
+      - Admin
+    patch:
+      consumes:
+      - application/json
+      description: Update business profile for a specific user (admin only)
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: string
+      - description: Business updates
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/users.UpdateBusinessRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Update user business
+      tags:
+      - Admin
+    post:
+      consumes:
+      - application/json
+      description: Create a new business profile for a specific user (admin only)
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: string
+      - description: Business details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/users.CreateBusinessRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/users.BusinessResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Create business for user
+      tags:
+      - Admin
+  /admin/users/{user_id}/business/avatar:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload an avatar image for a user's business profile (admin only)
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: string
+      - description: Avatar image file (JPEG, PNG, GIF, WebP, max 5MB)
+        in: formData
+        name: avatar
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  properties:
+                    avatar_url:
+                      type: string
+                  type: object
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Business profile not found
+          schema:
+            $ref: '#/definitions/response.Response'
+        "413":
+          description: File too large
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Upload user business avatar
+      tags:
+      - Admin
+  /admin/users/{user_id}/tickets:
+    get:
+      description: Get all tickets created by a specific user
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      - description: Filter by status
+        in: query
+        name: status
+        type: string
+      - description: Filter by priority
+        in: query
+        name: priority
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/tickets.TicketsListResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: List tickets for specific user (Admin)
+      tags:
+      - Admin
   /auth/2fa/backup-codes:
     get:
       description: Get the current user's 2FA backup codes. Only available for authenticator-based
@@ -2235,7 +3290,7 @@ paths:
               type: object
       summary: Refresh access token
       tags:
-      - Auth
+      - Authentication
   /clients:
     get:
       description: Get a paginated list of all OAuth clients (admin only)
@@ -4722,7 +5777,7 @@ paths:
       parameters:
       - description: User ID
         in: path
-        name: user_id
+        name: id
         required: true
         type: string
       produces:
@@ -4750,7 +5805,7 @@ paths:
       parameters:
       - description: User ID
         in: path
-        name: user_id
+        name: id
         required: true
         type: string
       produces:
@@ -4789,7 +5844,7 @@ paths:
       parameters:
       - description: User ID
         in: path
-        name: user_id
+        name: id
         required: true
         type: string
       - description: Session ID
@@ -5177,6 +6232,173 @@ paths:
       security:
       - BearerAuth: []
       summary: Upload user avatar
+      tags:
+      - Users
+  /users/me/business:
+    get:
+      description: Get authenticated user's business profile
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/users.BusinessResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Business profile not found
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Get business profile
+      tags:
+      - Users
+    patch:
+      consumes:
+      - application/json
+      description: Update the authenticated user's business profile (partial updates
+        supported)
+      parameters:
+      - description: Business updates
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/users.UpdateBusinessRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Update business profile
+      tags:
+      - Users
+    post:
+      consumes:
+      - application/json
+      description: Create a new business profile for the authenticated user
+      parameters:
+      - description: Business details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/users.CreateBusinessRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/users.BusinessResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Create business profile
+      tags:
+      - Users
+  /users/me/business/avatar:
+    delete:
+      description: Remove the avatar from the authenticated user's business profile
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Business profile not found
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete business avatar
+      tags:
+      - Users
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload an avatar image for the authenticated user's business profile
+      parameters:
+      - description: Avatar image file (JPEG, PNG, GIF, WebP, max 5MB)
+        in: formData
+        name: avatar
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  properties:
+                    avatar_url:
+                      type: string
+                  type: object
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Business profile not found
+          schema:
+            $ref: '#/definitions/response.Response'
+        "413":
+          description: File too large
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Upload business avatar
       tags:
       - Users
   /users/me/emails:
@@ -5782,8 +7004,8 @@ paths:
       tags:
       - Users
 schemes:
-- https
 - http
+- https
 securityDefinitions:
   BearerAuth:
     description: Type "Bearer" followed by a space and JWT token.

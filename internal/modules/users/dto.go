@@ -113,7 +113,8 @@ type RefreshTokenResponse struct {
 
 // AddEmailRequest represents a request to add a new email
 type AddEmailRequest struct {
-	Email string `json:"email" binding:"required,email"`
+	Email     string `json:"email" binding:"required,email"`
+	IsPrimary bool   `json:"is_primary"`
 }
 
 // UserEmailResponse represents a user email response
@@ -138,7 +139,8 @@ type UserEmailsListResponse struct {
 
 // AddPhoneRequest represents a request to add a new phone
 type AddPhoneRequest struct {
-	Phone string `json:"phone" binding:"required"`
+	Phone     string `json:"phone" binding:"required"`
+	IsPrimary bool   `json:"is_primary"`
 }
 
 // UserPhoneResponse represents a user phone response
@@ -219,4 +221,53 @@ type ExportsListResponse struct {
 	Page       int               `json:"page"`
 	Limit      int               `json:"limit"`
 	TotalPages int               `json:"total_pages"`
+}
+
+// Business Profile DTOs
+
+// CreateBusinessRequest represents a request to create a business profile
+type CreateBusinessRequest struct {
+	Name         string `json:"name" binding:"required,min=2,max=255"`
+	Description  string `json:"description" binding:"omitempty,max=1000"`
+	AddressLine1 string `json:"address_line1" binding:"omitempty,max=255"`
+	AddressLine2 string `json:"address_line2" binding:"omitempty,max=255"`
+	City         string `json:"city" binding:"omitempty,max=100"`
+	Province     string `json:"province" binding:"omitempty,max=100"`
+	PostalCode   string `json:"postal_code" binding:"omitempty,max=20"`
+	Country      string `json:"country" binding:"omitempty,len=2"` // ISO 3166-1 alpha-2
+	Phone        string `json:"phone" binding:"omitempty,max=20"`
+	Email        string `json:"email" binding:"omitempty,email,max=255"`
+}
+
+// UpdateBusinessRequest represents a request to update a business profile (partial updates)
+type UpdateBusinessRequest struct {
+	Name         *string `json:"name" binding:"omitempty,min=2,max=255"`
+	Description  *string `json:"description" binding:"omitempty,max=1000"`
+	AddressLine1 *string `json:"address_line1" binding:"omitempty,max=255"`
+	AddressLine2 *string `json:"address_line2" binding:"omitempty,max=255"`
+	City         *string `json:"city" binding:"omitempty,max=100"`
+	Province     *string `json:"province" binding:"omitempty,max=100"`
+	PostalCode   *string `json:"postal_code" binding:"omitempty,max=20"`
+	Country      *string `json:"country" binding:"omitempty,len=2"`
+	Phone        *string `json:"phone" binding:"omitempty,max=20"`
+	Email        *string `json:"email" binding:"omitempty,email,max=255"`
+}
+
+// BusinessResponse represents a business profile response
+type BusinessResponse struct {
+	ID           string    `json:"id"`
+	Name         string    `json:"name"`
+	Description  string    `json:"description,omitempty"`
+	Address      string    `json:"address,omitempty"`      // Formatted full address
+	AddressLine1 string    `json:"address_line1,omitempty"`
+	AddressLine2 string    `json:"address_line2,omitempty"`
+	City         string    `json:"city,omitempty"`
+	Province     string    `json:"province,omitempty"`
+	PostalCode   string    `json:"postal_code,omitempty"`
+	Country      string    `json:"country,omitempty"`
+	Phone        string    `json:"phone,omitempty"`
+	Email        string    `json:"email,omitempty"`
+	AvatarURL    string    `json:"avatar_url,omitempty"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
