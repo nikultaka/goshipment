@@ -21,7 +21,7 @@ services:
     restart: always
 
   nats:
-    image: nats:2.10
+    image: nats:latest
     container_name: go_skeleton_nats
     command:
       - "--jetstream"
