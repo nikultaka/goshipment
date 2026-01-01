@@ -71,7 +71,7 @@ type UsersListResponse struct {
 
 // TwoFA DTOs
 type Setup2FARequest struct {
-	Method string `json:"method" binding:"required,oneof=sms authenticator"`
+	Method string `json:"method" binding:"required,oneof=sms authenticator" example:"authenticator"`
 }
 
 type Setup2FAResponse struct {

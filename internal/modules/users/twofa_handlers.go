@@ -74,7 +74,7 @@ func (m *UsersModule) deletePendingLogin(sessionID string) error {
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param request body Setup2FARequest true "2FA method selection"
+// @Param request body Setup2FARequest true "2FA method selection" example({"method": "authenticator"})
 // @Success 200 {object} response.Response{data=Setup2FAResponse}
 // @Failure 400 {object} response.Response
 // @Failure 401 {object} response.Response
