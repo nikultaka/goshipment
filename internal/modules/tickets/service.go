@@ -194,9 +194,17 @@ func (s *TicketsService) GetTicketWithReplies(ticketID string) (*TicketDetailRes
 
 	// Get replies
 	query := `
-		SELECT id, ticket_id, user_id, is_staff, content, created_at, updated_at, deleted_at
+		SELECT
+			id,
+			ticket_id,
+			COALESCE(sender_user_id::text, '') as user_id,
+			CASE WHEN sender_type IN ('agent', 'system') THEN true ELSE false END as is_staff,
+			message_text as content,
+			created_at,
+			created_at as updated_at,
+			NULL::timestamp as deleted_at
 		FROM support_ticket_messages
-		WHERE ticket_id = $1 AND deleted_at IS NULL
+		WHERE ticket_id = $1
 		ORDER BY created_at ASC
 	`
 

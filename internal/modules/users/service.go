@@ -533,6 +533,13 @@ func (s *UserService) ForgotPassword(email string) error {
 	resetToken := utils.GenerateRandomString(50)
 	expiresAt := time.Now().UTC().Add(1 * time.Hour) // 1 hour expiry
 
+	// Delete any existing unused tokens for this user to avoid unique constraint violation
+	deleteQuery := `
+		DELETE FROM password_reset_tokens
+		WHERE user_id = $1 AND used_at IS NULL
+	`
+	_, _ = s.db.DB.Exec(deleteQuery, userID)
+
 	// Store reset token
 	tokenID := uuid.New().String()
 	insertQuery := `
