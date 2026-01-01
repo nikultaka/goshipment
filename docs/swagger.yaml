@@ -1960,7 +1960,7 @@ paths:
       - BearerAuth: []
       summary: List notification templates
       tags:
-      - Admin
+      - Admin - Notification Templates
     post:
       consumes:
       - application/json
@@ -2011,7 +2011,7 @@ paths:
       - BearerAuth: []
       summary: Create notification template
       tags:
-      - Admin
+      - Admin - Notification Templates
   /admin/notification-templates/{id}:
     get:
       description: Get a specific notification template by ID (Admin only)
@@ -2049,7 +2049,7 @@ paths:
       - BearerAuth: []
       summary: Get notification template
       tags:
-      - Admin
+      - Admin - Notification Templates
     put:
       consumes:
       - application/json
@@ -2109,7 +2109,7 @@ paths:
       - BearerAuth: []
       summary: Update notification template
       tags:
-      - Admin
+      - Admin - Notification Templates
   /admin/notifications:
     get:
       description: Get all notifications for the authenticated admin

@@ -243,7 +243,7 @@ func (m *NotificationsModule) testSMS(c *gin.Context) {
 // listNotificationTemplates lists all notification templates
 // @Summary List notification templates
 // @Description Get paginated list of notification templates (Admin only)
-// @Tags Admin
+// @Tags Admin - Notification Templates
 // @Produce json
 // @Security BearerAuth
 // @Param page query int false "Page number" default(1)
@@ -269,7 +269,7 @@ func (m *NotificationsModule) listNotificationTemplates(c *gin.Context) {
 // createNotificationTemplate creates a new notification template
 // @Summary Create notification template
 // @Description Create a new notification template (Admin only)
-// @Tags Admin
+// @Tags Admin - Notification Templates
 // @Accept json
 // @Produce json
 // @Security BearerAuth
@@ -308,7 +308,7 @@ func (m *NotificationsModule) createNotificationTemplate(c *gin.Context) {
 // updateNotificationTemplate updates an existing notification template
 // @Summary Update notification template
 // @Description Update an existing notification template (Admin only)
-// @Tags Admin
+// @Tags Admin - Notification Templates
 // @Accept json
 // @Produce json
 // @Security BearerAuth
@@ -458,7 +458,7 @@ func (m *NotificationsModule) markAllAdminNotificationsAsRead(c *gin.Context) {
 // getNotificationTemplate retrieves a specific notification template (NEW)
 // @Summary Get notification template
 // @Description Get a specific notification template by ID (Admin only)
-// @Tags Admin
+// @Tags Admin - Notification Templates
 // @Produce json
 // @Security BearerAuth
 // @Param id path string true "Template ID"

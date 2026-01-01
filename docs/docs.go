@@ -606,7 +606,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Admin"
+                    "Admin - Notification Templates"
                 ],
                 "summary": "List notification templates",
                 "parameters": [
@@ -678,7 +678,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Admin"
+                    "Admin - Notification Templates"
                 ],
                 "summary": "Create notification template",
                 "parameters": [
@@ -765,7 +765,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Admin"
+                    "Admin - Notification Templates"
                 ],
                 "summary": "Get notification template",
                 "parameters": [
@@ -830,7 +830,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Admin"
+                    "Admin - Notification Templates"
                 ],
                 "summary": "Update notification template",
                 "parameters": [
