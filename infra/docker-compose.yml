@@ -205,6 +205,7 @@ services:
       SWAGGER_JSON: /openapi/openapi.yaml
       BASE_URL: /swagger
       URLS: "[{ url: '/openapi/openapi.yaml', name: 'OAuth2/OIDC API' }]"
+      DOC_EXPANSION: list
     volumes:
       - ../docs:/openapi:ro
     restart: always
