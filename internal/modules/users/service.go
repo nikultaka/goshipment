@@ -1089,6 +1089,16 @@ func (s *UserService) RefreshToken(refreshToken string) (*RefreshTokenResponse, 
 	}, nil
 }
 
+// IncrementTokenVersion increments the user's token version to invalidate all existing tokens
+func (s *UserService) IncrementTokenVersion(userID string) error {
+	query := `UPDATE users SET token_version = token_version + 1, updated_at = $1 WHERE id = $2`
+	_, err := s.db.Exec(query, time.Now().UTC(), userID)
+	if err != nil {
+		return fmt.Errorf("failed to increment token version: %w", err)
+	}
+	return nil
+}
+
 // UpdateAvatar updates a user's avatar file ID in the database
 func (s *UserService) UpdateAvatar(userID string, avatarFileID string) error {
 	query := `

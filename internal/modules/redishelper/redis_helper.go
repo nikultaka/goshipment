@@ -157,6 +157,33 @@ func (r *RedisHelper) RevokeAllUserTokens(userID string, tokenIDs []string, expi
 	return nil
 }
 
+// SetLogoutAllTimestamp sets a timestamp when user logged out from all devices
+func (r *RedisHelper) SetLogoutAllTimestamp(userID string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	key := fmt.Sprintf("logout_all:%s", userID)
+	timestamp := time.Now().Unix()
+	// Set with 24 hour expiry (should match or exceed access token expiry)
+	return r.redis.Set(ctx, key, timestamp, 24*time.Hour)
+}
+
+// GetLogoutAllTimestamp gets the timestamp when user logged out from all devices
+func (r *RedisHelper) GetLogoutAllTimestamp(userID string) (int64, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	key := fmt.Sprintf("logout_all:%s", userID)
+	result, err := r.redis.Get(ctx, key)
+	if err != nil {
+		return 0, err
+	}
+
+	var timestamp int64
+	fmt.Sscanf(result, "%d", &timestamp)
+	return timestamp, nil
+}
+
 // Cache Operations
 
 // CacheSet stores data in cache with expiration

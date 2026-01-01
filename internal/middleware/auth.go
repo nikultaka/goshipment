@@ -61,6 +61,18 @@ func (am *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 			return
 		}
 
+		// Check if token was issued before logout-all
+		if claims.UserID != "" {
+			logoutAllTimestamp, err := am.redisHelper.GetLogoutAllTimestamp(claims.UserID)
+			if err == nil && logoutAllTimestamp > 0 && claims.IssuedAt != nil {
+				if claims.IssuedAt.Unix() < logoutAllTimestamp {
+					response.Unauthorized(c, "Token has been invalidated")
+					c.Abort()
+					return
+				}
+			}
+		}
+
 		// Set user context
 		if claims.UserID != "" {
 			c.Set("user_id", claims.UserID)

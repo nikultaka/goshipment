@@ -133,11 +133,25 @@ func (m *UsersModule) logoutAllDevices(c *gin.Context) {
 		return
 	}
 
+	// Increment token version to invalidate all existing tokens
+	err := m.service.IncrementTokenVersion(userID.(string))
+	if err != nil {
+		response.InternalError(c, "Failed to invalidate tokens")
+		return
+	}
+
+	// Store logout-all timestamp in Redis to invalidate access tokens
+	m.service.redisHelper.SetLogoutAllTimestamp(userID.(string))
+
+	// Terminate all sessions
 	count, err := m.sessionService.TerminateAllSessions(userID.(string))
 	if err != nil {
 		response.InternalError(c, "Failed to logout from all devices")
 		return
 	}
+
+	// Delete all user sessions from Redis
+	m.service.redisHelper.DeleteAllUserSessions(userID.(string))
 
 	response.Success(c, http.StatusOK, "Logged out from all devices successfully", gin.H{
 		"terminated_count": count,

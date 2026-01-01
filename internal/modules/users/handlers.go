@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"gogin/internal/modules/storage"
 	"gogin/internal/response"
@@ -904,17 +905,30 @@ func (m *UsersModule) resendPhoneVerification(c *gin.Context) {
 // @Failure 401 {object} response.Response
 // @Router /users/logout [post]
 func (m *UsersModule) logout(c *gin.Context) {
-	_, exists := c.Get("token_id")
+	tokenIDInterface, exists := c.Get("token_id")
 	if !exists {
 		response.Unauthorized(c, "Invalid token")
 		return
 	}
 
 	userID, _ := c.Get("user_id")
+	tokenID := tokenIDInterface.(string)
 
-	// Revoke current token
-	// Note: We would need to get expiry from token claims to properly revoke
-	// For now, we'll delete the session
+	// Extract token from header to get expiry time
+	authHeader := c.GetHeader("Authorization")
+	if authHeader != "" {
+		parts := strings.Split(authHeader, " ")
+		if len(parts) == 2 {
+			tokenString := parts[1]
+			claims, err := m.service.jwtUtil.ValidateToken(tokenString)
+			if err == nil && claims.ExpiresAt != nil {
+				// Revoke the access token
+				m.service.redisHelper.RevokeToken(tokenID, claims.ExpiresAt.Time)
+			}
+		}
+	}
+
+	// Terminate sessions
 	if userID != nil {
 		m.service.redisHelper.DeleteAllUserSessions(userID.(string))
 	}
