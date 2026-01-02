@@ -163,9 +163,10 @@ func (m *UsersModule) setup2FA(c *gin.Context) {
 		}
 
 		// Send SMS OTP
-		err := m.twofaService.SendSMSOTP(userID, userPhone.Phone)
+		err := m.twofaService.SendSMSOTP(userID, userPhone.Phone, c.ClientIP())
 		if err != nil {
-			response.InternalError(c, "Failed to send SMS OTP")
+			fmt.Printf("❌ SendSMSOTP Error: %v\n", err)
+			response.InternalError(c, fmt.Sprintf("Failed to send SMS OTP: %v", err))
 			return
 		}
 
@@ -286,7 +287,19 @@ func (m *UsersModule) verify2FALogin(c *gin.Context) {
 
 	// Verify 2FA code
 	verified, err := m.twofaService.Verify2FACode(userID, req.Code)
-	if err != nil || !verified {
+	if err != nil {
+		// Provide specific error message
+		if err.Error() == "OTP expired" {
+			response.Unauthorized(c, "2FA code has expired. Please request a new one.")
+		} else if err.Error() == "2FA not enabled" {
+			response.BadRequest(c, "2FA is not enabled for this account")
+		} else {
+			response.Unauthorized(c, "Invalid 2FA code")
+		}
+		return
+	}
+
+	if !verified {
 		response.Unauthorized(c, "Invalid 2FA code")
 		return
 	}

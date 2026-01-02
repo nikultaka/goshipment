@@ -161,7 +161,7 @@ func (s *TwoFAService) Get2FAInfo(userID string) (*TwoFAMetadata, bool, error) {
 	return metadata, enabled, nil
 }
 
-// Verify2FACode verifies a 2FA code (TOTP or backup code)
+// Verify2FACode verifies a 2FA code (TOTP, SMS OTP, or backup code)
 func (s *TwoFAService) Verify2FACode(userID, code string) (bool, error) {
 	metadata, enabled, err := s.Get2FAInfo(userID)
 	if err != nil {
@@ -172,7 +172,28 @@ func (s *TwoFAService) Verify2FACode(userID, code string) (bool, error) {
 		return false, fmt.Errorf("2FA not enabled")
 	}
 
-	// Check TOTP code
+	// Handle SMS OTP verification
+	if metadata.Method == string(MethodSMS) {
+		// Get user's phone number
+		_, _, userPhone, _, err := s.userService.GetUserByID(userID)
+		if err != nil {
+			return false, fmt.Errorf("failed to get user phone: %w", err)
+		}
+
+		if userPhone == nil || userPhone.Phone == "" {
+			return false, fmt.Errorf("no phone number found for SMS verification")
+		}
+
+		// Verify SMS OTP
+		verified, err := s.VerifySMSOTP(userPhone.Phone, code)
+		if err != nil {
+			return false, err
+		}
+
+		return verified, nil
+	}
+
+	// Handle Authenticator TOTP verification
 	if metadata.Method == string(MethodAuthenticator) && metadata.TOTPSecret != "" {
 		if s.VerifyTOTP(metadata.TOTPSecret, code) {
 			return true, nil
@@ -193,20 +214,42 @@ func (s *TwoFAService) Verify2FACode(userID, code string) (bool, error) {
 }
 
 // SendSMSOTP sends an OTP via SMS for 2FA
-func (s *TwoFAService) SendSMSOTP(userID, phone string) error {
+func (s *TwoFAService) SendSMSOTP(userID, phone, ipAddress string) error {
 	// Generate 6-digit OTP
 	otp := generateOTP()
 	otpHash := hashOTP(otp)
 	expiresAt := time.Now().UTC().Add(5 * time.Minute)
 
 	// Create login challenge
-	err := s.userService.CreateLoginChallenge(phone, otpHash, expiresAt, "")
+	err := s.userService.CreateLoginChallenge(phone, otpHash, expiresAt, ipAddress)
 	if err != nil {
 		return fmt.Errorf("failed to create OTP challenge: %w", err)
 	}
 
-	// In production, integrate with Twilio or SMS service
-	fmt.Printf("📱 2FA OTP for %s: %s\n", phone, otp)
+	// Send SMS via Twilio
+	err = s.userService.twilioClient.SendVerificationCode(phone, otp)
+	if err != nil {
+		// Log error
+		fmt.Printf("⚠️  Failed to send 2FA SMS to %s: %v\n", phone, err)
+
+		// In development mode, still show OTP in console as fallback
+		if s.userService.config.IsDevelopment() {
+			fmt.Printf("📱 [DEV MODE] 2FA OTP for %s: %s\n", phone, otp)
+			fmt.Printf("   (This OTP expires in 5 minutes)\n")
+		} else {
+			// In production, return error if SMS fails
+			return fmt.Errorf("failed to send SMS: %w", err)
+		}
+		return nil
+	}
+
+	// Successfully sent SMS
+	fmt.Printf("✅ 2FA SMS sent successfully to %s\n", phone)
+
+	// Also log in dev mode for debugging
+	if s.userService.config.IsDevelopment() {
+		fmt.Printf("📱 [DEV MODE] 2FA OTP sent to %s: %s\n", phone, otp)
+	}
 
 	return nil
 }
@@ -215,20 +258,33 @@ func (s *TwoFAService) SendSMSOTP(userID, phone string) error {
 func (s *TwoFAService) VerifySMSOTP(phone, code string) (bool, error) {
 	challenge, err := s.userService.GetActiveChallenge(phone)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("no active OTP challenge found")
 	}
 
+	// Check if expired
 	if time.Now().UTC().After(challenge.ExpiresAt) {
 		return false, fmt.Errorf("OTP expired")
 	}
 
+	// Check if locked due to too many attempts
+	if challenge.LockedUntil.Valid && time.Now().UTC().Before(challenge.LockedUntil.Time) {
+		return false, fmt.Errorf("too many failed attempts, please request a new OTP")
+	}
+
+	// Check attempts limit
+	if challenge.Attempts >= challenge.MaxAttempts {
+		s.userService.LockChallenge(challenge.ID)
+		return false, fmt.Errorf("too many failed attempts, please request a new OTP")
+	}
+
+	// Verify OTP hash
 	otpHash := hashOTP(code)
 	if challenge.CodeHash != otpHash {
 		s.userService.IncrementChallengeAttempts(challenge.ID)
 		return false, nil
 	}
 
-	// Mark challenge as verified
+	// Mark challenge as verified (prevents reuse)
 	s.userService.MarkChallengeVerified(challenge.ID)
 	return true, nil
 }

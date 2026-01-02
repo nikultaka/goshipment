@@ -110,7 +110,7 @@ func (m *UsersModule) login(c *gin.Context) {
 		if metadata.Method == "sms" {
 			user, _, userPhone, _, _ := m.service.GetUserByID(loginResp.User.ID)
 			if userPhone != nil {
-				m.twofaService.SendSMSOTP(user.ID, userPhone.Phone)
+				m.twofaService.SendSMSOTP(user.ID, userPhone.Phone, c.ClientIP())
 			}
 		}
 
@@ -769,7 +769,7 @@ func (m *UsersModule) addUserPhone(c *gin.Context) {
 		return
 	}
 
-	phone, err := m.service.AddUserPhone(userID.(string), req.Phone)
+	phone, err := m.service.AddUserPhone(userID.(string), req.Phone, req.IsPrimary)
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -893,6 +893,75 @@ func (m *UsersModule) resendPhoneVerification(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusOK, "Verification SMS sent successfully", nil)
+}
+
+// verifyUserPhone verifies a phone number with verification code
+// @Summary Verify phone number
+// @Description Verify a phone number using the verification code sent via SMS
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param phone_id path string true "Phone ID"
+// @Param request body VerifyPhoneRequest true "Verification code"
+// @Success 200 {object} response.Response{data=object{phone=UserPhoneResponse}}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Router /users/me/phones/{phone_id}/verify [put]
+func (m *UsersModule) verifyUserPhone(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+
+	phoneID := c.Param("phone_id")
+	if phoneID == "" {
+		response.BadRequest(c, "Phone ID is required")
+		return
+	}
+
+	var req VerifyPhoneRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		errors := []response.ResponseError{
+			response.NewError("VALIDATION_ERROR", err.Error(), ""),
+		}
+		response.ValidationError(c, errors)
+		return
+	}
+
+	err := m.service.VerifyUserPhone(userID.(string), phoneID, req.Code)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	// Get updated phone details
+	phone, err := m.service.GetUserPhone(userID.(string), phoneID)
+	if err != nil {
+		response.Success(c, http.StatusOK, "Phone verified successfully", nil)
+		return
+	}
+
+	phoneResp := &UserPhoneResponse{
+		ID:         phone.ID,
+		Phone:      phone.Phone,
+		IsPrimary:  phone.IsPrimary,
+		IsRecovery: phone.IsRecovery,
+		IsVerified: phone.IsVerified,
+		CreatedAt:  phone.CreatedAt,
+		UpdatedAt:  phone.UpdatedAt,
+	}
+	if phone.PhoneE164.Valid {
+		phoneResp.PhoneE164 = phone.PhoneE164.String
+	}
+	if phone.VerifiedAt.Valid {
+		phoneResp.VerifiedAt = phone.VerifiedAt.Time
+	}
+
+	response.Success(c, http.StatusOK, "Phone verified successfully", gin.H{
+		"phone": phoneResp,
+	})
 }
 
 // logout handles user logout
@@ -1624,21 +1693,29 @@ func (m *UsersModule) adminAddUserPhone(c *gin.Context) {
 		return
 	}
 
-	phone, err := m.service.AddUserPhone(userID, req.Phone)
+	phone, err := m.service.AddUserPhone(userID, req.Phone, req.IsPrimary)
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return
 	}
 
-	// If IsPrimary is true, set this phone as primary
-	if req.IsPrimary {
-		setPrimaryErr := m.service.SetPrimaryPhone(userID, phone.ID)
-		if setPrimaryErr != nil {
-			// Phone was added but couldn't be set as primary - not critical
-			response.Success(c, http.StatusCreated, "Phone added but couldn't be set as primary: "+setPrimaryErr.Error(), nil)
-			return
-		}
+	phoneResp := &UserPhoneResponse{
+		ID:         phone.ID,
+		Phone:      phone.Phone,
+		IsPrimary:  phone.IsPrimary,
+		IsRecovery: phone.IsRecovery,
+		IsVerified: phone.IsVerified,
+		CreatedAt:  phone.CreatedAt,
+		UpdatedAt:  phone.UpdatedAt,
+	}
+	if phone.PhoneE164.Valid {
+		phoneResp.PhoneE164 = phone.PhoneE164.String
+	}
+	if phone.VerifiedAt.Valid {
+		phoneResp.VerifiedAt = phone.VerifiedAt.Time
 	}
 
-	response.Success(c, http.StatusCreated, "Phone added successfully", nil)
+	response.Success(c, http.StatusCreated, "Phone added successfully", gin.H{
+		"phone": phoneResp,
+	})
 }

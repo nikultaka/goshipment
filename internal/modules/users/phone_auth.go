@@ -251,7 +251,7 @@ func hashOTP(otp string) string {
 // CreateLoginChallenge creates OTP challenge in database
 func (s *UserService) CreateLoginChallenge(phone, codeHash string, expiresAt time.Time, ipAddress string) error {
 	// Invalidate any existing active challenges for this phone
-	s.db.Exec(`UPDATE login_challenges SET verified_at = NOW() WHERE destination = $1 AND verified_at IS NULL`, phone)
+	s.db.DB.Exec(`UPDATE login_challenges SET verified_at = NOW() WHERE destination = $1 AND verified_at IS NULL`, phone)
 
 	query := `
 		INSERT INTO login_challenges (
@@ -259,7 +259,7 @@ func (s *UserService) CreateLoginChallenge(phone, codeHash string, expiresAt tim
 			created_at, expires_at, attempts, max_attempts, ip_address
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`
-	_, err := s.db.Exec(query, phone, "phone_otp", codeHash, time.Now().UTC(), expiresAt, 0, 5, ipAddress)
+	_, err := s.db.DB.Exec(query, phone, "phone_otp", codeHash, time.Now().UTC(), expiresAt, 0, 5, ipAddress)
 	return err
 }
 
@@ -278,7 +278,7 @@ func (s *UserService) GetActiveChallenge(phone string) (*models.LoginChallenge, 
 	`
 
 	var challenge models.LoginChallenge
-	err := s.db.QueryRow(query, phone).Scan(
+	err := s.db.DB.QueryRow(query, phone).Scan(
 		&challenge.ID, &challenge.Destination, &challenge.ChallengeType,
 		&challenge.CodeHash, &challenge.CreatedAt, &challenge.ExpiresAt,
 		&challenge.VerifiedAt, &challenge.Attempts, &challenge.MaxAttempts,
@@ -297,18 +297,18 @@ func (s *UserService) GetActiveChallenge(phone string) (*models.LoginChallenge, 
 
 // IncrementChallengeAttempts increments failed attempts
 func (s *UserService) IncrementChallengeAttempts(challengeID string) {
-	s.db.Exec(`UPDATE login_challenges SET attempts = attempts + 1 WHERE id = $1`, challengeID)
+	s.db.DB.Exec(`UPDATE login_challenges SET attempts = attempts + 1 WHERE id = $1`, challengeID)
 }
 
 // LockChallenge locks challenge after too many attempts
 func (s *UserService) LockChallenge(challengeID string) {
 	lockUntil := time.Now().UTC().Add(15 * time.Minute)
-	s.db.Exec(`UPDATE login_challenges SET locked_until = $1 WHERE id = $2`, lockUntil, challengeID)
+	s.db.DB.Exec(`UPDATE login_challenges SET locked_until = $1 WHERE id = $2`, lockUntil, challengeID)
 }
 
 // MarkChallengeVerified marks challenge as verified
 func (s *UserService) MarkChallengeVerified(challengeID string) {
-	s.db.Exec(`UPDATE login_challenges SET verified_at = NOW() WHERE id = $1`, challengeID)
+	s.db.DB.Exec(`UPDATE login_challenges SET verified_at = NOW() WHERE id = $1`, challengeID)
 }
 
 // FindOrCreateUserByPhone finds existing user or creates new one
@@ -316,7 +316,7 @@ func (s *UserService) FindOrCreateUserByPhone(phone string) (*models.User, *mode
 	// Try to find existing user by phone
 	var userID string
 	phoneQuery := `SELECT user_id FROM user_phones WHERE phone = $1 OR phone_e164 = $1 LIMIT 1`
-	err := s.db.QueryRow(phoneQuery, phone).Scan(&userID)
+	err := s.db.DB.QueryRow(phoneQuery, phone).Scan(&userID)
 
 	if err == sql.ErrNoRows {
 		// Create new user
@@ -337,7 +337,7 @@ func (s *UserService) FindOrCreateUserByPhone(phone string) (*models.User, *mode
 
 // createUserWithPhone creates new user with phone number
 func (s *UserService) createUserWithPhone(phone string) (*models.User, *models.UserPhone, error) {
-	tx, err := s.db.Begin()
+	tx, err := s.db.DB.Begin()
 	if err != nil {
 		return nil, nil, err
 	}

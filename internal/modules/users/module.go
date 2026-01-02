@@ -117,6 +117,7 @@ func (m *UsersModule) RegisterRoutes(router *gin.RouterGroup) {
 			auth.PUT("/me/phones/:phone_id/primary", m.setPrimaryPhone)
 			auth.DELETE("/me/phones/:phone_id", m.deleteUserPhone)
 			auth.POST("/me/phones/:phone_id/verify", m.resendPhoneVerification)
+			auth.PUT("/me/phones/:phone_id/verify", m.verifyUserPhone)
 
 			auth.POST("/logout", m.logout)
 			auth.DELETE("/me", m.deleteAccount)

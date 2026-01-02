@@ -1619,7 +1619,7 @@ func (s *UserService) ListUserPhones(userID string) ([]*models.UserPhone, error)
 }
 
 // AddUserPhone adds a new phone to a user's account
-func (s *UserService) AddUserPhone(userID string, phoneNumber string) (*models.UserPhone, error) {
+func (s *UserService) AddUserPhone(userID string, phoneNumber string, isPrimary bool) (*models.UserPhone, error) {
 	// TODO: Validate and format phone number to E.164 format
 	// For now, we'll just use the phone number as-is
 	phoneE164 := phoneNumber
@@ -1635,6 +1635,22 @@ func (s *UserService) AddUserPhone(userID string, phoneNumber string) (*models.U
 		return nil, fmt.Errorf("failed to check phone: %w", err)
 	}
 
+	// Start transaction to handle primary phone logic
+	tx, err := s.db.DB.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("failed to start transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// If setting as primary, unset other primary phones for this user
+	if isPrimary {
+		unsetQuery := `UPDATE user_phones SET is_primary = false, updated_at = $1 WHERE user_id = $2 AND is_primary = true`
+		_, err = tx.Exec(unsetQuery, time.Now().UTC(), userID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unset existing primary: %w", err)
+		}
+	}
+
 	// Generate verification code (6 digits)
 	verificationCode := utils.GenerateRandomString(6)
 	verificationExpiry := time.Now().UTC().Add(10 * time.Minute)
@@ -1647,17 +1663,18 @@ func (s *UserService) AddUserPhone(userID string, phoneNumber string) (*models.U
 			verification_code, verification_expires_at, is_active,
 			created_at, updated_at
 		)
-		VALUES ($1, $2, $3, $4, false, false, false, $5, $6, true, $7, $8)
+		VALUES ($1, $2, $3, $4, $5, false, false, $6, $7, true, $8, $9)
 		RETURNING id, user_id, phone, phone_e164, is_primary, is_recovery, is_verified,
 		          verified_at, is_active, created_at, updated_at
 	`
 
 	phone := &models.UserPhone{}
-	err = s.db.DB.QueryRow(query,
+	err = tx.QueryRow(query,
 		phoneID,
 		userID,
 		phoneNumber,
 		phoneE164,
+		isPrimary,
 		verificationCode,
 		verificationExpiry,
 		time.Now().UTC(),
@@ -1680,8 +1697,22 @@ func (s *UserService) AddUserPhone(userID string, phoneNumber string) (*models.U
 		return nil, fmt.Errorf("failed to add phone: %w", err)
 	}
 
-	// TODO: Send verification SMS with code
-	// s.sendPhoneVerification(phone.Phone, verificationCode)
+	// If this is the primary phone, update the user's primary_phone_id
+	if isPrimary {
+		updateUserQuery := `UPDATE users SET primary_phone_id = $1, updated_at = $2 WHERE id = $3`
+		_, err = tx.Exec(updateUserQuery, phoneID, time.Now().UTC(), userID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to set primary phone: %w", err)
+		}
+	}
+
+	// Commit transaction
+	if err = tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	// Send verification SMS with code
+	s.sendPhoneVerification(phoneNumber, verificationCode)
 
 	return phone, nil
 }
@@ -1853,8 +1884,139 @@ func (s *UserService) ResendPhoneVerification(userID string, phoneID string) err
 		return fmt.Errorf("failed to update verification code: %w", err)
 	}
 
-	// TODO: Send verification SMS
-	// s.sendPhoneVerification(phone, verificationCode)
+	// Send verification SMS
+	s.sendPhoneVerification(phone, verificationCode)
+
+	return nil
+}
+
+// sendPhoneVerification sends verification SMS to the phone number
+func (s *UserService) sendPhoneVerification(phone, verificationCode string) {
+	// Try to send SMS via Twilio
+	err := s.twilioClient.SendVerificationCode(phone, verificationCode)
+
+	if err != nil {
+		// Log error
+		fmt.Printf("⚠️  Failed to send SMS to %s: %v\n", phone, err)
+
+		// In development mode, still show OTP in console as fallback
+		if s.config.IsDevelopment() {
+			fmt.Printf("📱 [DEV MODE] Phone Verification OTP for %s: %s\n", phone, verificationCode)
+			fmt.Printf("   (This OTP expires in 10 minutes)\n")
+		}
+		return
+	}
+
+	// Successfully sent SMS
+	fmt.Printf("✅ SMS sent successfully to %s\n", phone)
+
+	// Also log in dev mode for debugging
+	if s.config.IsDevelopment() {
+		fmt.Printf("📱 [DEV MODE] OTP sent to %s: %s\n", phone, verificationCode)
+	}
+}
+
+// GetUserPhone retrieves a specific phone for a user
+func (s *UserService) GetUserPhone(userID string, phoneID string) (*models.UserPhone, error) {
+	query := `
+		SELECT id, user_id, phone, phone_e164, is_primary, is_recovery, is_verified,
+		       verified_at, is_active, created_at, updated_at
+		FROM user_phones
+		WHERE id = $1 AND user_id = $2 AND is_active = true
+	`
+
+	phone := &models.UserPhone{}
+	err := s.db.DB.QueryRow(query, phoneID, userID).Scan(
+		&phone.ID,
+		&phone.UserID,
+		&phone.Phone,
+		&phone.PhoneE164,
+		&phone.IsPrimary,
+		&phone.IsRecovery,
+		&phone.IsVerified,
+		&phone.VerifiedAt,
+		&phone.IsActive,
+		&phone.CreatedAt,
+		&phone.UpdatedAt,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("phone not found")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get phone: %w", err)
+	}
+
+	return phone, nil
+}
+
+// VerifyUserPhone verifies a phone number with the verification code
+func (s *UserService) VerifyUserPhone(userID string, phoneID string, code string) error {
+	// Get phone details
+	var phone string
+	var isVerified bool
+	var isPrimary bool
+	var verificationCode string
+	var expiresAt time.Time
+
+	query := `
+		SELECT phone, is_verified, is_primary, verification_code, verification_expires_at
+		FROM user_phones
+		WHERE id = $1 AND user_id = $2 AND is_active = true
+	`
+	err := s.db.DB.QueryRow(query, phoneID, userID).Scan(&phone, &isVerified, &isPrimary, &verificationCode, &expiresAt)
+	if err == sql.ErrNoRows {
+		return fmt.Errorf("phone not found")
+	}
+	if err != nil {
+		return fmt.Errorf("failed to get phone: %w", err)
+	}
+
+	if isVerified {
+		return fmt.Errorf("phone is already verified")
+	}
+
+	// Check if code has expired
+	if time.Now().UTC().After(expiresAt) {
+		return fmt.Errorf("verification code has expired")
+	}
+
+	// Verify code
+	if verificationCode != code {
+		return fmt.Errorf("invalid verification code")
+	}
+
+	// Start transaction
+	tx, err := s.db.DB.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to start transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Mark phone as verified
+	updateQuery := `
+		UPDATE user_phones
+		SET is_verified = true, verified_at = $1, updated_at = $2
+		WHERE id = $3 AND user_id = $4
+	`
+	_, err = tx.Exec(updateQuery, time.Now().UTC(), time.Now().UTC(), phoneID, userID)
+	if err != nil {
+		return fmt.Errorf("failed to verify phone: %w", err)
+	}
+
+	// If this is the primary phone, update the user's primary_phone_id
+	if isPrimary {
+		updateUserQuery := `UPDATE users SET primary_phone_id = $1, updated_at = $2 WHERE id = $3`
+		_, err = tx.Exec(updateUserQuery, phoneID, time.Now().UTC(), userID)
+		if err != nil {
+			return fmt.Errorf("failed to set primary phone: %w", err)
+		}
+	}
+
+	// Commit transaction
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
 
 	return nil
 }

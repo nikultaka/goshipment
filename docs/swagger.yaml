@@ -1548,6 +1548,13 @@ definitions:
     - otp
     - phone
     type: object
+  users.VerifyPhoneRequest:
+    properties:
+      code:
+        type: string
+    required:
+    - code
+    type: object
 host: localhost:8081
 info:
   contact:
@@ -6777,6 +6784,50 @@ paths:
       security:
       - BearerAuth: []
       summary: Resend phone verification
+      tags:
+      - Users
+    put:
+      consumes:
+      - application/json
+      description: Verify a phone number using the verification code sent via SMS
+      parameters:
+      - description: Phone ID
+        in: path
+        name: phone_id
+        required: true
+        type: string
+      - description: Verification code
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/users.VerifyPhoneRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  properties:
+                    phone:
+                      $ref: '#/definitions/users.UserPhoneResponse'
+                  type: object
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Verify phone number
       tags:
       - Users
   /users/me/sessions:

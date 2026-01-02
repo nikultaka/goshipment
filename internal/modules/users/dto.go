@@ -162,6 +162,11 @@ type UserPhonesListResponse struct {
 	Total  int                  `json:"total"`
 }
 
+// VerifyPhoneRequest represents a request to verify a phone number
+type VerifyPhoneRequest struct {
+	Code string `json:"code" binding:"required,len=6"`
+}
+
 // Admin DTOs
 
 // AdminCreateUserRequest represents an admin request to create a user
