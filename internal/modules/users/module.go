@@ -154,7 +154,15 @@ func (m *UsersModule) RegisterRoutes(router *gin.RouterGroup) {
 		}
 	}
 
-	// Admin routes under /admin
+	// Admin routes under /admin (authenticated but not admin-only)
+	adminAuthGroup := router.Group("/admin")
+	adminAuthGroup.Use(m.authMiddleware.RequireAuth())
+	{
+		// Business utilities (accessible to all authenticated users)
+		adminAuthGroup.GET("/business-types", m.adminGetBusinessTypes)
+	}
+
+	// Admin routes under /admin (admin-only)
 	adminGroup := router.Group("/admin")
 	adminGroup.Use(m.authMiddleware.RequireAuth())
 	adminGroup.Use(middleware.RequireAdmin())
@@ -164,9 +172,6 @@ func (m *UsersModule) RegisterRoutes(router *gin.RouterGroup) {
 		adminGroup.GET("/me/sessions", m.getAdminSessions)
 		adminGroup.DELETE("/me/sessions/:session_id", m.deleteAdminSession)
 		adminGroup.DELETE("/me/sessions", m.deleteAllAdminSessions)
-
-		// Business utilities
-		adminGroup.GET("/business-types", m.adminGetBusinessTypes)
 
 		// Admin user management routes
 		adminUsers := adminGroup.Group("/users")

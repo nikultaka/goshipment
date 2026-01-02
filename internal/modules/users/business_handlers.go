@@ -524,8 +524,8 @@ func (m *UsersModule) adminUploadUserBusinessAvatar(c *gin.Context) {
 
 // adminGetBusinessTypes returns the list of available business types for dropdowns
 // @Summary List business types
-// @Description Get list of available business types for dropdown selection
-// @Tags Admin
+// @Description Get list of available business types for dropdown selection. Accessible to all authenticated users.
+// @Tags Business
 // @Produce json
 // @Security BearerAuth
 // @Success 200 {object} response.Response{data=object{business_types=[]string}}

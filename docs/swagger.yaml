@@ -1790,7 +1790,8 @@ paths:
       - Admin - Audit Logs
   /admin/business-types:
     get:
-      description: Get list of available business types for dropdown selection
+      description: Get list of available business types for dropdown selection. Accessible
+        to all authenticated users.
       produces:
       - application/json
       responses:
@@ -1816,7 +1817,7 @@ paths:
       - BearerAuth: []
       summary: List business types
       tags:
-      - Admin
+      - Business
   /admin/me:
     get:
       description: Get the authenticated admin's profile information

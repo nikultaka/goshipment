@@ -368,12 +368,12 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get list of available business types for dropdown selection",
+                "description": "Get list of available business types for dropdown selection. Accessible to all authenticated users.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Admin"
+                    "Business"
                 ],
                 "summary": "List business types",
                 "responses": {
