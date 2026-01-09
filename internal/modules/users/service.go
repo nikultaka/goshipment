@@ -9,8 +9,6 @@ import (
 	"gogin/internal/config"
 	"gogin/internal/models"
 	"gogin/internal/modules/redishelper"
-	"gogin/internal/modules/sendgrid"
-	"gogin/internal/modules/twilio"
 	"gogin/internal/utils"
 
 	"github.com/google/uuid"
@@ -22,8 +20,6 @@ type UserService struct {
 	jwtUtil        *utils.JWTUtil
 	redisHelper    *redishelper.RedisHelper
 	config         *config.Config
-	twilioClient   *twilio.TwilioClient
-	sendgridClient *sendgrid.SendGridClient
 }
 
 // NewUserService creates a new user service with new schema support
@@ -33,8 +29,6 @@ func NewUserService(db *clients.Database, jwtUtil *utils.JWTUtil, redisHelper *r
 		jwtUtil:        jwtUtil,
 		redisHelper:    redisHelper,
 		config:         cfg,
-		twilioClient:   twilio.NewTwilioClient(cfg.Twilio),
-		sendgridClient: sendgrid.NewSendGridClient(cfg.SMTP),
 	}
 }
 
@@ -571,41 +565,22 @@ func (s *UserService) sendPasswordResetEmail(emailAddr, firstName, token string)
 	}
 	resetURL := fmt.Sprintf("%s/api/v1/reset-password?token=%s", baseURL, token)
 
-	// Email subject and body
+	// Email subject
 	subject := "Reset Your Password"
-	textBody := fmt.Sprintf(
-		"Hi %s,\n\nYou requested to reset your password. Click the link below to reset it:\n\n%s\n\nThis link will expire in 1 hour.\n\nIf you didn't request this, please ignore this email and your password will remain unchanged.",
-		firstName,
-		resetURL,
-	)
-	htmlBody := fmt.Sprintf(`
-		<html>
-		<body>
-			<h2>Reset Your Password</h2>
-			<p>Hi %s,</p>
-			<p>You requested to reset your password. Click the button below to reset it:</p>
-			<p style="margin: 20px 0;">
-				<a href="%s" style="background-color: #2196F3; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">
-					Reset Password
-				</a>
-			</p>
-			<p>Or copy and paste this link into your browser:</p>
-			<p><a href="%s">%s</a></p>
-			<p style="margin-top: 20px; color: #666;">This link will expire in 1 hour.</p>
-			<p style="color: #666;">If you didn't request this, please ignore this email and your password will remain unchanged.</p>
-		</body>
-		</html>
-	`, firstName, resetURL, resetURL, resetURL)
 
-	// Send email via SendGrid
-	msg := &sendgrid.EmailMessage{
-		To:          []string{emailAddr},
-		Subject:     subject,
-		TextContent: textBody,
-		HTMLContent: htmlBody,
+	// Email sending has been removed (SendGrid wrapper deleted)
+	// In development mode, show link in console
+	if s.config.IsDevelopment() {
+		fmt.Printf("📧 [DEV MODE] Password Reset Email for %s\n", emailAddr)
+		fmt.Printf("   Subject: %s\n", subject)
+		fmt.Printf("   Reset URL: %s\n", resetURL)
+		fmt.Printf("   Note: Email sending disabled - external email service required for production\n")
+		return nil
 	}
 
-	return s.sendgridClient.SendEmail(msg)
+	// Production mode - log warning
+	fmt.Printf("⚠️  Email sending not configured for %s - Reset URL: %s\n", emailAddr, resetURL)
+	return fmt.Errorf("email sending not configured - please configure external email service")
 }
 
 // ResetPassword resets user password using reset token
@@ -1465,39 +1440,22 @@ func (s *UserService) sendEmailVerification(emailAddr, token string) error {
 	}
 	verificationURL := fmt.Sprintf("%s/api/v1/verify-email?token=%s", baseURL, token)
 
-	// Email subject and body
+	// Email subject
 	subject := "Verify Your Email Address"
-	textBody := fmt.Sprintf(
-		"Please verify your email address by clicking the following link:\n\n%s\n\nThis link will expire in 24 hours.\n\nIf you did not request this, please ignore this email.",
-		verificationURL,
-	)
-	htmlBody := fmt.Sprintf(`
-		<html>
-		<body>
-			<h2>Verify Your Email Address</h2>
-			<p>Please verify your email address by clicking the button below:</p>
-			<p style="margin: 20px 0;">
-				<a href="%s" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">
-					Verify Email
-				</a>
-			</p>
-			<p>Or copy and paste this link into your browser:</p>
-			<p><a href="%s">%s</a></p>
-			<p style="margin-top: 20px; color: #666;">This link will expire in 24 hours.</p>
-			<p style="color: #666;">If you did not request this, please ignore this email.</p>
-		</body>
-		</html>
-	`, verificationURL, verificationURL, verificationURL)
 
-	// Send email via SendGrid
-	msg := &sendgrid.EmailMessage{
-		To:          []string{emailAddr},
-		Subject:     subject,
-		TextContent: textBody,
-		HTMLContent: htmlBody,
+	// Email sending has been removed (SendGrid wrapper deleted)
+	// In development mode, show link in console
+	if s.config.IsDevelopment() {
+		fmt.Printf("📧 [DEV MODE] Email Verification for %s\n", emailAddr)
+		fmt.Printf("   Subject: %s\n", subject)
+		fmt.Printf("   Verification URL: %s\n", verificationURL)
+		fmt.Printf("   Note: Email sending disabled - external email service required for production\n")
+		return nil
 	}
 
-	return s.sendgridClient.SendEmail(msg)
+	// Production mode - log warning
+	fmt.Printf("⚠️  Email sending not configured for %s - Verification URL: %s\n", emailAddr, verificationURL)
+	return fmt.Errorf("email sending not configured - please configure external email service")
 }
 
 // VerifyEmailWithToken verifies an email address using the verification token
@@ -1892,19 +1850,14 @@ func (s *UserService) ResendPhoneVerification(userID string, phoneID string) err
 
 // sendPhoneVerification sends verification SMS to the phone number
 func (s *UserService) sendPhoneVerification(phone, verificationCode string) {
-	// Try to send SMS via Twilio
-	err := s.twilioClient.SendVerificationCode(phone, verificationCode)
-
-	if err != nil {
-		// Log error
-		fmt.Printf("⚠️  Failed to send SMS to %s: %v\n", phone, err)
-
-		// In development mode, still show OTP in console as fallback
-		if s.config.IsDevelopment() {
-			fmt.Printf("📱 [DEV MODE] Phone Verification OTP for %s: %s\n", phone, verificationCode)
-			fmt.Printf("   (This OTP expires in 10 minutes)\n")
-		}
-		return
+	// SMS sending has been removed (SendGrid/Twilio wrappers deleted)
+	// In development mode, show OTP in console
+	if s.config.IsDevelopment() {
+		fmt.Printf("📱 [DEV MODE] Phone Verification OTP for %s: %s\n", phone, verificationCode)
+		fmt.Printf("   (This OTP expires in 10 minutes)\n")
+		fmt.Printf("   Note: SMS sending disabled - external SMS service required for production\n")
+	} else {
+		fmt.Printf("⚠️  SMS sending not configured - verification code: %s\n", verificationCode)
 	}
 
 	// Successfully sent SMS

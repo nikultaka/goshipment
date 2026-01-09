@@ -1,160 +1,216 @@
 -- =====================================================
--- MODULE 13: SUPPORT (TICKETS)
+-- 013_support_tickets.sql
+-- Support Ticket System (Org-Scoped, Conversation-Based)
+-- Includes Support Ticket Templates (Global + Org Overrides)
+-- =====================================================
+
+-- =====================================================
+-- ENUMS
+-- =====================================================
+
+CREATE TYPE ticket_category_enum AS ENUM (
+    'shipment',
+    'wallet',
+    'pickup',
+    'invoice',
+    'billing',
+    'account',
+    'technical',
+    'other'
+);
+
+CREATE TYPE ticket_priority_enum AS ENUM (
+    'critical',
+    'high',
+    'normal',
+    'low'
+);
+
+CREATE TYPE ticket_status_enum AS ENUM (
+    'open',
+    'resolved',
+    'closed'
+);
+
+CREATE TYPE ticket_resolution_reason_enum AS ENUM (
+    'issue_resolved',
+    'no_longer_needed',
+    'created_by_mistake',
+    'wrong_request_type',
+    'will_contact_later',
+    'other'
+);
+
+CREATE TYPE ticket_message_sender_enum AS ENUM (
+    'user',
+    'staff',
+    'system'
+);
+
+-- =====================================================
+-- SUPPORT TICKETS (CORE)
 -- =====================================================
 
 CREATE TABLE support_tickets (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    external_id VARCHAR(50) UNIQUE NOT NULL, -- tick_123abc
-    ticket_number VARCHAR(20) UNIQUE NOT NULL, -- SUP-2024-001
-    
-    -- Customer
-    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
-    customer_name VARCHAR(255),
-    customer_email VARCHAR(255) NOT NULL,
-    customer_phone VARCHAR(20),
-    
-    -- Ticket Details
-    subject VARCHAR(255) NOT NULL,
-    description TEXT NOT NULL,
-    category VARCHAR(50), -- technical, billing, general, bug_report, feature_request
-    priority VARCHAR(10) DEFAULT 'medium', -- low, medium, high, urgent
-    
+
+    -- Human identifier
+    ticket_number VARCHAR(20) NOT NULL UNIQUE,
+    -- TCK-XXXXXXXX
+
+    -- Scope
+    organization_id UUID
+        REFERENCES organizations(id) ON DELETE CASCADE,
+
+    created_by_user_id UUID NOT NULL
+        REFERENCES users(id),
+
+    assigned_to_user_id UUID
+        REFERENCES users(id) ON DELETE SET NULL,
+
     -- Classification
-    ticket_type VARCHAR(50) DEFAULT 'question', -- question, issue, request, complaint
-    source VARCHAR(50) DEFAULT 'web_form', -- web_form, email, phone, chat, api
-    
-    -- Assignment
-    assigned_to UUID REFERENCES users(id),
-    assigned_at TIMESTAMP,
-    department VARCHAR(50), -- support, technical, billing, sales
-    
-    -- Status Tracking
-    status VARCHAR(20) DEFAULT 'open', -- open, in_progress, pending_customer, resolved, closed
-    resolution VARCHAR(20), -- resolved, not_resolved, duplicate, invalid
-    
-    -- Workflow
-    first_response_at TIMESTAMP,
-    last_response_at TIMESTAMP,
+    category ticket_category_enum NOT NULL,
+    priority ticket_priority_enum NOT NULL DEFAULT 'normal',
+    status ticket_status_enum NOT NULL DEFAULT 'open',
+
+    -- Content
+    subject VARCHAR(255) NOT NULL,
+    admin_notes TEXT,
+
+    -- Resolution
+    resolution_reason ticket_resolution_reason_enum,
     resolved_at TIMESTAMP,
     closed_at TIMESTAMP,
-    
-    -- SLA Tracking
-    sla_priority VARCHAR(10), -- Calculated SLA priority
-    sla_due_at TIMESTAMP, -- When response is due
-    sla_breached BOOLEAN DEFAULT false,
-    sla_breach_reason VARCHAR(255),
-    
-    -- Satisfaction
-    satisfaction_rating INTEGER, -- 1-5 stars
-    satisfaction_feedback TEXT,
-    satisfaction_submitted_at TIMESTAMP,
-    
-    -- Related Resources
-    related_resource_type VARCHAR(50), -- shipment, invoice, user_account
-    related_resource_id VARCHAR(100),
-    
-    -- Tags & Labels
-    tags TEXT[], -- For categorization and filtering
-    labels TEXT[], -- Custom labels
-    
-    -- Escalation
-    escalated BOOLEAN DEFAULT false,
-    escalated_to UUID REFERENCES users(id),
-    escalated_at TIMESTAMP,
-    escalation_reason VARCHAR(255),
-    
-    -- Internal Notes
-    internal_notes TEXT, -- Private notes for support team
-    
-    -- Metadata
-    customer_ip_address INET,
-    customer_user_agent TEXT,
-    
-    -- Audit
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW(),
-    deleted_at TIMESTAMP
+
+    -- Activity
+    last_message_at TIMESTAMP NOT NULL DEFAULT NOW(),
+
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT chk_resolution_requires_resolved_status
+        CHECK (
+            resolution_reason IS NULL
+            OR status = 'resolved'
+        )
 );
 
--- Ticket messages/responses
+-- =====================================================
+-- SUPPORT TICKET MESSAGES
+-- =====================================================
+
 CREATE TABLE support_ticket_messages (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    external_id VARCHAR(50) UNIQUE NOT NULL, -- msg_123abc
-    ticket_id UUID NOT NULL REFERENCES support_tickets(id) ON DELETE CASCADE,
-    
-    -- Message Details
-    message_text TEXT NOT NULL,
-    is_internal BOOLEAN DEFAULT false, -- Internal note vs customer-visible
-    is_auto_generated BOOLEAN DEFAULT false, -- System-generated message
-    
-    -- Sender
-    sender_type VARCHAR(20) NOT NULL, -- customer, agent, system
-    sender_user_id UUID REFERENCES users(id), -- If sent by user/agent
-    sender_name VARCHAR(255),
-    sender_email VARCHAR(255),
-    
-    -- Message Type
-    message_type VARCHAR(20) DEFAULT 'reply', -- reply, note, status_change, escalation
-    
-    -- Delivery
-    delivery_method VARCHAR(20) DEFAULT 'web', -- web, email, sms
-    delivered_at TIMESTAMP,
-    read_at TIMESTAMP,
-    
-    -- Attachments
-    has_attachments BOOLEAN DEFAULT false,
-    attachment_count INTEGER DEFAULT 0,
-    
-    -- Context
-    ip_address INET,
-    user_agent TEXT,
-    
-    created_at TIMESTAMP DEFAULT NOW()
+
+    ticket_id UUID NOT NULL
+        REFERENCES support_tickets(id) ON DELETE CASCADE,
+
+    sender_type ticket_message_sender_enum NOT NULL,
+    sender_user_id UUID
+        REFERENCES users(id) ON DELETE SET NULL,
+
+    message TEXT NOT NULL,
+
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
--- Ticket attachments
+-- =====================================================
+-- SUPPORT TICKET ATTACHMENTS
+-- =====================================================
+
 CREATE TABLE support_ticket_attachments (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    ticket_id UUID NOT NULL REFERENCES support_tickets(id) ON DELETE CASCADE,
-    message_id UUID REFERENCES support_ticket_messages(id) ON DELETE CASCADE,
-    file_id UUID NOT NULL REFERENCES files(id) ON DELETE CASCADE,
-    
-    -- Attachment Context
-    attachment_type VARCHAR(50) DEFAULT 'document', -- document, screenshot, log_file
-    description VARCHAR(255),
-    
-    -- Access Control
-    visible_to_customer BOOLEAN DEFAULT true,
-    
-    created_at TIMESTAMP DEFAULT NOW(),
-    uploaded_by UUID REFERENCES users(id)
+
+    ticket_id UUID NOT NULL
+        REFERENCES support_tickets(id) ON DELETE CASCADE,
+
+    message_id UUID
+        REFERENCES support_ticket_messages(id) ON DELETE CASCADE,
+
+    file_id UUID NOT NULL
+        REFERENCES files(id) ON DELETE CASCADE,
+
+    uploaded_by_user_id UUID NOT NULL
+        REFERENCES users(id),
+
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
--- Support ticket templates (for common responses)
+-- =====================================================
+-- SUPPORT TICKET TEMPLATES
+-- =====================================================
+-- NULL organization_id = global system template
+-- NOT NULL organization_id = org-specific override
+-- =====================================================
+
 CREATE TABLE support_ticket_templates (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    template_name VARCHAR(100) UNIQUE NOT NULL,
-    
-    -- Template Content
+
+    organization_id UUID
+        REFERENCES organizations(id) ON DELETE CASCADE,
+
+    template_name VARCHAR(100) NOT NULL,
+
     subject VARCHAR(255),
     body_template TEXT NOT NULL,
-    
-    -- Usage
-    category VARCHAR(50), -- Common category this template applies to
-    is_public BOOLEAN DEFAULT true, -- Available to all agents
-    
-    -- Variables
-    template_variables JSONB DEFAULT '[]', -- Required variables
-    
-    -- Statistics
-    usage_count INTEGER DEFAULT 0,
+
+    category ticket_category_enum,
+
+    is_public BOOLEAN NOT NULL DEFAULT TRUE,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+
+    template_variables JSONB NOT NULL DEFAULT '[]',
+
+    usage_count INTEGER NOT NULL DEFAULT 0,
     last_used_at TIMESTAMP,
-    
-    -- Status
-    is_active BOOLEAN DEFAULT true,
-    
-    -- Audit
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW(),
-    created_by UUID REFERENCES users(id)
+
+    created_by_user_id UUID
+        REFERENCES users(id) ON DELETE SET NULL,
+
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+
+    -- Prevent duplicate template names per scope
+    UNIQUE (organization_id, template_name)
 );
+
+-- =====================================================
+-- INDEXES
+-- =====================================================
+
+-- Tickets
+CREATE INDEX idx_support_tickets_org
+    ON support_tickets(organization_id);
+
+CREATE INDEX idx_support_tickets_status
+    ON support_tickets(status);
+
+CREATE INDEX idx_support_tickets_priority
+    ON support_tickets(priority);
+
+CREATE INDEX idx_support_tickets_assigned_to
+    ON support_tickets(assigned_to_user_id);
+
+CREATE INDEX idx_support_tickets_last_message_at
+    ON support_tickets(last_message_at);
+
+-- Messages
+CREATE INDEX idx_support_ticket_messages_ticket
+    ON support_ticket_messages(ticket_id);
+
+CREATE INDEX idx_support_ticket_messages_created_at
+    ON support_ticket_messages(created_at);
+
+-- Attachments
+CREATE INDEX idx_support_ticket_attachments_ticket
+    ON support_ticket_attachments(ticket_id);
+
+CREATE INDEX idx_support_ticket_attachments_message
+    ON support_ticket_attachments(message_id);
+
+-- Templates
+CREATE INDEX idx_support_ticket_templates_org
+    ON support_ticket_templates(organization_id);
+
+CREATE INDEX idx_support_ticket_templates_active
+    ON support_ticket_templates(is_active);

@@ -77,27 +77,23 @@ func (m *UsersModule) sendPhoneOTP(c *gin.Context) {
 		return
 	}
 
-	// Send OTP via Twilio SMS
-	smsErr := m.service.twilioClient.SendVerificationCode(req.Phone, otp)
-
+	// SMS sending has been removed (Twilio wrapper deleted)
 	// In development mode, always log OTP for testing
 	if m.service.config.IsDevelopment() {
 		fmt.Printf("📱 OTP for %s: %s (expires at %s)\n", req.Phone, otp, expiresAt.Format(time.RFC3339))
+		fmt.Printf("   Note: SMS sending disabled - external SMS service required for production\n")
+		response.Success(c, http.StatusOK, "OTP sent successfully", PhoneOTPResponse{
+			Phone:     req.Phone,
+			ExpiresAt: expiresAt.Format(time.RFC3339),
+			Message:   fmt.Sprintf("OTP sent to %s. Valid for 5 minutes. (DEV: Check console logs)", req.Phone),
+		})
+		return
 	}
 
-	// If SMS failed but we're in development, still return success (so developers can use console logs)
-	if smsErr != nil {
-		if m.service.config.IsDevelopment() {
-			fmt.Printf("⚠️  Failed to send SMS (using console fallback): %v\n", smsErr)
-			response.Success(c, http.StatusOK, "OTP sent successfully", PhoneOTPResponse{
-				Phone:     req.Phone,
-				ExpiresAt: expiresAt.Format(time.RFC3339),
-				Message:   fmt.Sprintf("OTP sent to %s. Valid for 5 minutes. (DEV: Check console logs)", req.Phone),
-			})
-			return
-		}
-		// In production, return error if SMS fails
-		response.InternalError(c, "Failed to send OTP. Please try again later.")
+	// Production mode - SMS not configured
+	fmt.Printf("⚠️  SMS sending not configured for %s - OTP: %s\n", req.Phone, otp)
+	if m.service.config.IsProduction() {
+		response.InternalError(c, "SMS service not configured. Please contact administrator.")
 		return
 	}
 

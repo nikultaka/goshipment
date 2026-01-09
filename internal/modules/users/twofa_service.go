@@ -226,25 +226,16 @@ func (s *TwoFAService) SendSMSOTP(userID, phone, ipAddress string) error {
 		return fmt.Errorf("failed to create OTP challenge: %w", err)
 	}
 
-	// Send SMS via Twilio
-	err = s.userService.twilioClient.SendVerificationCode(phone, otp)
-	if err != nil {
-		// Log error
-		fmt.Printf("⚠️  Failed to send 2FA SMS to %s: %v\n", phone, err)
-
-		// In development mode, still show OTP in console as fallback
-		if s.userService.config.IsDevelopment() {
-			fmt.Printf("📱 [DEV MODE] 2FA OTP for %s: %s\n", phone, otp)
-			fmt.Printf("   (This OTP expires in 5 minutes)\n")
-		} else {
-			// In production, return error if SMS fails
-			return fmt.Errorf("failed to send SMS: %w", err)
-		}
-		return nil
+	// SMS sending has been removed (Twilio wrapper deleted)
+	// In development mode, show OTP in console
+	if s.userService.config.IsDevelopment() {
+		fmt.Printf("📱 [DEV MODE] 2FA OTP for %s: %s\n", phone, otp)
+		fmt.Printf("   (This OTP expires in 5 minutes)\n")
+		fmt.Printf("   Note: SMS sending disabled - external SMS service required for production\n")
+	} else {
+		// Production mode - log warning
+		fmt.Printf("⚠️  SMS sending not configured for %s - 2FA OTP: %s\n", phone, otp)
 	}
-
-	// Successfully sent SMS
-	fmt.Printf("✅ 2FA SMS sent successfully to %s\n", phone)
 
 	// Also log in dev mode for debugging
 	if s.userService.config.IsDevelopment() {

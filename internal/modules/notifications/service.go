@@ -9,8 +9,6 @@ import (
 
 	"gogin/internal/clients"
 	"gogin/internal/models"
-	"gogin/internal/modules/sendgrid"
-	"gogin/internal/modules/twilio"
 
 	"github.com/google/uuid"
 )
@@ -19,17 +17,13 @@ import (
 type NotificationsService struct {
 	db       *clients.Database
 	nats     *clients.NATSClient
-	sendgrid *sendgrid.SendGridClient
-	twilio   *twilio.TwilioClient
 }
 
 // NewNotificationsService creates a new notifications service
-func NewNotificationsService(db *clients.Database, nats *clients.NATSClient, sg *sendgrid.SendGridClient, tw *twilio.TwilioClient) *NotificationsService {
+func NewNotificationsService(db *clients.Database, nats *clients.NATSClient) *NotificationsService {
 	return &NotificationsService{
 		db:       db,
 		nats:     nats,
-		sendgrid: sg,
-		twilio:   tw,
 	}
 }
 
@@ -200,25 +194,6 @@ func (s *NotificationsService) DeleteNotification(id, userID string) error {
 	return nil
 }
 
-// SendEmail sends an email via SendGrid
-func (s *NotificationsService) SendEmail(to []string, subject, body string) error {
-	msg := &sendgrid.EmailMessage{
-		To:          to,
-		Subject:     subject,
-		TextContent: body,
-		HTMLContent: fmt.Sprintf("<p>%s</p>", body),
-	}
-	return s.sendgrid.SendEmail(msg)
-}
-
-// SendSMS sends an SMS via Twilio
-func (s *NotificationsService) SendSMS(to, body string) error {
-	msg := &twilio.SMSMessage{
-		To:   to,
-		Body: body,
-	}
-	return s.twilio.SendSMS(msg)
-}
 
 // Notification Template Management
 

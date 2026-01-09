@@ -5,8 +5,6 @@ import (
 	"gogin/internal/config"
 	"gogin/internal/middleware"
 	"gogin/internal/modules/redishelper"
-	"gogin/internal/modules/sendgrid"
-	"gogin/internal/modules/twilio"
 	"gogin/internal/utils"
 
 	"github.com/gin-gonic/gin"
@@ -19,8 +17,6 @@ type NotificationsModule struct {
 	nats         *clients.NATSClient
 	config       *config.Config
 	service      *NotificationsService
-	sendgrid     *sendgrid.SendGridClient
-	twilio       *twilio.TwilioClient
 	redisHelper  *redishelper.RedisHelper
 	jwtUtil      *utils.JWTUtil
 }
@@ -29,9 +25,7 @@ type NotificationsModule struct {
 func NewNotificationsModule(db *clients.Database, redis *clients.RedisClient, nats *clients.NATSClient, cfg *config.Config) *NotificationsModule {
 	redisHelper := redishelper.NewRedisHelper(redis)
 	jwtUtil := utils.NewJWTUtil(cfg.OAuth.JWTSecret, cfg.OAuth.JWTIssuer)
-	sendgridClient := sendgrid.NewSendGridClient(cfg.SMTP)
-	twilioClient := twilio.NewTwilioClient(cfg.Twilio)
-	service := NewNotificationsService(db, nats, sendgridClient, twilioClient)
+	service := NewNotificationsService(db, nats)
 
 	return &NotificationsModule{
 		db:          db,
@@ -39,8 +33,6 @@ func NewNotificationsModule(db *clients.Database, redis *clients.RedisClient, na
 		nats:        nats,
 		config:      cfg,
 		service:     service,
-		sendgrid:    sendgridClient,
-		twilio:      twilioClient,
 		redisHelper: redisHelper,
 		jwtUtil:     jwtUtil,
 	}
@@ -59,8 +51,6 @@ func (m *NotificationsModule) RegisterRoutes(router *gin.RouterGroup) {
 		notifications.PUT("/:id/read", m.markAsRead)
 		notifications.PUT("/mark-all-read", m.markAllAsRead)
 		notifications.DELETE("/:id", m.deleteNotification)
-		notifications.POST("/test-email", m.testEmail)
-		notifications.POST("/test-sms", m.testSMS)
 	}
 
 	// Admin routes for notification templates

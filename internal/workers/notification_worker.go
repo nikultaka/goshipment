@@ -8,8 +8,6 @@ import (
 	"gogin/internal/clients"
 	"gogin/internal/config"
 	"gogin/internal/modules/notifications"
-	"gogin/internal/modules/sendgrid"
-	"gogin/internal/modules/twilio"
 
 	"github.com/nats-io/nats.go"
 )
@@ -18,8 +16,6 @@ import (
 type NotificationWorker struct {
 	db       *clients.Database
 	nats     *clients.NATSClient
-	sendgrid *sendgrid.SendGridClient
-	twilio   *twilio.TwilioClient
 	config   *config.Config
 }
 
@@ -28,8 +24,6 @@ func NewNotificationWorker(db *clients.Database, nats *clients.NATSClient, cfg *
 	return &NotificationWorker{
 		db:       db,
 		nats:     nats,
-		sendgrid: sendgrid.NewSendGridClient(cfg.SMTP),
-		twilio:   twilio.NewTwilioClient(cfg.Twilio),
 		config:   cfg,
 	}
 }
@@ -109,14 +103,18 @@ func (w *NotificationWorker) sendEmail(req *notifications.SendNotificationReques
 		return fmt.Errorf("failed to get user email: %w", err)
 	}
 
-	msg := &sendgrid.EmailMessage{
-		To:          []string{email},
-		Subject:     req.Title,
-		TextContent: req.Content,
-		HTMLContent: fmt.Sprintf("<h2>%s</h2><p>%s</p>", req.Title, req.Content),
+	// Email sending has been removed (SendGrid wrapper deleted)
+	// Log the notification details
+	log.Printf("📧 [EMAIL NOTIFICATION] To: %s | Subject: %s | Content: %s", email, req.Title, req.Content)
+	log.Printf("   Note: Email sending disabled - external email service required for production")
+
+	// In development mode, just log success
+	if w.config.IsDevelopment() {
+		return nil
 	}
 
-	return w.sendgrid.SendEmail(msg)
+	// Production mode - return error
+	return fmt.Errorf("email sending not configured")
 }
 
 // sendSMS sends an SMS notification
@@ -132,12 +130,18 @@ func (w *NotificationWorker) sendSMS(req *notifications.SendNotificationRequest)
 		return fmt.Errorf("user has no phone number")
 	}
 
-	msg := &twilio.SMSMessage{
-		To:   phone,
-		Body: fmt.Sprintf("%s: %s", req.Title, req.Content),
+	// SMS sending has been removed (Twilio wrapper deleted)
+	// Log the notification details
+	log.Printf("📱 [SMS NOTIFICATION] To: %s | Message: %s: %s", phone, req.Title, req.Content)
+	log.Printf("   Note: SMS sending disabled - external SMS service required for production")
+
+	// In development mode, just log success
+	if w.config.IsDevelopment() {
+		return nil
 	}
 
-	return w.twilio.SendSMS(msg)
+	// Production mode - return error
+	return fmt.Errorf("SMS sending not configured")
 }
 
 // sendPushNotification sends a push notification (placeholder)

@@ -176,67 +176,6 @@ func (m *NotificationsModule) deleteNotification(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Notification deleted successfully", nil)
 }
 
-// testEmail sends a test email
-// @Summary Test Email
-// @Description Send a test email via SendGrid
-// @Tags Notifications
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param request body TestEmailRequest true "Email details"
-// @Success 200 {object} response.Response
-// @Failure 401 {object} response.Response
-// @Failure 422 {object} response.Response{errors=[]response.ResponseError}
-// @Router /notifications/test-email [post]
-func (m *NotificationsModule) testEmail(c *gin.Context) {
-	var req TestEmailRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		errors := []response.ResponseError{
-			response.NewError("VALIDATION_ERROR", err.Error(), ""),
-		}
-		response.ValidationError(c, errors)
-		return
-	}
-
-	err := m.service.SendEmail([]string{req.To}, req.Subject, req.Body)
-	if err != nil {
-		response.BadRequest(c, err.Error())
-		return
-	}
-
-	response.Success(c, http.StatusOK, "Test email sent successfully", nil)
-}
-
-// testSMS sends a test SMS
-// @Summary Test SMS
-// @Description Send a test SMS via Twilio
-// @Tags Notifications
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param request body TestSMSRequest true "SMS details"
-// @Success 200 {object} response.Response
-// @Failure 401 {object} response.Response
-// @Failure 422 {object} response.Response{errors=[]response.ResponseError}
-// @Router /notifications/test-sms [post]
-func (m *NotificationsModule) testSMS(c *gin.Context) {
-	var req TestSMSRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		errors := []response.ResponseError{
-			response.NewError("VALIDATION_ERROR", err.Error(), ""),
-		}
-		response.ValidationError(c, errors)
-		return
-	}
-
-	err := m.service.SendSMS(req.To, req.Body)
-	if err != nil {
-		response.BadRequest(c, err.Error())
-		return
-	}
-
-	response.Success(c, http.StatusOK, "Test SMS sent successfully", nil)
-}
 
 // Admin Notification Template Handlers
 

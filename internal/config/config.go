@@ -16,8 +16,6 @@ type Config struct {
 	Redis    RedisConfig
 	NATS     NATSConfig
 	OAuth    OAuthConfig
-	SMTP     SMTPConfig
-	Twilio   TwilioConfig
 	Storage  StorageConfig
 	GA4      GA4Config
 }
@@ -77,20 +75,6 @@ type OAuthConfig struct {
 	JWTPublicKeyPath   string // Path to RSA public key
 }
 
-// SMTPConfig holds SendGrid configuration
-type SMTPConfig struct {
-	APIKey         string
-	FromEmail      string
-	FromName       string
-	ReplyToEmail   string
-}
-
-// TwilioConfig holds Twilio configuration
-type TwilioConfig struct {
-	AccountSID string
-	AuthToken  string
-	FromNumber string
-}
 
 // StorageConfig holds file storage configuration
 type StorageConfig struct {
@@ -160,17 +144,6 @@ func Load() (*Config, error) {
 			JWTKeyID:           getEnv("JWT_KID", "default-key-2025"),
 			JWTPrivateKeyPath:  getEnv("JWT_PRIVATE_KEY_PATH", ""),
 			JWTPublicKeyPath:   getEnv("JWT_PUBLIC_KEY_PATH", ""),
-		},
-		SMTP: SMTPConfig{
-			APIKey:       getEnv("SENDGRID_API_KEY", ""),
-			FromEmail:    getEnv("SENDGRID_FROM_EMAIL", ""),
-			FromName:     getEnv("SENDGRID_FROM_NAME", "Go API"),
-			ReplyToEmail: getEnv("SENDGRID_REPLY_TO_EMAIL", ""),
-		},
-		Twilio: TwilioConfig{
-			AccountSID: getEnv("TWILIO_ACCOUNT_SID", ""),
-			AuthToken:  getEnv("TWILIO_AUTH_TOKEN", ""),
-			FromNumber: getEnv("TWILIO_FROM_NUMBER", ""),
 		},
 		Storage: StorageConfig{
 			Type:        getEnv("STORAGE_TYPE", "local"),
