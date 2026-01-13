@@ -12,17 +12,28 @@ import (
 	"gogin/internal/clients"
 	"gogin/internal/config"
 	"gogin/internal/middleware"
+	"gogin/internal/modules/addresses"
 	"gogin/internal/modules/apiclient"
 	"gogin/internal/modules/audit"
+	"gogin/internal/modules/commissions"
 	"gogin/internal/modules/core"
+	"gogin/internal/modules/invoices"
+	"gogin/internal/modules/labels"
 	"gogin/internal/modules/notifications"
 	"gogin/internal/modules/oauth2"
+	"gogin/internal/modules/organizations"
+	"gogin/internal/modules/pickups"
+	"gogin/internal/modules/referrals"
 	"gogin/internal/modules/reviews"
 	"gogin/internal/modules/settings"
+	"gogin/internal/modules/shipment_estimates"
+	"gogin/internal/modules/shipments"
 	"gogin/internal/modules/social_auth"
 	"gogin/internal/modules/storage"
-	"gogin/internal/modules/tickets"
+	"gogin/internal/modules/support"
+	// "gogin/internal/modules/tickets" // OLD - replaced by support module
 	"gogin/internal/modules/users"
+	"gogin/internal/modules/wallet"
 	"gogin/internal/response"
 	"gogin/internal/workers"
 
@@ -91,6 +102,30 @@ import (
 
 // @tag.name Admin - Notification Templates
 // @tag.description Admin notification template management (requires admin role)
+
+// @tag.name Shipment Estimates
+// @tag.description Shipment rate quotes and cost estimation (guest-friendly, no auth required)
+
+// @tag.name Labels
+// @tag.description Purchase and manage shipping labels (MONETIZATION POINT - requires authentication)
+
+// @tag.name Wallet
+// @tag.description Organization wallet management - balance, top-ups, refunds, and transactions (PAYMENT ENGINE)
+
+// @tag.name Invoices
+// @tag.description Legal and financial records - immutable invoices, credit notes, and PDF downloads (ACCOUNTING & COMPLIANCE)
+
+// @tag.name Pickups
+// @tag.description Schedule and manage carrier pickups for shipments (LOGISTICS & FULFILLMENT)
+
+// @tag.name Support
+// @tag.description Customer support ticket system - create tickets, reply to conversations, manage resolutions (CUSTOMER SERVICE)
+
+// @tag.name Commissions
+// @tag.description Commission earnings tracking for Sales Representatives - view commissions, request payouts, process payments (FINANCIAL RECORDS)
+
+// @tag.name Referrals
+// @tag.description Referral redemption records - immutable ledger tracking referred users and commission eligibility (READ-ONLY FINANCIAL RECORDS)
 
 func main() {
 	// testing add by Zubair
@@ -224,10 +259,10 @@ func main() {
 	settingsModule.RegisterRoutes(v1)
 	log.Println("✓ Settings module registered")
 
-	// Tickets module
-	ticketsModule := tickets.NewTicketsModule(db, redis, cfg)
-	ticketsModule.RegisterRoutes(v1)
-	log.Println("✓ Tickets module registered")
+	// Tickets module (OLD - replaced by Support module)
+	// ticketsModule := tickets.NewTicketsModule(db, redis, cfg)
+	// ticketsModule.RegisterRoutes(v1)
+	// log.Println("✓ Tickets module registered")
 
 	// Storage module
 	storageModule := storage.NewStorageModule(db, redis, cfg)
@@ -238,6 +273,61 @@ func main() {
 	auditModule := audit.NewAuditModule(db, redis, cfg)
 	auditModule.RegisterRoutes(v1)
 	log.Println("✓ Audit module registered")
+
+	// Addresses module (address book)
+	addressesModule := addresses.NewAddressesModule(db, redis, cfg)
+	addressesModule.RegisterRoutes(v1)
+	log.Println("✓ Addresses module registered")
+
+	// Organizations module
+	organizationsModule := organizations.NewOrganizationsModule(db, redis, cfg)
+	organizationsModule.RegisterRoutes(v1)
+	log.Println("✓ Organizations module registered")
+
+	// Shipment Estimates module (guest-friendly, no auth required)
+	estimatesModule := shipment_estimates.NewEstimatesModule(db, redis, cfg)
+	estimatesModule.RegisterRoutes(v1)
+	log.Println("✓ Shipment Estimates module registered")
+
+	// Shipments module (create and manage shipments from estimates)
+	shipmentsModule := shipments.NewShipmentsModule(db, redis, cfg)
+	shipmentsModule.RegisterRoutes(v1)
+	log.Println("✓ Shipments module registered")
+
+	// Labels module (shipping label purchase and tracking)
+	labelsModule := labels.NewLabelsModule(db, redis, cfg)
+	labelsModule.RegisterRoutes(v1)
+	log.Println("✓ Labels module registered")
+
+	// Wallet module (payment engine - balance, topups, refunds)
+	walletModule := wallet.NewWalletModule(db, redis, cfg)
+	walletModule.RegisterRoutes(v1)
+	log.Println("✓ Wallet module registered")
+
+	// Invoices module (legal & financial records - immutable invoices, credit notes, PDF)
+	invoicesModule := invoices.NewInvoicesModule(db, redis, cfg)
+	invoicesModule.RegisterRoutes(v1)
+	log.Println("✓ Invoices module registered")
+
+	// Pickups module (carrier pickup scheduling and management)
+	pickupsModule := pickups.NewPickupModule(db, redis, cfg)
+	pickupsModule.RegisterRoutes(v1)
+	log.Println("✓ Pickups module registered")
+
+	// Support module (customer support tickets and conversations)
+	supportModule := support.NewSupportModule(db, redis, cfg)
+	supportModule.RegisterRoutes(v1)
+	log.Println("✓ Support module registered")
+
+	// Commissions module (sales rep commission tracking and payouts)
+	commissionsModule := commissions.NewCommissionModule(db, redis, cfg)
+	commissionsModule.RegisterRoutes(v1)
+	log.Println("✓ Commissions module registered")
+
+	// Referrals module (referral redemptions - immutable ledger, read-only)
+	referralsModule := referrals.NewReferralModule(db, redis, cfg)
+	referralsModule.RegisterRoutes(v1)
+	log.Println("✓ Referrals module registered")
 
 	// Apply rate limiting after authentication routes
 	rateLimiter := middleware.NewRateLimiter(redis, cfg.App.RateLimitRPS, 60)

@@ -91,7 +91,11 @@ func (m *UsersModule) RegisterRoutes(router *gin.RouterGroup) {
 		auth := users.Group("")
 		auth.Use(m.authMiddleware.RequireAuth())
 		{
-			auth.GET("/me", m.getProfile)
+			// Organization-scoped user profile endpoints
+			auth.GET("/me", m.getMeProfile)           // NEW: Get profile with org context
+			auth.PATCH("/me", m.updateMeProfile)      // NEW: Update own profile
+
+			// Legacy endpoints (kept for backward compatibility)
 			auth.PUT("/me", m.updateProfile)
 			auth.PUT("/me/password", m.changePassword)
 			auth.POST("/me/avatar", m.uploadAvatar)
@@ -152,6 +156,28 @@ func (m *UsersModule) RegisterRoutes(router *gin.RouterGroup) {
 			admin.PUT("/:id/settings", m.adminUpdateUserSettings)
 
 		}
+	}
+
+	// Organization user management routes
+	org := router.Group("/organization")
+	org.Use(m.authMiddleware.RequireAuth())
+	{
+		// List organization users (Admin or Manager with users.manage scope)
+		org.GET("/users", m.listOrganizationUsers)
+	}
+
+	// User role and permission management (Admin only)
+	userMgmt := router.Group("/users")
+	userMgmt.Use(m.authMiddleware.RequireAuth())
+	{
+		// Change user role (Admin only)
+		userMgmt.PATCH("/:id/role", m.changeUserRole)
+
+		// Toggle sales rep status (Admin only)
+		userMgmt.PATCH("/:id/sales-rep", m.toggleUserSalesRep)
+
+		// Anonymize user (Admin only)
+		userMgmt.POST("/:id/anonymize", m.anonymizeUser)
 	}
 
 	// Admin routes under /admin (authenticated but not admin-only)

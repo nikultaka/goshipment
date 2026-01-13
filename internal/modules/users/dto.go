@@ -276,3 +276,65 @@ type BusinessResponse struct {
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
+
+// =====================================================
+// Organization User Management DTOs
+// =====================================================
+
+// UserProfileResponse represents the current user's profile with organization context
+type UserProfileResponse struct {
+	UserID         string    `json:"user_id"`
+	FirstName      string    `json:"first_name"`
+	LastName       string    `json:"last_name"`
+	Email          string    `json:"email"`
+	Phone          string    `json:"phone,omitempty"`
+	Role           string    `json:"role,omitempty"`           // Organization role: owner, administrator, manager, operator, viewer (optional if not in org)
+	IsSalesRep     bool      `json:"is_sales_rep"`   // Sales representative flag
+	ReferralCode   string    `json:"referral_code,omitempty"`
+	OrganizationID string    `json:"organization_id,omitempty"` // Optional if user not in organization
+	Avatar         string    `json:"avatar,omitempty"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+}
+
+// UpdateOwnProfileRequest represents a request to update own profile
+type UpdateOwnProfileRequest struct {
+	FirstName    *string `json:"first_name" binding:"omitempty,min=1,max=100"`
+	LastName     *string `json:"last_name" binding:"omitempty,min=1,max=100"`
+	Phone        *string `json:"phone" binding:"omitempty"`
+	AvatarFileID *string `json:"avatar_file_id" binding:"omitempty"`
+	Password     *string `json:"password" binding:"omitempty,min=8"`
+	OldPassword  *string `json:"old_password" binding:"omitempty"` // Required if password is being changed
+}
+
+// OrganizationUserResponse represents a user in an organization (admin view)
+type OrganizationUserResponse struct {
+	UserID     string    `json:"user_id"`
+	Name       string    `json:"name"`         // Full name (first + last)
+	Email      string    `json:"email"`
+	Role       string    `json:"role"`         // Organization role
+	IsSalesRep bool      `json:"is_sales_rep"`
+	IsActive   bool      `json:"is_active"`
+	JoinedAt   time.Time `json:"joined_at"`
+}
+
+// OrganizationUsersListResponse represents a list of organization users
+type OrganizationUsersListResponse struct {
+	Users []*OrganizationUserResponse `json:"users"`
+	Total int                         `json:"total"`
+}
+
+// ChangeUserRoleRequest represents a request to change a user's role
+type ChangeUserRoleRequest struct {
+	Role string `json:"role" binding:"required,oneof=owner administrator manager operator viewer"`
+}
+
+// ToggleSalesRepRequest represents a request to toggle sales rep status
+type ToggleSalesRepRequest struct {
+	IsSalesRep bool `json:"is_sales_rep"`
+}
+
+// AnonymizeUserRequest represents a request to anonymize a user
+type AnonymizeUserRequest struct {
+	Reason string `json:"reason" binding:"required,min=10,max=500"` // Reason for anonymization (audit)
+}

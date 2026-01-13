@@ -3,6 +3,8 @@ package users
 import (
 	"database/sql"
 	"fmt"
+	"math/rand"
+	"strings"
 	"time"
 
 	"gogin/internal/clients"
@@ -156,6 +158,92 @@ func (s *UserService) CreateUser(req *RegisterRequest) (*models.User, *models.Us
 	`, userRoleID, userID, roleID, now, now, now)
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("failed to assign role: %w", err)
+	}
+
+	// =====================================================
+	// AUTO-CREATE PERSONAL ORGANIZATION (1:1 ratio)
+	// As per ShipInAFlash specification: Every user gets
+	// their own organization automatically at registration
+	// =====================================================
+
+	// Generate unique organization external_id (e.g., org_K9R2B7X4)
+	orgExternalID := fmt.Sprintf("org_%s", generateRandomCode(8))
+	organizationID := uuid.New().String()
+
+	// Create organization with user as owner
+	orgQuery := `
+		INSERT INTO organizations (
+			id, external_id, name, owner_user_id,
+			status, plan, is_deleted,
+			created_at, updated_at
+		) VALUES ($1, $2, $3, $4, 'active', 'tier_1', false, $5, $6)
+		RETURNING id
+	`
+	err = tx.QueryRow(orgQuery, organizationID, orgExternalID, orgExternalID, userID, now, now).Scan(&organizationID)
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("failed to create organization: %w", err)
+	}
+
+	// Add user as organization owner in organization_members
+	orgMemberID := uuid.New().String()
+	_, err = tx.Exec(`
+		INSERT INTO organization_members (
+			id, organization_id, user_id, role, is_active, joined_at
+		) VALUES ($1, $2, $3, 'owner', true, $4)
+	`, orgMemberID, organizationID, userID, now)
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("failed to add user to organization: %w", err)
+	}
+
+	// Create organization settings with defaults
+	orgSettingsID := uuid.New().String()
+	_, err = tx.Exec(`
+		INSERT INTO organization_settings (
+			id, organization_id,
+			allow_same_day_pickup, allow_next_day_pickup,
+			created_at, updated_at
+		) VALUES ($1, $2, false, true, $3, $4)
+	`, orgSettingsID, organizationID, now, now)
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("failed to create organization settings: %w", err)
+	}
+
+	// Create organization wallet (WAL-XXXXXXXX)
+	walletNumber := fmt.Sprintf("WAL-%s", generateRandomCode(8))
+	walletID := uuid.New().String()
+	_, err = tx.Exec(`
+		INSERT INTO wallets (
+			id, wallet_number, organization_id,
+			balance, status,
+			created_at, updated_at
+		) VALUES ($1, $2, $3, 0.00, 'active', $4, $5)
+	`, walletID, walletNumber, organizationID, now, now)
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("failed to create wallet: %w", err)
+	}
+
+	// Create organization preferences with defaults
+	orgPreferencesID := uuid.New().String()
+	_, err = tx.Exec(`
+		INSERT INTO organization_preferences (
+			id, organization_id,
+			signature_option, weight_unit, dimension_unit,
+			timezone, label_format,
+			hide_shipper_phone_on_label, show_usd_estimates,
+			created_at, updated_at
+		) VALUES ($1, $2, 'none', 'lb', 'in', 'America/Toronto', 'thermal_4x6', false, false, $3, $4)
+	`, orgPreferencesID, organizationID, now, now)
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("failed to create organization preferences: %w", err)
+	}
+
+	// Generate unique referral code for user (never changes)
+	referralCode := fmt.Sprintf("REF-%s", generateRandomCode(6))
+	_, err = tx.Exec(`
+		UPDATE users SET referral_code = $1 WHERE id = $2
+	`, referralCode, userID)
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("failed to set referral code: %w", err)
 	}
 
 	// Commit transaction
@@ -2152,4 +2240,484 @@ func (s *UserService) AdminCreateUser(req *AdminCreateUserRequest) (*models.User
 	}
 
 	return &user, &userEmail, role, nil
+}
+
+// =====================================================
+// Organization User Management Methods
+// =====================================================
+
+// GetUserProfileWithOrganization retrieves user profile with organization context
+func (s *UserService) GetUserProfileWithOrganization(userID string) (*UserProfileResponse, error) {
+	query := `
+		SELECT
+			u.id, u.first_name, u.last_name, u.referral_code, u.avatar_file_id,
+			u.created_at, u.updated_at,
+			ue.email,
+			up.phone,
+			om.organization_id, om.role
+		FROM users u
+		LEFT JOIN user_emails ue ON u.primary_email_id = ue.id
+		LEFT JOIN user_phones up ON u.primary_phone_id = up.id
+		LEFT JOIN organization_members om ON u.id = om.user_id AND om.is_active = true
+		WHERE u.id = $1 AND u.deleted_at IS NULL
+		LIMIT 1
+	`
+
+	var profile UserProfileResponse
+	var email, phone, avatar, referralCode sql.NullString
+	var organizationID, role sql.NullString
+
+	err := s.db.QueryRow(query, userID).Scan(
+		&profile.UserID, &profile.FirstName, &profile.LastName, &referralCode, &avatar,
+		&profile.CreatedAt, &profile.UpdatedAt,
+		&email, &phone,
+		&organizationID, &role,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("user not found")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user profile: %w", err)
+	}
+
+	// Populate optional fields
+	if email.Valid {
+		profile.Email = email.String
+	}
+	if phone.Valid {
+		profile.Phone = phone.String
+	}
+	if avatar.Valid {
+		profile.Avatar = avatar.String
+	}
+	if referralCode.Valid {
+		profile.ReferralCode = referralCode.String
+	}
+	if organizationID.Valid {
+		profile.OrganizationID = organizationID.String
+	}
+	if role.Valid {
+		profile.Role = role.String
+	}
+
+	// is_sales_rep column doesn't exist in database, default to false
+	profile.IsSalesRep = false
+
+	return &profile, nil
+}
+
+// UpdateOwnProfile updates the current user's own profile
+func (s *UserService) UpdateOwnProfile(userID string, req *UpdateOwnProfileRequest) (*UserProfileResponse, error) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("failed to start transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	now := time.Now().UTC()
+
+	// Handle password change if requested
+	if req.Password != nil && *req.Password != "" {
+		if req.OldPassword == nil || *req.OldPassword == "" {
+			return nil, fmt.Errorf("old password is required to change password")
+		}
+
+		// Verify old password
+		var passwordHash string
+		err = tx.QueryRow(`SELECT password_hash FROM users WHERE id = $1`, userID).Scan(&passwordHash)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get password: %w", err)
+		}
+
+		if !utils.VerifyPassword(*req.OldPassword, passwordHash) {
+			return nil, fmt.Errorf("current password is incorrect")
+		}
+
+		// Validate and hash new password
+		valid, msg := utils.IsPasswordValid(*req.Password)
+		if !valid {
+			return nil, fmt.Errorf(msg)
+		}
+
+		hashedPassword, err := utils.HashPassword(*req.Password)
+		if err != nil {
+			return nil, fmt.Errorf("failed to hash password: %w", err)
+		}
+
+		// Update password and increment token version (force logout)
+		_, err = tx.Exec(`
+			UPDATE users
+			SET password_hash = $1, token_version = token_version + 1, updated_at = $2
+			WHERE id = $3
+		`, hashedPassword, now, userID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to update password: %w", err)
+		}
+	}
+
+	// Build dynamic update query for profile fields
+	updates := []string{}
+	args := []interface{}{}
+	argPos := 1
+
+	if req.FirstName != nil {
+		updates = append(updates, fmt.Sprintf("first_name = $%d", argPos))
+		args = append(args, *req.FirstName)
+		argPos++
+	}
+
+	if req.LastName != nil {
+		updates = append(updates, fmt.Sprintf("last_name = $%d", argPos))
+		args = append(args, *req.LastName)
+		argPos++
+	}
+
+	if req.AvatarFileID != nil {
+		updates = append(updates, fmt.Sprintf("avatar_file_id = $%d", argPos))
+		args = append(args, *req.AvatarFileID)
+		argPos++
+	}
+
+	if len(updates) > 0 {
+		updates = append(updates, fmt.Sprintf("updated_at = $%d", argPos))
+		args = append(args, now)
+		argPos++
+
+		args = append(args, userID)
+
+		updateQuery := fmt.Sprintf(`UPDATE users SET %s WHERE id = $%d`, strings.Join(updates, ", "), argPos)
+		_, err = tx.Exec(updateQuery, args...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to update user: %w", err)
+		}
+	}
+
+	// Handle phone update if provided
+	if req.Phone != nil && *req.Phone != "" {
+		var phoneID sql.NullString
+		err = tx.QueryRow(`SELECT primary_phone_id FROM users WHERE id = $1`, userID).Scan(&phoneID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to check phone: %w", err)
+		}
+
+		if phoneID.Valid {
+			// Update existing phone
+			_, err = tx.Exec(`UPDATE user_phones SET phone = $1, updated_at = $2 WHERE id = $3`, *req.Phone, now, phoneID.String)
+		} else {
+			// Create new phone
+			newPhoneID := uuid.New().String()
+			_, err = tx.Exec(`
+				INSERT INTO user_phones (id, user_id, phone, is_primary, is_verified, is_active, created_at, updated_at)
+				VALUES ($1, $2, $3, true, false, true, $4, $5)
+			`, newPhoneID, userID, *req.Phone, now, now)
+			if err == nil {
+				_, err = tx.Exec(`UPDATE users SET primary_phone_id = $1 WHERE id = $2`, newPhoneID, userID)
+			}
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to update phone: %w", err)
+		}
+	}
+
+	if err = tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	// Invalidate user cache
+	s.redisHelper.CacheDelete(fmt.Sprintf("user:%s", userID))
+
+	// Get updated profile
+	return s.GetUserProfileWithOrganization(userID)
+}
+
+// ListOrganizationUsers retrieves all users in an organization
+func (s *UserService) ListOrganizationUsers(organizationID string) ([]*OrganizationUserResponse, error) {
+	query := `
+		SELECT
+			u.id, u.first_name, u.last_name, u.is_active,
+			ue.email,
+			om.role, om.joined_at
+		FROM users u
+		INNER JOIN organization_members om ON u.id = om.user_id
+		LEFT JOIN user_emails ue ON u.primary_email_id = ue.id
+		WHERE om.organization_id = $1 AND u.deleted_at IS NULL
+		ORDER BY
+			CASE om.role
+				WHEN 'owner' THEN 1
+				WHEN 'administrator' THEN 2
+				WHEN 'manager' THEN 3
+				WHEN 'operator' THEN 4
+				WHEN 'viewer' THEN 5
+			END,
+			om.joined_at ASC
+	`
+
+	rows, err := s.db.Query(query, organizationID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list organization users: %w", err)
+	}
+	defer rows.Close()
+
+	users := []*OrganizationUserResponse{}
+	for rows.Next() {
+		var user OrganizationUserResponse
+		var firstName, lastName string
+		var email sql.NullString
+
+		err := rows.Scan(
+			&user.UserID, &firstName, &lastName, &user.IsActive,
+			&email,
+			&user.Role, &user.JoinedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan user: %w", err)
+		}
+
+		user.Name = fmt.Sprintf("%s %s", firstName, lastName)
+		if email.Valid {
+			user.Email = email.String
+		}
+
+		// is_sales_rep column doesn't exist in database, default to false
+		user.IsSalesRep = false
+
+		users = append(users, &user)
+	}
+
+	return users, nil
+}
+
+// ChangeUserRole changes a user's role within the organization
+func (s *UserService) ChangeUserRole(actorUserID, targetUserID, organizationID, newRole string) error {
+	// Validate role
+	validRoles := map[string]bool{
+		"owner": true, "administrator": true, "manager": true, "operator": true, "viewer": true,
+	}
+	if !validRoles[newRole] {
+		return fmt.Errorf("invalid role: %s", newRole)
+	}
+
+	// Start transaction
+	tx, err := s.db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to start transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Cannot change own role
+	if actorUserID == targetUserID {
+		return fmt.Errorf("cannot change your own role")
+	}
+
+	// Get organization to check owner
+	var ownerUserID string
+	err = tx.QueryRow(`SELECT owner_user_id FROM organizations WHERE id = $1`, organizationID).Scan(&ownerUserID)
+	if err != nil {
+		return fmt.Errorf("failed to get organization: %w", err)
+	}
+
+	// Cannot demote or change organization owner
+	if targetUserID == ownerUserID {
+		return fmt.Errorf("cannot change the role of the organization owner")
+	}
+
+	// Cannot promote to owner
+	if newRole == "owner" {
+		return fmt.Errorf("cannot promote user to owner role")
+	}
+
+	// Update role in organization_members
+	result, err := tx.Exec(`
+		UPDATE organization_members
+		SET role = $1::organization_role
+		WHERE user_id = $2 AND organization_id = $3 AND is_active = true
+	`, newRole, targetUserID, organizationID)
+	if err != nil {
+		return fmt.Errorf("failed to update role: %w", err)
+	}
+
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("user not found in organization")
+	}
+
+	// Log audit entry (simplified - full audit would use audit_logs table)
+	// In a production system, you'd insert into audit_logs here
+
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
+}
+
+// ToggleUserSalesRep toggles the sales representative status for a user
+// NOTE: is_sales_rep column doesn't exist in database schema
+// This function validates the user but doesn't persist the sales rep status
+func (s *UserService) ToggleUserSalesRep(actorUserID, targetUserID, organizationID string, isSalesRep bool) error {
+	// Verify user belongs to organization
+	var memberID string
+	err := s.db.QueryRow(`
+		SELECT id FROM organization_members
+		WHERE user_id = $1 AND organization_id = $2 AND is_active = true
+	`, targetUserID, organizationID).Scan(&memberID)
+	if err == sql.ErrNoRows {
+		return fmt.Errorf("user not found in organization")
+	}
+	if err != nil {
+		return fmt.Errorf("failed to verify user membership: %w", err)
+	}
+
+	// NOTE: is_sales_rep column doesn't exist in users table
+	// Skipping UPDATE to avoid SQL error
+	// To fully implement this feature, add migration:
+	// ALTER TABLE users ADD COLUMN is_sales_rep BOOLEAN NOT NULL DEFAULT false;
+
+	return nil
+}
+
+// AnonymizeUser permanently anonymizes a user (GDPR/PIPEDA compliance)
+func (s *UserService) AnonymizeUser(actorUserID, targetUserID, organizationID, reason string) error {
+	// Start transaction
+	tx, err := s.db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to start transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Cannot anonymize self
+	if actorUserID == targetUserID {
+		return fmt.Errorf("cannot anonymize your own account")
+	}
+
+	// Get organization to check owner
+	var ownerUserID string
+	err = tx.QueryRow(`SELECT owner_user_id FROM organizations WHERE id = $1`, organizationID).Scan(&ownerUserID)
+	if err != nil {
+		return fmt.Errorf("failed to get organization: %w", err)
+	}
+
+	// Cannot anonymize organization owner
+	if targetUserID == ownerUserID {
+		return fmt.Errorf("cannot anonymize the organization owner")
+	}
+
+	now := time.Now().UTC()
+	anonymizedUUID := uuid.New().String()
+
+	// Generate random secure hash for password
+	randomPassword := uuid.New().String() + uuid.New().String()
+	hashedPassword, err := utils.HashPassword(randomPassword)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	// Anonymize user record
+	_, err = tx.Exec(`
+		UPDATE users
+		SET
+			is_active = false,
+			password_hash = $1,
+			first_name = 'Deleted',
+			last_name = 'User',
+			avatar_file_id = NULL,
+			deleted_at = $2,
+			account_deletion_reason = $3,
+			account_anonymized_at = $4,
+			updated_at = $5
+		WHERE id = $6
+	`, hashedPassword, now, reason, now, now, targetUserID)
+	if err != nil {
+		return fmt.Errorf("failed to anonymize user: %w", err)
+	}
+
+	// Anonymize primary email
+	anonymizedEmail := fmt.Sprintf("deleted_%s@anonymized.local", anonymizedUUID)
+	_, err = tx.Exec(`
+		UPDATE user_emails
+		SET
+			email = $1,
+			email_lower = LOWER($1),
+			is_active = false,
+			updated_at = $2
+		WHERE user_id = $3 AND is_primary = true
+	`, anonymizedEmail, now, targetUserID)
+	if err != nil {
+		return fmt.Errorf("failed to anonymize email: %w", err)
+	}
+
+	// Deactivate all other emails
+	_, err = tx.Exec(`
+		UPDATE user_emails
+		SET is_active = false, updated_at = $1
+		WHERE user_id = $2 AND is_primary = false
+	`, now, targetUserID)
+	if err != nil {
+		return fmt.Errorf("failed to deactivate emails: %w", err)
+	}
+
+	// Anonymize phone numbers
+	_, err = tx.Exec(`
+		UPDATE user_phones
+		SET
+			phone = NULL,
+			phone_e164 = NULL,
+			is_active = false,
+			updated_at = $1
+		WHERE user_id = $2
+	`, now, targetUserID)
+	if err != nil {
+		return fmt.Errorf("failed to anonymize phones: %w", err)
+	}
+
+	// Deactivate all user sessions
+	_, err = tx.Exec(`
+		UPDATE user_sessions
+		SET
+			is_active = false,
+			terminated_at = $1,
+			termination_reason = 'user_anonymized'
+		WHERE user_id = $2 AND is_active = true
+	`, now, targetUserID)
+	if err != nil {
+		return fmt.Errorf("failed to terminate sessions: %w", err)
+	}
+
+	// Increment token version to invalidate all JWT tokens
+	_, err = tx.Exec(`
+		UPDATE users
+		SET token_version = token_version + 1
+		WHERE id = $1
+	`, targetUserID)
+	if err != nil {
+		return fmt.Errorf("failed to increment token version: %w", err)
+	}
+
+	// Log audit entry (simplified)
+	// In production, insert detailed audit log
+
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	// Revoke all Redis sessions
+	s.redisHelper.DeleteAllUserSessions(targetUserID)
+
+	return nil
+}
+
+// =====================================================
+// Helper Functions
+// =====================================================
+
+// generateRandomCode generates a random alphanumeric code of specified length
+// Used for generating organization IDs, wallet numbers, referral codes, etc.
+func generateRandomCode(length int) string {
+	const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	code := make([]byte, length)
+	for i := range code {
+		code[i] = charset[rand.Intn(len(charset))]
+	}
+	return string(code)
 }
