@@ -211,6 +211,48 @@ func (s *SimpleShipmentService) CreateShipment(
 		return nil, fmt.Errorf("failed to copy packages: %w", err)
 	}
 
+	// 7. Create wallet hold for payment
+	// Get organization's wallet
+	var walletID string
+	err = tx.QueryRow(`
+		SELECT id FROM wallets WHERE organization_id = $1 AND status = 'active'
+	`, organizationID).Scan(&walletID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get wallet: %w", err)
+	}
+
+	// Create wallet hold with shipment as reference
+	holdNumber := fmt.Sprintf("HLD-%s", generateRandomCode(8))
+	holdAmount := selectedRate.TotalAmount
+	expiresAt := now.Add(30 * time.Minute) // Hold expires in 30 minutes
+
+	_, err = tx.Exec(`
+		INSERT INTO wallet_holds (
+			id, hold_number, wallet_id, amount, currency, status,
+			reference_type, reference_id, description, expires_at,
+			created_by_user_id, created_at, updated_at
+		) VALUES (
+			uuid_generate_v4(), $1, $2, $3, $4, 'pending',
+			'shipment', $5, $6, $7,
+			$8, NOW(), NOW()
+		)
+	`, holdNumber, walletID, holdAmount, "CAD",
+		shipmentID, fmt.Sprintf("Hold for shipment %s", shipmentNumber), expiresAt,
+		userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create wallet hold: %w", err)
+	}
+
+	// Update wallet held_balance
+	_, err = tx.Exec(`
+		UPDATE wallets
+		SET held_balance = held_balance + $1, updated_at = NOW()
+		WHERE id = $2
+	`, holdAmount, walletID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update wallet held balance: %w", err)
+	}
+
 	// Commit transaction
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)

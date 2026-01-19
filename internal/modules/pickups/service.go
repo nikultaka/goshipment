@@ -3,7 +3,6 @@ package pickups
 import (
 	"crypto/rand"
 	"database/sql"
-	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -168,12 +167,17 @@ func (s *PickupService) SchedulePickup(req SchedulePickupRequest, organizationID
 		return nil, fmt.Errorf("instructions are required when pickup location is 'other'")
 	}
 
-	// 8. Get address book entry if available
+	// 8. Get or create address book entry for pickup
 	var addressBookID string
 	if shipment.FromAddressBookID.Valid {
 		addressBookID = shipment.FromAddressBookID.String
 	} else {
-		return nil, fmt.Errorf("shipment does not have a from address book entry")
+		// Create address book entry from shipment's from address
+		newAddressID, err := s.createAddressBookEntryFromShipment(tx, &shipment, organizationID, userID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create address book entry: %w", err)
+		}
+		addressBookID = newAddressID
 	}
 
 	// 9. Generate pickup number
@@ -484,4 +488,75 @@ func (s *PickupService) ListPickups(req ListPickupsRequest, organizationID, user
 		PageSize:   pageSize,
 		TotalPages: totalPages,
 	}, nil
+}
+
+// createAddressBookEntryFromShipment creates an address book entry from shipment's from address
+func (s *PickupService) createAddressBookEntryFromShipment(tx *sql.Tx, shipment *models.Shipment, organizationID, userID string) (string, error) {
+	// Generate address number
+	addressNumber, err := s.generateAddressNumber()
+	if err != nil {
+		return "", fmt.Errorf("failed to generate address number: %w", err)
+	}
+
+	// Use shipment data for address, with defaults for required fields
+	contactName := "Pickup Contact"
+	if shipment.FromName.Valid && shipment.FromName.String != "" {
+		contactName = shipment.FromName.String
+	}
+
+	addressLine1 := "Address"
+	if shipment.FromAddressLine1 != "" {
+		addressLine1 = shipment.FromAddressLine1
+	}
+
+	nickname := fmt.Sprintf("Pickup Address - %s", shipment.ID[:8])
+
+	var addressID string
+	err = tx.QueryRow(`
+		INSERT INTO address_book (
+			address_number, organization_id, created_by_user_id,
+			nickname, company, contact_name, phone, email,
+			address_line_1, address_line_2, city, province_code, postal_code, country_code,
+			address_type, is_residential, is_default_sender, is_default_recipient, is_verified, is_active,
+			created_at, updated_at
+		) VALUES (
+			$1, $2, $3,
+			$4, $5, $6, $7, $8,
+			$9, $10, $11, $12, $13, $14,
+			'sender', false, false, false, false, true,
+			NOW(), NOW()
+		)
+		RETURNING id
+	`,
+		addressNumber, organizationID, userID,
+		nickname, shipment.FromCompany, contactName, shipment.FromPhone, shipment.FromEmail,
+		addressLine1, shipment.FromAddressLine2, shipment.FromCity, shipment.FromRegionCode, shipment.FromPostalCode, shipment.FromCountry,
+	).Scan(&addressID)
+
+	if err != nil {
+		return "", fmt.Errorf("failed to insert address book entry: %w", err)
+	}
+
+	// Update shipment to link the new address book entry
+	_, err = tx.Exec(`
+		UPDATE shipments SET from_address_book_id = $1, updated_at = NOW() WHERE id = $2
+	`, addressID, shipment.ID)
+	if err != nil {
+		return "", fmt.Errorf("failed to update shipment with address book: %w", err)
+	}
+
+	return addressID, nil
+}
+
+// generateAddressNumber generates a unique address number in format ADR-[A-Z0-9]{8}
+func (s *PickupService) generateAddressNumber() (string, error) {
+	const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	bytes := make([]byte, 8)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	for i := range bytes {
+		bytes[i] = charset[bytes[i]%byte(len(charset))]
+	}
+	return "ADR-" + string(bytes), nil
 }
