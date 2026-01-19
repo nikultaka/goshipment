@@ -1,11 +1,8 @@
 package shipment_estimates
 
 import (
-	"crypto/rand"
 	"database/sql"
-	"encoding/json"
 	"fmt"
-	"math/big"
 	"strings"
 	"time"
 
@@ -16,9 +13,6 @@ import (
 const (
 	// DefaultExpirationMinutes is the default estimate validity period
 	DefaultExpirationMinutes = 15
-
-	// EstimateNumberPrefix is the prefix for estimate numbers
-	EstimateNumberPrefix = "EST-"
 )
 
 // EstimateService handles shipment estimate business logic
@@ -39,12 +33,6 @@ func (s *EstimateService) CreateEstimate(
 	organizationID *string,
 	userID *string,
 ) (*models.ShipmentEstimate, []*models.ShipmentPackage, []models.CarrierRate, error) {
-
-	// Generate estimate number
-	estimateNumber, err := s.generateEstimateNumber()
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to generate estimate number: %w", err)
-	}
 
 	// Calculate expiration time
 	expiresAt := time.Now().UTC().Add(DefaultExpirationMinutes * time.Minute)
@@ -81,33 +69,24 @@ func (s *EstimateService) CreateEstimate(
 	}
 	defer tx.Rollback()
 
-	// Serialize carrier rates to JSONB
-	ratesSnapshot := models.CarrierRatesSnapshot{
-		Rates:     carrierRates,
-		QuotedAt:  time.Now().UTC(),
-		ExpiresAt: expiresAt,
-	}
-	ratesJSON, err := json.Marshal(ratesSnapshot)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to marshal carrier rates: %w", err)
-	}
+	// Normalize country codes to uppercase (DB stores ISO 3166-1 alpha-2 in uppercase)
+	fromCountry := strings.ToUpper(req.FromAddress.Country)
+	toCountry := strings.ToUpper(req.ToAddress.Country)
 
 	// Create estimate record
 	estimate := &models.ShipmentEstimate{
-		EstimateNumber:       sql.NullString{String: estimateNumber, Valid: true},
-		Source:               source,
-		FromCountry:          req.FromAddress.Country,
-		FromPostalCode:       req.FromAddress.PostalCode,
-		ToCountry:            req.ToAddress.Country,
-		ToPostalCode:         req.ToAddress.PostalCode,
-		TotalPackages:        totalPackages,
-		TotalWeight:          totalWeight,
-		WeightUnit:           weightUnit,
-		Currency:             "CAD",
-		ExpiresAt:            expiresAt,
-		IsLocked:             false,
-		CarrierRatesSnapshot: sql.NullString{String: string(ratesJSON), Valid: true},
-		IsDeleted:            false,
+		Source:         source,
+		FromCountry:    fromCountry,
+		FromPostalCode: req.FromAddress.PostalCode,
+		ToCountry:      toCountry,
+		ToPostalCode:   req.ToAddress.PostalCode,
+		TotalPackages:  totalPackages,
+		TotalWeight:    totalWeight,
+		WeightUnit:     weightUnit,
+		Currency:       "CAD",
+		ExpiresAt:      expiresAt,
+		IsLocked:       false,
+		IsDeleted:      false,
 	}
 
 	// Set optional fields
@@ -153,27 +132,27 @@ func (s *EstimateService) CreateEstimate(
 	// Insert estimate
 	query := `
 		INSERT INTO shipment_estimates (
-			estimate_number, organization_id, user_id, source,
+			organization_id, user_id, source,
 			from_address_book_id, to_address_book_id,
 			from_country, from_region_code, from_city, from_postal_code,
 			to_country, to_region_code, to_city, to_postal_code,
 			total_packages, total_weight, weight_unit,
 			currency, expires_at, is_locked,
-			carrier_rates_snapshot, is_deleted, created_at
+			is_deleted, created_at
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-			$11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, NOW()
+			$11, $12, $13, $14, $15, $16, $17, $18, $19, $20, NOW()
 		) RETURNING id, created_at
 	`
 
 	err = tx.QueryRow(query,
-		estimate.EstimateNumber, estimate.OrganizationID, estimate.UserID, estimate.Source,
+		estimate.OrganizationID, estimate.UserID, estimate.Source,
 		estimate.FromAddressBookID, estimate.ToAddressBookID,
 		estimate.FromCountry, estimate.FromRegionCode, estimate.FromCity, estimate.FromPostalCode,
 		estimate.ToCountry, estimate.ToRegionCode, estimate.ToCity, estimate.ToPostalCode,
 		estimate.TotalPackages, estimate.TotalWeight, estimate.WeightUnit,
 		estimate.Currency, estimate.ExpiresAt, estimate.IsLocked,
-		estimate.CarrierRatesSnapshot, estimate.IsDeleted,
+		estimate.IsDeleted,
 	).Scan(&estimate.ID, &estimate.CreatedAt)
 
 	if err != nil {
@@ -243,7 +222,7 @@ func (s *EstimateService) GetEstimateByID(estimateID string) (*models.ShipmentEs
 	// Get estimate
 	query := `
 		SELECT
-			id, estimate_number, organization_id, user_id, source,
+			id, organization_id, user_id, source,
 			from_address_book_id, to_address_book_id,
 			from_country, from_region_code, from_city, from_postal_code,
 			to_country, to_region_code, to_city, to_postal_code,
@@ -252,7 +231,6 @@ func (s *EstimateService) GetEstimateByID(estimateID string) (*models.ShipmentEs
 			expires_at, is_locked, locked_at,
 			selected_carrier_id, selected_servicelevel_name, selected_servicelevel_code,
 			selected_amount, rate_selected_at,
-			carrier_rates_snapshot,
 			is_deleted, created_at
 		FROM shipment_estimates
 		WHERE id = $1 AND is_deleted = FALSE
@@ -260,7 +238,7 @@ func (s *EstimateService) GetEstimateByID(estimateID string) (*models.ShipmentEs
 
 	estimate := &models.ShipmentEstimate{}
 	err := s.db.DB.QueryRow(query, estimateID).Scan(
-		&estimate.ID, &estimate.EstimateNumber, &estimate.OrganizationID, &estimate.UserID, &estimate.Source,
+		&estimate.ID, &estimate.OrganizationID, &estimate.UserID, &estimate.Source,
 		&estimate.FromAddressBookID, &estimate.ToAddressBookID,
 		&estimate.FromCountry, &estimate.FromRegionCode, &estimate.FromCity, &estimate.FromPostalCode,
 		&estimate.ToCountry, &estimate.ToRegionCode, &estimate.ToCity, &estimate.ToPostalCode,
@@ -269,7 +247,6 @@ func (s *EstimateService) GetEstimateByID(estimateID string) (*models.ShipmentEs
 		&estimate.ExpiresAt, &estimate.IsLocked, &estimate.LockedAt,
 		&estimate.SelectedCarrierID, &estimate.SelectedServiceLevelName, &estimate.SelectedServiceLevelCode,
 		&estimate.SelectedAmount, &estimate.RateSelectedAt,
-		&estimate.CarrierRatesSnapshot,
 		&estimate.IsDeleted, &estimate.CreatedAt,
 	)
 
@@ -286,15 +263,9 @@ func (s *EstimateService) GetEstimateByID(estimateID string) (*models.ShipmentEs
 		return nil, nil, nil, fmt.Errorf("failed to get packages: %w", err)
 	}
 
-	// Parse carrier rates from JSONB
+	// Carrier rates are not stored in database, return empty array
+	// Rates are only available at creation time and expire after 15 minutes
 	var carrierRates []models.CarrierRate
-	if estimate.CarrierRatesSnapshot.Valid {
-		var snapshot models.CarrierRatesSnapshot
-		if err := json.Unmarshal([]byte(estimate.CarrierRatesSnapshot.String), &snapshot); err != nil {
-			return nil, nil, nil, fmt.Errorf("failed to parse carrier rates: %w", err)
-		}
-		carrierRates = snapshot.Rates
-	}
 
 	return estimate, packages, carrierRates, nil
 }
@@ -346,43 +317,6 @@ func (s *EstimateService) getEstimatePackages(estimateID string) ([]*models.Ship
 	}
 
 	return packages, rows.Err()
-}
-
-// generateEstimateNumber generates a unique estimate number in format EST-XXXXXXXX
-func (s *EstimateService) generateEstimateNumber() (string, error) {
-	const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	const length = 8
-
-	for attempts := 0; attempts < 10; attempts++ {
-		// Generate random 8-character suffix
-		suffix := make([]byte, length)
-		for i := range suffix {
-			n, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
-			if err != nil {
-				return "", err
-			}
-			suffix[i] = charset[n.Int64()]
-		}
-
-		estimateNumber := EstimateNumberPrefix + string(suffix)
-
-		// Check if it exists
-		var exists bool
-		err := s.db.DB.QueryRow(
-			"SELECT EXISTS(SELECT 1 FROM shipment_estimates WHERE estimate_number = $1)",
-			estimateNumber,
-		).Scan(&exists)
-
-		if err != nil {
-			return "", err
-		}
-
-		if !exists {
-			return estimateNumber, nil
-		}
-	}
-
-	return "", fmt.Errorf("failed to generate unique estimate number after 10 attempts")
 }
 
 // getCarrierRates fetches carrier rates for the given request

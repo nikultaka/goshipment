@@ -193,9 +193,10 @@ func (h *EstimateHandlers) buildEstimateResponse(
 	}
 
 	// Build main response
+	// Use ID as estimate reference (estimate_number column not available in DB schema)
 	resp := EstimateResponse{
 		ID:             estimate.ID,
-		EstimateNumber: estimate.GetEstimateNumber(),
+		EstimateNumber: estimate.ID,
 		Status:         GetEstimateStatus(estimate),
 		FromAddress:    fromAddress,
 		ToAddress:      toAddress,
