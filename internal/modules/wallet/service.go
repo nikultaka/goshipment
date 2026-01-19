@@ -575,10 +575,11 @@ func (s *WalletService) processRefund(
 		return nil, fmt.Errorf("failed to update shipment: %w", err)
 	}
 
-	// Update invoice
+	// Update invoice (set to 'unpaid' since payment was refunded)
+	// Valid enum values: unpaid, partial, paid, overpaid
 	updateInvoiceQuery := `
 		UPDATE invoices
-		SET payment_status = 'refunded',
+		SET payment_status = 'unpaid',
 		    updated_at = NOW()
 		WHERE shipment_id = $1
 	`
