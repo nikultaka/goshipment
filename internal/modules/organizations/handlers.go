@@ -1,8 +1,10 @@
 package organizations
 
 import (
-	"gogin/internal/response"
 	"net/http"
+
+	"gogin/internal/models"
+	"gogin/internal/response"
 
 	"github.com/gin-gonic/gin"
 )
@@ -316,4 +318,67 @@ func (h *OrganizationHandlers) UpdateOrganizationPreferences(c *gin.Context) {
 
 	resp := ToPreferencesResponse(prefs)
 	response.Success(c, http.StatusOK, "Organization preferences updated successfully", resp)
+}
+
+// CreateOrganization godoc
+// @Summary Create a new organization
+// @Description Create a new organization with the authenticated user as the owner. User must not already belong to an organization.
+// @Tags Organizations
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param body body CreateOrganizationRequest true "Organization details"
+// @Success 201 {object} response.Response{data=CreateOrganizationResponse} "Organization created successfully"
+// @Failure 400 {object} response.Response "Invalid request or user already belongs to an organization"
+// @Failure 401 {object} response.Response "Unauthorized"
+// @Failure 500 {object} response.Response "Internal server error"
+// @Router /organizations [post]
+func (h *OrganizationHandlers) CreateOrganization(c *gin.Context) {
+	// Get user ID from context
+	userID, exists := c.Get("user_id")
+	if !exists || userID == nil {
+		response.Unauthorized(c, "User context required")
+		return
+	}
+
+	// Parse request
+	var req CreateOrganizationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	// Set default plan if not provided
+	plan := models.OrganizationPlanTier1
+	if req.Plan != nil {
+		plan = *req.Plan
+	}
+
+	// Create organization
+	org, err := h.service.CreateOrganization(req.Name, plan, userID.(string))
+	if err != nil {
+		// Check if error is due to user already having an organization
+		if err.Error() == "user already belongs to an organization" ||
+		   (len(err.Error()) > 30 && err.Error()[:30] == "user already belongs to an org") {
+			response.BadRequest(c, err.Error())
+			return
+		}
+		response.InternalError(c, "Failed to create organization: "+err.Error())
+		return
+	}
+
+	// Build response
+	resp := CreateOrganizationResponse{
+		ID:          org.ID,
+		ExternalID:  org.ExternalID,
+		Name:        org.Name,
+		OwnerUserID: org.OwnerUserID,
+		Status:      org.Status,
+		Plan:        org.Plan,
+		YourRole:    models.OrganizationRoleOwner,
+		CreatedAt:   org.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		Message:     "Organization created successfully. You are now the owner.",
+	}
+
+	response.Success(c, http.StatusCreated, "Organization created successfully", resp)
 }

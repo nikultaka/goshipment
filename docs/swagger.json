@@ -5382,6 +5382,41 @@
                 }
             }
         },
+        "/organization/invites/roles": {
+            "get": {
+                "description": "Returns list of available roles that can be assigned when creating invitations",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Organization Invites"
+                ],
+                "summary": "Get available organization roles",
+                "responses": {
+                    "200": {
+                        "description": "Available roles",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/organizations.RoleInfo"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/organization/invites/{id}": {
             "delete": {
                 "security": [
@@ -5768,6 +5803,75 @@
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/organizations": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create a new organization with the authenticated user as the owner. User must not already belong to an organization.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Organizations"
+                ],
+                "summary": "Create a new organization",
+                "parameters": [
+                    {
+                        "description": "Organization details",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/organizations.CreateOrganizationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Organization created successfully",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/organizations.CreateOrganizationResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request or user already belongs to an organization",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
                         "schema": {
                             "$ref": "#/definitions/response.Response"
                         }
@@ -14657,6 +14761,87 @@
                 }
             }
         },
+        "organizations.CreateOrganizationRequest": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "maxLength": 200,
+                    "minLength": 2,
+                    "example": "Acme Corporation"
+                },
+                "plan": {
+                    "enum": [
+                        "tier_1",
+                        "tier_2",
+                        "tier_3",
+                        "tier_4"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.OrganizationPlan"
+                        }
+                    ],
+                    "example": "tier_1"
+                }
+            }
+        },
+        "organizations.CreateOrganizationResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string",
+                    "example": "2026-01-16T12:00:00Z"
+                },
+                "external_id": {
+                    "type": "string",
+                    "example": "org_ABC12345"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Organization created successfully"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Acme Corporation"
+                },
+                "owner_user_id": {
+                    "type": "string",
+                    "example": "bf062bf2-64c4-418e-9b4e-a1c5a569e738"
+                },
+                "plan": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.OrganizationPlan"
+                        }
+                    ],
+                    "example": "tier_1"
+                },
+                "status": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.OrganizationStatus"
+                        }
+                    ],
+                    "example": "active"
+                },
+                "your_role": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.OrganizationRole"
+                        }
+                    ],
+                    "example": "owner"
+                }
+            }
+        },
         "organizations.GetOrganizationPreferencesResponse": {
             "type": "object",
             "properties": {
@@ -14918,6 +15103,27 @@
                 "organization_name": {
                     "type": "string",
                     "example": "Acme Corp"
+                }
+            }
+        },
+        "organizations.RoleInfo": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string",
+                    "example": "Can create and manage shipments"
+                },
+                "display_name": {
+                    "type": "string",
+                    "example": "Operator"
+                },
+                "level": {
+                    "type": "integer",
+                    "example": 30
+                },
+                "name": {
+                    "type": "string",
+                    "example": "operator"
                 }
             }
         },

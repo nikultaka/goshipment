@@ -18,6 +18,7 @@ type Config struct {
 	OAuth    OAuthConfig
 	Storage  StorageConfig
 	GA4      GA4Config
+	SendGrid SendGridConfig
 }
 
 // AppConfig holds application-level configuration
@@ -94,6 +95,15 @@ type GA4Config struct {
 	Enabled       bool
 }
 
+// SendGridConfig holds SendGrid email configuration
+type SendGridConfig struct {
+	APIKey       string
+	FromEmail    string
+	FromName     string
+	ReplyToEmail string
+	Enabled      bool
+}
+
 // Load reads configuration from environment variables
 func Load() (*Config, error) {
 	// Load .env file if exists (not in production)
@@ -158,6 +168,13 @@ func Load() (*Config, error) {
 			MeasurementID: getEnv("GA4_MEASUREMENT_ID", ""),
 			APISecret:     getEnv("GA4_API_SECRET", ""),
 			Enabled:       getEnvBool("GA4_ENABLED", false),
+		},
+		SendGrid: SendGridConfig{
+			APIKey:       getEnv("SENDGRID_API_KEY", ""),
+			FromEmail:    getEnv("SENDGRID_FROM_EMAIL", "noreply@goshipment.com"),
+			FromName:     getEnv("SENDGRID_FROM_NAME", "GoShipment"),
+			ReplyToEmail: getEnv("SENDGRID_REPLY_TO_EMAIL", "support@goshipment.com"),
+			Enabled:      getEnvBool("SENDGRID_ENABLED", false),
 		},
 	}
 

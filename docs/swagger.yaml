@@ -1478,6 +1478,58 @@ definitions:
         example: Invitation sent successfully to newuser@example.com
         type: string
     type: object
+  organizations.CreateOrganizationRequest:
+    properties:
+      name:
+        example: Acme Corporation
+        maxLength: 200
+        minLength: 2
+        type: string
+      plan:
+        allOf:
+        - $ref: '#/definitions/models.OrganizationPlan'
+        enum:
+        - tier_1
+        - tier_2
+        - tier_3
+        - tier_4
+        example: tier_1
+    required:
+    - name
+    type: object
+  organizations.CreateOrganizationResponse:
+    properties:
+      created_at:
+        example: "2026-01-16T12:00:00Z"
+        type: string
+      external_id:
+        example: org_ABC12345
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      message:
+        example: Organization created successfully
+        type: string
+      name:
+        example: Acme Corporation
+        type: string
+      owner_user_id:
+        example: bf062bf2-64c4-418e-9b4e-a1c5a569e738
+        type: string
+      plan:
+        allOf:
+        - $ref: '#/definitions/models.OrganizationPlan'
+        example: tier_1
+      status:
+        allOf:
+        - $ref: '#/definitions/models.OrganizationStatus'
+        example: active
+      your_role:
+        allOf:
+        - $ref: '#/definitions/models.OrganizationRole'
+        example: owner
+    type: object
   organizations.GetOrganizationPreferencesResponse:
     properties:
       default_recipient_address_id:
@@ -1655,6 +1707,21 @@ definitions:
         type: string
       organization_name:
         example: Acme Corp
+        type: string
+    type: object
+  organizations.RoleInfo:
+    properties:
+      description:
+        example: Can create and manage shipments
+        type: string
+      display_name:
+        example: Operator
+        type: string
+      level:
+        example: 30
+        type: integer
+      name:
+        example: operator
         type: string
     type: object
   organizations.UpdateOrganizationPreferencesRequest:
@@ -7160,6 +7227,27 @@ paths:
       summary: Reject organization invitation
       tags:
       - Organization Invites
+  /organization/invites/roles:
+    get:
+      description: Returns list of available roles that can be assigned when creating
+        invitations
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Available roles
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/organizations.RoleInfo'
+                  type: array
+              type: object
+      summary: Get available organization roles
+      tags:
+      - Organization Invites
   /organization/members:
     get:
       consumes:
@@ -7361,6 +7449,48 @@ paths:
       security:
       - BearerAuth: []
       summary: Update organization settings
+      tags:
+      - Organizations
+  /organizations:
+    post:
+      consumes:
+      - application/json
+      description: Create a new organization with the authenticated user as the owner.
+        User must not already belong to an organization.
+      parameters:
+      - description: Organization details
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/organizations.CreateOrganizationRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Organization created successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/organizations.CreateOrganizationResponse'
+              type: object
+        "400":
+          description: Invalid request or user already belongs to an organization
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Create a new organization
       tags:
       - Organizations
   /pickups:

@@ -99,3 +99,11 @@ type PaginationInfo struct {
 	Total      int `json:"total" example:"45"`
 	TotalPages int `json:"total_pages" example:"3"`
 }
+
+// RoleInfo represents an organization role
+type RoleInfo struct {
+	Name        string `json:"name" example:"operator"`
+	DisplayName string `json:"display_name" example:"Operator"`
+	Description string `json:"description" example:"Can create and manage shipments"`
+	Level       int    `json:"level" example:"30"`
+}

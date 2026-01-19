@@ -93,6 +93,25 @@ type UpdateMemberRoleRequest struct {
 	Role models.OrganizationRole `json:"role" binding:"required"`
 }
 
+// CreateOrganizationRequest represents the request to create an organization
+type CreateOrganizationRequest struct {
+	Name string                  `json:"name" binding:"required,min=2,max=200" example:"Acme Corporation"`
+	Plan *models.OrganizationPlan `json:"plan" binding:"omitempty,oneof=tier_1 tier_2 tier_3 tier_4" example:"tier_1"`
+}
+
+// CreateOrganizationResponse represents the response after creating organization
+type CreateOrganizationResponse struct {
+	ID          string                   `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	ExternalID  string                   `json:"external_id" example:"org_ABC12345"`
+	Name        string                   `json:"name" example:"Acme Corporation"`
+	OwnerUserID string                   `json:"owner_user_id" example:"bf062bf2-64c4-418e-9b4e-a1c5a569e738"`
+	Status      models.OrganizationStatus `json:"status" example:"active"`
+	Plan        models.OrganizationPlan   `json:"plan" example:"tier_1"`
+	YourRole    models.OrganizationRole   `json:"your_role" example:"owner"`
+	CreatedAt   string                   `json:"created_at" example:"2026-01-16T12:00:00Z"`
+	Message     string                   `json:"message" example:"Organization created successfully"`
+}
+
 // Helper function to convert sql.NullString to *string
 func nullStringToPtr(ns sql.NullString) *string {
 	if ns.Valid {

@@ -374,3 +374,109 @@ func (s *OrganizationService) ValidateUserInOrganization(userID, organizationID 
 
 	return &member, nil
 }
+
+// CreateOrganization creates a new organization with the user as owner
+func (s *OrganizationService) CreateOrganization(name string, plan models.OrganizationPlan, userID string) (*models.Organization, error) {
+	// Check if user already belongs to an organization
+	existingOrg, _, err := s.GetOrganizationByUserID(userID)
+	if err == nil && existingOrg != nil {
+		return nil, fmt.Errorf("user already belongs to an organization: %s", existingOrg.Name)
+	}
+
+	// Start transaction
+	tx, err := s.db.DB.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Generate external_id (org_XXXXXXXX)
+	externalID, err := generateOrganizationExternalID(tx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate external ID: %w", err)
+	}
+
+	// Create organization
+	var org models.Organization
+	orgQuery := `
+		INSERT INTO organizations (external_id, name, owner_user_id, status, plan, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+		RETURNING id, external_id, name, owner_user_id, status, plan, is_deleted, deleted_at, deleted_by_user_id, created_at, updated_at
+	`
+	err = tx.QueryRow(orgQuery, externalID, name, userID, models.OrganizationStatusActive, plan).Scan(
+		&org.ID, &org.ExternalID, &org.Name, &org.OwnerUserID, &org.Status, &org.Plan,
+		&org.IsDeleted, &org.DeletedAt, &org.DeletedByUserID, &org.CreatedAt, &org.UpdatedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create organization: %w", err)
+	}
+
+	// Add creator as owner in organization_members
+	memberQuery := `
+		INSERT INTO organization_members (organization_id, user_id, role, is_active, joined_at)
+		VALUES ($1, $2, $3, $4, NOW())
+	`
+	_, err = tx.Exec(memberQuery, org.ID, userID, models.OrganizationRoleOwner, true)
+	if err != nil {
+		return nil, fmt.Errorf("failed to add owner to organization members: %w", err)
+	}
+
+	// Create default organization_settings
+	settingsQuery := `
+		INSERT INTO organization_settings (organization_id, allow_same_day_pickup, allow_next_day_pickup, created_at, updated_at)
+		VALUES ($1, $2, $3, NOW(), NOW())
+	`
+	_, err = tx.Exec(settingsQuery, org.ID, false, true)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create organization settings: %w", err)
+	}
+
+	// Create default organization_preferences
+	prefsQuery := `
+		INSERT INTO organization_preferences (
+			organization_id, signature_option, weight_unit, dimension_unit,
+			timezone, label_format, hide_shipper_phone_on_label, show_usd_estimates,
+			created_at, updated_at
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+	`
+	_, err = tx.Exec(prefsQuery, org.ID, "no_signature", "kg", "cm", "America/Toronto", "pdf", false, false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create organization preferences: %w", err)
+	}
+
+	// Commit transaction
+	if err = tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return &org, nil
+}
+
+// generateOrganizationExternalID generates a unique external ID for organization
+func generateOrganizationExternalID(tx *sql.Tx) (string, error) {
+	const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	const length = 8
+
+	for attempts := 0; attempts < 10; attempts++ {
+		// Generate random string
+		randomStr := make([]byte, length)
+		for i := range randomStr {
+			randomStr[i] = charset[time.Now().UnixNano()%int64(len(charset))]
+		}
+		externalID := "org_" + string(randomStr)
+
+		// Check if exists
+		var exists bool
+		err := tx.QueryRow("SELECT EXISTS(SELECT 1 FROM organizations WHERE external_id = $1)", externalID).Scan(&exists)
+		if err != nil {
+			return "", err
+		}
+
+		if !exists {
+			return externalID, nil
+		}
+	}
+
+	return "", fmt.Errorf("failed to generate unique external ID after 10 attempts")
+}

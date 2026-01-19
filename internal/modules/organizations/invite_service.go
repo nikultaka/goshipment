@@ -16,12 +16,16 @@ import (
 
 // OrganizationInviteService handles organization invitation business logic
 type OrganizationInviteService struct {
-	db *clients.Database
+	db          *clients.Database
+	emailClient *clients.EmailClient
 }
 
 // NewOrganizationInviteService creates a new organization invite service
-func NewOrganizationInviteService(db *clients.Database) *OrganizationInviteService {
-	return &OrganizationInviteService{db: db}
+func NewOrganizationInviteService(db *clients.Database, emailClient *clients.EmailClient) *OrganizationInviteService {
+	return &OrganizationInviteService{
+		db:          db,
+		emailClient: emailClient,
+	}
 }
 
 // CreateInvite creates a new organization invitation
@@ -29,6 +33,7 @@ func (s *OrganizationInviteService) CreateInvite(
 	req CreateInviteRequest,
 	organizationID string,
 	invitedByUserID string,
+	inviteLink string,
 ) (*models.OrganizationInvite, error) {
 	// 1. Check if user is already a member
 	var existingMember string
@@ -93,9 +98,31 @@ func (s *OrganizationInviteService) CreateInvite(
 		return nil, fmt.Errorf("failed to create invitation: %w", err)
 	}
 
-	// 5. TODO: Send email notification (implement later)
-	// This would call your email service to send the invitation email
-	// with the invite link containing the token
+	// 5. Get organization and inviter details for email
+	var orgName, inviterFirstName, inviterLastName string
+	err = s.db.QueryRow(`
+		SELECT o.name, u.first_name, u.last_name
+		FROM organizations o
+		JOIN users u ON u.id = $1
+		WHERE o.id = $2
+	`, invitedByUserID, organizationID).Scan(&orgName, &inviterFirstName, &inviterLastName)
+
+	if err != nil {
+		// Don't fail invitation creation if email fetch fails, just log
+		fmt.Printf("Warning: Failed to fetch organization/user details for email: %v\n", err)
+	}
+
+	// 6. Send email notification
+	if s.emailClient != nil && err == nil {
+		inviterName := fmt.Sprintf("%s %s", inviterFirstName, inviterLastName)
+		// Build full invite link with token
+		fullInviteLink := fmt.Sprintf("%s?token=%s", inviteLink, invite.InviteToken)
+		emailErr := s.emailClient.SendInvitationEmail(invite.Email, inviterName, orgName, fullInviteLink)
+		if emailErr != nil {
+			// Don't fail invitation creation if email fails, just log
+			fmt.Printf("Warning: Failed to send invitation email to %s: %v\n", invite.Email, emailErr)
+		}
+	}
 
 	return invite, nil
 }

@@ -81,4 +81,13 @@ docker-run: ## Run Docker container
 	@echo "🐳 Running Docker container..."
 	@docker run -p 8080:8080 --env-file .env $(BINARY_NAME):latest
 
+swagger: ## Generate Swagger documentation
+	@echo "📚 Generating Swagger docs..."
+	@if command -v swag > /dev/null; then \
+		swag init -g cmd/api/main.go --output docs; \
+		echo "✓ Swagger docs generated"; \
+	else \
+		echo "⚠️  swag not installed. Install with: go install github.com/swaggo/swag/cmd/swag@latest"; \
+	fi
+
 .DEFAULT_GOAL := help

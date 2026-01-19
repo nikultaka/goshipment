@@ -27,8 +27,11 @@ func NewOrganizationsModule(db *clients.Database, redis *clients.RedisClient, cf
 	service := NewOrganizationService(db)
 	handlers := NewOrganizationHandlers(service)
 
-	inviteService := NewOrganizationInviteService(db)
-	inviteHandlers := NewOrganizationInviteHandlers(inviteService)
+	// Create email client for sending invitations (using SendGrid)
+	emailClient := clients.NewEmailClient(&cfg.SendGrid)
+
+	inviteService := NewOrganizationInviteService(db, emailClient)
+	inviteHandlers := NewOrganizationInviteHandlers(inviteService, service)
 
 	return &OrganizationsModule{
 		handlers:       handlers,
@@ -40,6 +43,14 @@ func NewOrganizationsModule(db *clients.Database, redis *clients.RedisClient, cf
 
 // RegisterRoutes registers organization routes
 func (m *OrganizationsModule) RegisterRoutes(router *gin.RouterGroup) {
+	// Create organization route (authenticated only)
+	orgCreationRoutes := router.Group("/organizations")
+	orgCreationRoutes.Use(m.authMiddleware.RequireAuth())
+	{
+		// Create new organization
+		orgCreationRoutes.POST("", m.handlers.CreateOrganization)
+	}
+
 	// Organization routes (authenticated only)
 	orgRoutes := router.Group("/organization")
 	orgRoutes.Use(m.authMiddleware.RequireAuth())
@@ -67,6 +78,9 @@ func (m *OrganizationsModule) RegisterRoutes(router *gin.RouterGroup) {
 	// Public invitation routes (no auth required - token-based)
 	inviteRoutes := router.Group("/organization/invites")
 	{
+		// Get available roles (public - informational)
+		inviteRoutes.GET("/roles", m.inviteHandlers.GetAvailableRoles)
+
 		// Accept/reject invitations (public with token)
 		inviteRoutes.POST("/accept", m.inviteHandlers.AcceptInvite)
 		inviteRoutes.POST("/reject", m.inviteHandlers.RejectInvite)

@@ -11,13 +11,15 @@ import (
 
 // OrganizationInviteHandlers handles organization invitation HTTP requests
 type OrganizationInviteHandlers struct {
-	service *OrganizationInviteService
+	service    *OrganizationInviteService
+	orgService *OrganizationService
 }
 
 // NewOrganizationInviteHandlers creates a new organization invite handlers instance
-func NewOrganizationInviteHandlers(service *OrganizationInviteService) *OrganizationInviteHandlers {
+func NewOrganizationInviteHandlers(service *OrganizationInviteService, orgService *OrganizationService) *OrganizationInviteHandlers {
 	return &OrganizationInviteHandlers{
-		service: service,
+		service:    service,
+		orgService: orgService,
 	}
 }
 
@@ -43,9 +45,9 @@ func (h *OrganizationInviteHandlers) CreateInvite(c *gin.Context) {
 		return
 	}
 
-	// Get organization ID from context (set by middleware)
-	organizationID, exists := c.Get("organization_id")
-	if !exists || organizationID == nil {
+	// Get organization from database
+	org, _, err := h.orgService.GetOrganizationByUserID(userID.(string))
+	if err != nil {
 		response.Forbidden(c, "User is not a member of any organization")
 		return
 	}
@@ -57,15 +59,18 @@ func (h *OrganizationInviteHandlers) CreateInvite(c *gin.Context) {
 		return
 	}
 
-	// Create invitation
-	invite, err := h.service.CreateInvite(req, organizationID.(string), userID.(string))
+	// Build invite link (before creating invite so we can pass it to service)
+	baseURL := "http://localhost:8081" // TODO: Get from config
+	// Temporary token will be replaced by actual token after creation
+
+	// Create invitation (service will generate token and send email)
+	invite, err := h.service.CreateInvite(req, org.ID, userID.(string), baseURL+"/invites/accept")
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return
 	}
 
-	// Build invite link
-	baseURL := "http://localhost:8081" // TODO: Get from config
+	// Build actual invite link with real token
 	inviteLink := fmt.Sprintf("%s/invites/accept?token=%s", baseURL, invite.InviteToken)
 
 	// Build response
@@ -197,9 +202,9 @@ func (h *OrganizationInviteHandlers) ListInvites(c *gin.Context) {
 		return
 	}
 
-	// Get organization ID from context
-	organizationID, exists := c.Get("organization_id")
-	if !exists || organizationID == nil {
+	// Get organization from database
+	org, _, err := h.orgService.GetOrganizationByUserID(userID.(string))
+	if err != nil {
 		response.Forbidden(c, "User is not a member of any organization")
 		return
 	}
@@ -212,7 +217,7 @@ func (h *OrganizationInviteHandlers) ListInvites(c *gin.Context) {
 	}
 
 	// List invitations
-	invites, total, err := h.service.ListInvites(organizationID.(string), query)
+	invites, total, err := h.service.ListInvites(org.ID, query)
 	if err != nil {
 		response.InternalError(c, "Failed to list invitations: "+err.Error())
 		return
@@ -241,6 +246,50 @@ func (h *OrganizationInviteHandlers) ListInvites(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Invitations retrieved successfully", resp)
 }
 
+// GetAvailableRoles godoc
+// @Summary Get available organization roles
+// @Description Returns list of available roles that can be assigned when creating invitations
+// @Tags Organization Invites
+// @Produce json
+// @Success 200 {object} response.Response{data=[]RoleInfo} "Available roles"
+// @Router /organization/invites/roles [get]
+func (h *OrganizationInviteHandlers) GetAvailableRoles(c *gin.Context) {
+	roles := []RoleInfo{
+		{
+			Name:        "viewer",
+			DisplayName: "Viewer",
+			Description: "Read-only access to organization resources",
+			Level:       10,
+		},
+		{
+			Name:        "operator",
+			DisplayName: "Operator",
+			Description: "Can create and manage shipments, labels, and pickups",
+			Level:       30,
+		},
+		{
+			Name:        "manager",
+			DisplayName: "Manager",
+			Description: "Can manage team members, shipments, and access reports",
+			Level:       50,
+		},
+		{
+			Name:        "administrator",
+			DisplayName: "Administrator",
+			Description: "Full access to organization settings and management",
+			Level:       70,
+		},
+		{
+			Name:        "owner",
+			DisplayName: "Owner",
+			Description: "Complete control over organization including billing and deletion",
+			Level:       100,
+		},
+	}
+
+	response.Success(c, http.StatusOK, "Available roles retrieved successfully", roles)
+}
+
 // RevokeInvite godoc
 // @Summary Revoke organization invitation
 // @Description Revoke a pending invitation (Admin/Owner only)
@@ -262,9 +311,9 @@ func (h *OrganizationInviteHandlers) RevokeInvite(c *gin.Context) {
 		return
 	}
 
-	// Get organization ID from context
-	organizationID, exists := c.Get("organization_id")
-	if !exists || organizationID == nil {
+	// Get organization from database
+	org, _, err := h.orgService.GetOrganizationByUserID(userID.(string))
+	if err != nil {
 		response.Forbidden(c, "User is not a member of any organization")
 		return
 	}
@@ -277,7 +326,7 @@ func (h *OrganizationInviteHandlers) RevokeInvite(c *gin.Context) {
 	}
 
 	// Revoke invitation
-	err := h.service.RevokeInvite(inviteID, organizationID.(string))
+	err = h.service.RevokeInvite(inviteID, org.ID)
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return

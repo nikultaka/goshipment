@@ -118,6 +118,7 @@ services:
       SENDGRID_FROM_EMAIL: "noreply@zyrobyte.co"             # From email address
       SENDGRID_FROM_NAME: "Go API"        # From name
       SENDGRID_REPLY_TO_EMAIL: ""         # Reply-to email
+      SENDGRID_ENABLED: "true"            # Enable/disable email sending
 
       # ============================================
       # TWILIO SMS CONFIGURATION

@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS organization_invites (
 
     -- Invitee Information
     email VARCHAR(255) NOT NULL,
-    role organization_role_enum NOT NULL,
+    role organization_role NOT NULL,
 
     -- Security & Status
     invite_token VARCHAR(64) NOT NULL UNIQUE,
