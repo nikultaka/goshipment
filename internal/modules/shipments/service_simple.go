@@ -261,27 +261,107 @@ func (s *SimpleShipmentService) CreateShipment(
 	return shipment, nil
 }
 
-// ListShipments returns a simplified list
+// ListShipments returns a paginated list of shipments
 func (s *SimpleShipmentService) ListShipments(
 	organizationID string,
 	query ListShipmentsQuery,
 ) ([]*models.Shipment, int, error) {
-	// Simple implementation
-	rows, err := s.db.Query(`
-		SELECT COUNT(*) FROM shipments
-		WHERE organization_id = $1 AND is_deleted = FALSE
-	`, organizationID)
+	// Set defaults for pagination
+	page := query.Page
+	if page < 1 {
+		page = 1
+	}
+	limit := query.Limit
+	if limit < 1 {
+		limit = 20
+	}
+	offset := (page - 1) * limit
+
+	// Count total records
+	var total int
+	countQuery := `SELECT COUNT(*) FROM shipments WHERE organization_id = $1 AND is_deleted = FALSE`
+	args := []interface{}{organizationID}
+	argIndex := 2
+
+	// Add optional filters to count query
+	if query.Status != nil && *query.Status != "" {
+		countQuery += fmt.Sprintf(" AND shipment_status = $%d", argIndex)
+		args = append(args, *query.Status)
+		argIndex++
+	}
+	if query.IsArchived != nil {
+		countQuery += fmt.Sprintf(" AND is_archived = $%d", argIndex)
+		args = append(args, *query.IsArchived)
+		argIndex++
+	}
+
+	err := s.db.QueryRow(countQuery, args...).Scan(&total)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, fmt.Errorf("failed to count shipments: %w", err)
+	}
+
+	// Build the main query
+	selectQuery := `
+		SELECT id, shipment_number, organization_id, created_by_user_id, shipment_estimate_id,
+		       carrier_id, servicelevel_code, servicelevel_name,
+		       from_country, from_region_code, from_city, from_postal_code,
+		       to_country, to_region_code, to_city, to_postal_code,
+		       total_packages, currency, shipment_status, payment_status,
+		       is_archived, master_tracking_number, created_at, updated_at
+		FROM shipments
+		WHERE organization_id = $1 AND is_deleted = FALSE
+	`
+	args = []interface{}{organizationID}
+	argIndex = 2
+
+	// Add optional filters
+	if query.Status != nil && *query.Status != "" {
+		selectQuery += fmt.Sprintf(" AND shipment_status = $%d", argIndex)
+		args = append(args, *query.Status)
+		argIndex++
+	}
+	if query.IsArchived != nil {
+		selectQuery += fmt.Sprintf(" AND is_archived = $%d", argIndex)
+		args = append(args, *query.IsArchived)
+		argIndex++
+	}
+
+	// Add sorting and pagination
+	selectQuery += " ORDER BY created_at DESC"
+	selectQuery += fmt.Sprintf(" LIMIT $%d OFFSET $%d", argIndex, argIndex+1)
+	args = append(args, limit, offset)
+
+	// Execute query
+	rows, err := s.db.Query(selectQuery, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to query shipments: %w", err)
 	}
 	defer rows.Close()
 
-	var total int
-	if rows.Next() {
-		rows.Scan(&total)
+	// Parse results
+	shipments := make([]*models.Shipment, 0)
+	for rows.Next() {
+		var shipment models.Shipment
+		err := rows.Scan(
+			&shipment.ID, &shipment.ShipmentNumber, &shipment.OrganizationID,
+			&shipment.CreatedByUserID, &shipment.ShipmentEstimateID,
+			&shipment.CarrierID, &shipment.ServicelevelCode, &shipment.ServicelevelName,
+			&shipment.FromCountry, &shipment.FromRegionCode, &shipment.FromCity, &shipment.FromPostalCode,
+			&shipment.ToCountry, &shipment.ToRegionCode, &shipment.ToCity, &shipment.ToPostalCode,
+			&shipment.TotalPackages, &shipment.Currency, &shipment.ShipmentStatus, &shipment.PaymentStatus,
+			&shipment.IsArchived, &shipment.MasterTrackingNumber, &shipment.CreatedAt, &shipment.UpdatedAt,
+		)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to scan shipment: %w", err)
+		}
+		shipments = append(shipments, &shipment)
 	}
 
-	return []*models.Shipment{}, total, nil
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("error iterating shipments: %w", err)
+	}
+
+	return shipments, total, nil
 }
 
 // GetShipmentByID returns a shipment

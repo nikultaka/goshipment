@@ -1,7 +1,12 @@
 -- ============================================
--- Create migrations tracking table first
+-- Create migrations tracking tables first
 -- ============================================
 CREATE TABLE IF NOT EXISTS schema_migrations (
+    version VARCHAR(255) PRIMARY KEY,
+    applied_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS seed_migrations (
     version VARCHAR(255) PRIMARY KEY,
     applied_at TIMESTAMP DEFAULT NOW()
 );
@@ -36,6 +41,7 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 \i '/docker-entrypoint-initdb.d/migrations/024_geo_reference.sql';
 \i '/docker-entrypoint-initdb.d/migrations/025_hs_code.sql';
 \i '/docker-entrypoint-initdb.d/migrations/026_shipment_estimates.sql';
+\i '/docker-entrypoint-initdb.d/migrations/026_1_add_estimate_required_fields.sql';
 \i '/docker-entrypoint-initdb.d/migrations/027_shipment_packages.sql';
 \i '/docker-entrypoint-initdb.d/migrations/028_shipments.sql';
 \i '/docker-entrypoint-initdb.d/migrations/029_shipment_events.sql';
@@ -48,6 +54,7 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 \i '/docker-entrypoint-initdb.d/migrations/036_shipment_financials.sql';
 \i '/docker-entrypoint-initdb.d/migrations/037_financial_reports.sql';
 \i '/docker-entrypoint-initdb.d/migrations/038_exchange_rates.sql';
+\i '/docker-entrypoint-initdb.d/migrations/040_organization_invites.sql';
 
 -- ============================================
 -- Record all migrations as applied
@@ -79,6 +86,7 @@ INSERT INTO schema_migrations (version) VALUES
     ('024_geo_reference.sql'),
     ('025_hs_code.sql'),
     ('026_shipment_estimates.sql'),
+    ('026_1_add_estimate_required_fields.sql'),
     ('027_shipment_packages.sql'),
     ('028_shipments.sql'),
     ('029_shipment_events.sql'),
@@ -90,7 +98,8 @@ INSERT INTO schema_migrations (version) VALUES
     ('035_indexes.sql'),
     ('036_shipment_financials.sql'),
     ('037_financial_reports.sql'),
-    ('038_exchange_rates.sql')
+    ('038_exchange_rates.sql'),
+    ('040_organization_invites.sql')
 ON CONFLICT (version) DO NOTHING;
 
 -- ============================================
@@ -135,3 +144,49 @@ ON CONFLICT (version) DO NOTHING;
 \i '/docker-entrypoint-initdb.d/seeds/036_shipment_financials_seed.sql';
 \i '/docker-entrypoint-initdb.d/seeds/037_financial_reports_seed.sql';
 \i '/docker-entrypoint-initdb.d/seeds/038_exchange_rates_seed.sql';
+\i '/docker-entrypoint-initdb.d/seeds/039_countries.sql';
+
+-- ============================================
+-- Record all seeds as applied
+-- ============================================
+INSERT INTO seed_migrations (version) VALUES
+    ('001_enable_uuid.sql'),
+    ('002_core_seed.sql'),
+    ('003_oauth_seed.sql'),
+    ('004_users_seed.sql'),
+    ('005_api_clients_seed.sql'),
+    ('006_audit_logs_seed.sql'),
+    ('007_notifications_seed.sql'),
+    ('008_settings_seed.sql'),
+    ('009_storage_seed.sql'),
+    ('010_reviews_seed.sql'),
+    ('011_testimonials_seed.sql'),
+    ('012_organizations_seed.sql'),
+    ('013_support_seed.sql'),
+    ('014_suppressions_seed.sql'),
+    ('015_exports_seed.sql'),
+    ('016_indexes_seed.sql'),
+    ('017_auth_methods_seed.sql'),
+    ('018_business_seed.sql'),
+    ('019_address_book_seed.sql'),
+    ('020_carriers_seed.sql'),
+    ('021_staff_profiles_seed.sql'),
+    ('022_organization_preferences_seed.sql'),
+    ('023_wallet_seed.sql'),
+    ('024_geo_reference_seed.sql'),
+    ('025_hs_code_seed.sql'),
+    ('026_shipment_estimates_seed.sql'),
+    ('027_shipment_packages_seed.sql'),
+    ('028_shipments_seed.sql'),
+    ('029_shipment_events_seed.sql'),
+    ('030_pickups_seed.sql'),
+    ('031_discounts_seed.sql'),
+    ('032_commissions_seed.sql'),
+    ('033_referrals_seed.sql'),
+    ('034_invoices_seed.sql'),
+    ('035_indexes_seed.sql'),
+    ('036_shipment_financials_seed.sql'),
+    ('037_financial_reports_seed.sql'),
+    ('038_exchange_rates_seed.sql'),
+    ('039_countries.sql')
+ON CONFLICT (version) DO NOTHING;

@@ -2,7 +2,6 @@ package invoices
 
 import (
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"math"
 	"time"
@@ -99,10 +98,10 @@ func (s *InvoiceService) GetInvoices(req ListInvoicesRequest, organizationID, us
 				i.id, i.invoice_number, i.organization_id, o.name as organization_name,
 				i.shipment_id, s.shipment_number,
 				i.invoice_type, i.status, i.payment_status, i.currency,
-				i.subtotal_amount, i.tax_amount, i.discount_amount, i.total_amount,
+				i.subtotal_amount, i.taxes_amount, i.discount_amount, i.total_amount,
 				i.amount_paid, i.balance_due,
-				i.issued_at, i.due_date, i.voided_at,
-				i.parent_invoice_id, i.credit_note_reason, i.credit_note_reason_notes,
+				i.issued_at, i.due_at, i.voided_at,
+				i.parent_invoice_id, i.credit_note_reason, i.notes AS credit_note_reason_notes,
 				i.created_at, i.updated_at
 			FROM invoices i
 			JOIN organizations o ON i.organization_id = o.id
@@ -127,10 +126,10 @@ func (s *InvoiceService) GetInvoices(req ListInvoicesRequest, organizationID, us
 				i.id, i.invoice_number, i.organization_id, o.name as organization_name,
 				i.shipment_id, s.shipment_number,
 				i.invoice_type, i.status, i.payment_status, i.currency,
-				i.subtotal_amount, i.tax_amount, i.discount_amount, i.total_amount,
+				i.subtotal_amount, i.taxes_amount, i.discount_amount, i.total_amount,
 				i.amount_paid, i.balance_due,
-				i.issued_at, i.due_date, i.voided_at,
-				i.parent_invoice_id, i.credit_note_reason, i.credit_note_reason_notes,
+				i.issued_at, i.due_at, i.voided_at,
+				i.parent_invoice_id, i.credit_note_reason, i.notes AS credit_note_reason_notes,
 				i.created_at, i.updated_at
 			FROM invoices i
 			JOIN organizations o ON i.organization_id = o.id
@@ -249,11 +248,15 @@ func (s *InvoiceService) GetInvoiceByID(invoiceID, organizationID, userID string
 				i.id, i.invoice_number, i.organization_id, o.name as organization_name,
 				i.shipment_id, s.shipment_number,
 				i.invoice_type, i.status, i.payment_status, i.currency,
-				i.subtotal_amount, i.tax_amount, i.discount_amount, i.total_amount,
+				i.subtotal_amount, i.taxes_amount, i.discount_amount, i.total_amount,
 				i.amount_paid, i.balance_due,
-				i.issued_at, i.due_date, i.voided_at,
-				i.parent_invoice_id, i.credit_note_reason, i.credit_note_reason_notes,
-				i.billing_address_snapshot, i.shipment_snapshot,
+				i.issued_at, i.due_at, i.voided_at,
+				i.parent_invoice_id, i.credit_note_reason, i.notes AS credit_note_reason_notes,
+				i.bill_to_name, i.bill_to_company, i.bill_to_email, i.bill_to_phone,
+				i.bill_to_address_line1, i.bill_to_address_line2, i.bill_to_city,
+				i.bill_to_region_code, i.bill_to_postal_code, i.bill_to_country,
+				i.shipment_from_summary, i.shipment_to_summary,
+				i.carrier_code, i.carrier_name, i.service_name, i.total_packages,
 				i.created_at, i.updated_at
 			FROM invoices i
 			JOIN organizations o ON i.organization_id = o.id
@@ -270,11 +273,15 @@ func (s *InvoiceService) GetInvoiceByID(invoiceID, organizationID, userID string
 				i.id, i.invoice_number, i.organization_id, o.name as organization_name,
 				i.shipment_id, s.shipment_number,
 				i.invoice_type, i.status, i.payment_status, i.currency,
-				i.subtotal_amount, i.tax_amount, i.discount_amount, i.total_amount,
+				i.subtotal_amount, i.taxes_amount, i.discount_amount, i.total_amount,
 				i.amount_paid, i.balance_due,
-				i.issued_at, i.due_date, i.voided_at,
-				i.parent_invoice_id, i.credit_note_reason, i.credit_note_reason_notes,
-				i.billing_address_snapshot, i.shipment_snapshot,
+				i.issued_at, i.due_at, i.voided_at,
+				i.parent_invoice_id, i.credit_note_reason, i.notes AS credit_note_reason_notes,
+				i.bill_to_name, i.bill_to_company, i.bill_to_email, i.bill_to_phone,
+				i.bill_to_address_line1, i.bill_to_address_line2, i.bill_to_city,
+				i.bill_to_region_code, i.bill_to_postal_code, i.bill_to_country,
+				i.shipment_from_summary, i.shipment_to_summary,
+				i.carrier_code, i.carrier_name, i.service_name, i.total_packages,
 				i.created_at, i.updated_at
 			FROM invoices i
 			JOIN organizations o ON i.organization_id = o.id
@@ -285,7 +292,13 @@ func (s *InvoiceService) GetInvoiceByID(invoiceID, organizationID, userID string
 	}
 
 	var inv InvoiceDetailResponse
-	var billingJSON, shipmentJSON sql.NullString
+	// Billing address fields
+	var billToName, billToCompany, billToEmail, billToPhone sql.NullString
+	var billToAddr1, billToAddr2, billToCity, billToRegion, billToPostal, billToCountry sql.NullString
+	// Shipment snapshot fields
+	var shipFromSummary, shipToSummary sql.NullString
+	var carrierCode, carrierName, serviceName sql.NullString
+	var totalPackages int
 
 	err = s.db.DB.QueryRow(query, args...).Scan(
 		&inv.ID, &inv.InvoiceNumber, &inv.OrganizationID, &inv.OrganizationName,
@@ -295,7 +308,11 @@ func (s *InvoiceService) GetInvoiceByID(invoiceID, organizationID, userID string
 		&inv.AmountPaid, &inv.BalanceDue,
 		&inv.IssuedAt, &inv.DueDate, &inv.VoidedAt,
 		&inv.ParentInvoiceID, &inv.CreditNoteReason, &inv.CreditNoteReasonNotes,
-		&billingJSON, &shipmentJSON,
+		&billToName, &billToCompany, &billToEmail, &billToPhone,
+		&billToAddr1, &billToAddr2, &billToCity,
+		&billToRegion, &billToPostal, &billToCountry,
+		&shipFromSummary, &shipToSummary,
+		&carrierCode, &carrierName, &serviceName, &totalPackages,
 		&inv.CreatedAt, &inv.UpdatedAt,
 	)
 	if err != nil {
@@ -305,18 +322,49 @@ func (s *InvoiceService) GetInvoiceByID(invoiceID, organizationID, userID string
 		return nil, fmt.Errorf("failed to get invoice: %w", err)
 	}
 
-	// Parse JSON snapshots
-	if billingJSON.Valid {
-		var billing BillingAddressSnapshot
-		if err := json.Unmarshal([]byte(billingJSON.String), &billing); err == nil {
-			inv.BillingAddress = &billing
+	// Build billing address snapshot from individual columns
+	if billToName.Valid || billToCompany.Valid || billToAddr1.Valid {
+		billing := BillingAddressSnapshot{
+			ContactName:  nullStringValue(billToName),
+			ContactEmail: nullStringValue(billToEmail),
+			AddressLine1: nullStringValue(billToAddr1),
+			City:         nullStringValue(billToCity),
+			StateProvince: nullStringValue(billToRegion),
+			PostalCode:   nullStringValue(billToPostal),
+			CountryCode:  nullStringValue(billToCountry),
 		}
+		if billToCompany.Valid {
+			billing.CompanyName = &billToCompany.String
+		}
+		if billToPhone.Valid {
+			billing.ContactPhone = &billToPhone.String
+		}
+		if billToAddr2.Valid {
+			billing.AddressLine2 = &billToAddr2.String
+		}
+		inv.BillingAddress = &billing
 	}
-	if shipmentJSON.Valid {
-		var shipment ShipmentSnapshot
-		if err := json.Unmarshal([]byte(shipmentJSON.String), &shipment); err == nil {
-			inv.ShipmentSnapshot = &shipment
+
+	// Build shipment snapshot from individual columns
+	if inv.ShipmentNumber != nil || shipFromSummary.Valid {
+		shipmentNum := ""
+		if inv.ShipmentNumber != nil {
+			shipmentNum = *inv.ShipmentNumber
 		}
+		snapshot := ShipmentSnapshot{
+			ShipmentNumber: shipmentNum,
+			CarrierName:    nullStringValue(carrierName),
+			ServiceType:    nullStringValue(serviceName),
+			TotalPackages:  totalPackages,
+		}
+		// Parse origin/destination from summaries (format: "City, Province, Country")
+		if shipFromSummary.Valid {
+			snapshot.OriginCity = shipFromSummary.String
+		}
+		if shipToSummary.Valid {
+			snapshot.DestinationCity = shipToSummary.String
+		}
+		inv.ShipmentSnapshot = &snapshot
 	}
 
 	// Get invoice items
@@ -355,15 +403,14 @@ func (s *InvoiceService) GetInvoiceByID(invoiceID, organizationID, userID string
 func (s *InvoiceService) getInvoiceItems(invoiceID string) ([]InvoiceItemResponse, error) {
 	query := `
 		SELECT
-			ii.id, ii.item_type, ii.description,
-			ii.package_id, sp.package_number,
-			ii.quantity, ii.unit_price, ii.total_price, ii.currency,
-			ii.tax_rate, ii.tax_amount, ii.discount_rate, ii.discount_amount, ii.net_amount,
-			ii.sort_order
+			ii.id, ii.item_type::text, ii.description,
+			ii.package_id, ii.package_number,
+			COALESCE(ii.quantity, 1), ii.unit_price, ii.amount,
+			ii.tax_rate,
+			ii.item_index
 		FROM invoice_items ii
-		LEFT JOIN shipment_packages sp ON ii.package_id = sp.id
 		WHERE ii.invoice_id = $1
-		ORDER BY ii.sort_order
+		ORDER BY ii.item_index
 	`
 
 	rows, err := s.db.DB.Query(query, invoiceID)
@@ -375,16 +422,29 @@ func (s *InvoiceService) getInvoiceItems(invoiceID string) ([]InvoiceItemRespons
 	items := []InvoiceItemResponse{}
 	for rows.Next() {
 		var item InvoiceItemResponse
+		var unitPrice, amount sql.NullFloat64
+		var taxRate sql.NullFloat64
 		err := rows.Scan(
 			&item.ID, &item.ItemType, &item.Description,
 			&item.PackageID, &item.PackageNumber,
-			&item.Quantity, &item.UnitPrice, &item.TotalPrice, &item.Currency,
-			&item.TaxRate, &item.TaxAmount, &item.DiscountRate, &item.DiscountAmount, &item.NetAmount,
+			&item.Quantity, &unitPrice, &amount,
+			&taxRate,
 			&item.SortOrder,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan invoice item: %w", err)
 		}
+		if unitPrice.Valid {
+			item.UnitPrice = unitPrice.Float64
+		}
+		if amount.Valid {
+			item.TotalPrice = amount.Float64
+			item.NetAmount = amount.Float64
+		}
+		if taxRate.Valid {
+			item.TaxRate = &taxRate.Float64
+		}
+		item.Currency = "CAD" // Default currency
 		items = append(items, item)
 	}
 
@@ -893,4 +953,16 @@ func (s *InvoiceService) VoidInvoice(req VoidInvoiceRequest, invoiceID, organiza
 		VoidReason:      req.Reason,
 		BalanceRefunded: invoice.BalanceDue,
 	}, nil
+}
+
+// =====================================================
+// HELPER FUNCTIONS
+// =====================================================
+
+// nullStringValue returns the string value or empty string if null
+func nullStringValue(ns sql.NullString) string {
+	if ns.Valid {
+		return ns.String
+	}
+	return ""
 }

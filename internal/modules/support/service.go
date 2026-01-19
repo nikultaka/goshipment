@@ -183,7 +183,7 @@ func (s *SupportService) ReplySupportTicket(ticketID, organizationID, userID str
 	}
 
 	// Check if ticket is closed
-	if ticket.Status == models.TicketStatusClosed {
+	if ticket.Status == string(models.TicketStatusClosed) {
 		return nil, fmt.Errorf("cannot reply to a closed ticket")
 	}
 
@@ -332,7 +332,7 @@ func (s *SupportService) ManageSupportTicket(ticketID, organizationID, userID st
 		`, ticketID, resolutionReason, now)
 
 	case "reopen":
-		if ticket.Status != models.TicketStatusClosed {
+		if ticket.Status != string(models.TicketStatusClosed) {
 			return nil, fmt.Errorf("ticket is not closed")
 		}
 		_, err = tx.Exec(`

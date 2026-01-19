@@ -13,7 +13,7 @@ type SchedulePickupRequest struct {
 	PickupWindowStart string `json:"pickup_window_start" binding:"required"` // HH:MM format
 	PickupWindowEnd   string `json:"pickup_window_end" binding:"required"` // HH:MM format
 	BuildingType      string `json:"building_type" binding:"required,oneof=house apartment condo office warehouse retail industrial medical government other"`
-	PickupLocation    string `json:"pickup_location" binding:"required"`
+	PickupLocation    string `json:"pickup_location" binding:"required,oneof=front_door basement between_doors counter desk front_desk back_door front_porch garage gate_house kiosk lab loading_dock lobby mailroom mailbox outside_door parts_department pharmacy pro_shop receiving security service_counter shipping side_door switchboard vault other"`
 	Instructions      string `json:"instructions,omitempty"`
 }
 

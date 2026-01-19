@@ -4,8 +4,12 @@
 -- Purpose: Store invitation records for users to join organizations
 -- Features: Secure token-based invitations with expiry and status tracking
 
--- Create invite status enum
-CREATE TYPE invite_status_enum AS ENUM ('pending', 'accepted', 'rejected', 'expired', 'revoked');
+-- Create invite status enum (idempotent)
+DO $$ BEGIN
+    CREATE TYPE invite_status_enum AS ENUM ('pending', 'accepted', 'rejected', 'expired', 'revoked');
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Create organization_invites table
 CREATE TABLE IF NOT EXISTS organization_invites (
@@ -38,16 +42,16 @@ CREATE TABLE IF NOT EXISTS organization_invites (
     CONSTRAINT chk_invite_token_length CHECK (LENGTH(invite_token) = 64)
 );
 
--- Indexes for performance
-CREATE INDEX idx_org_invites_organization ON organization_invites(organization_id);
-CREATE INDEX idx_org_invites_email ON organization_invites(email);
-CREATE INDEX idx_org_invites_token ON organization_invites(invite_token);
-CREATE INDEX idx_org_invites_status ON organization_invites(status);
-CREATE INDEX idx_org_invites_invited_by ON organization_invites(invited_by_user_id);
-CREATE INDEX idx_org_invites_expires_at ON organization_invites(expires_at);
+-- Indexes for performance (idempotent)
+CREATE INDEX IF NOT EXISTS idx_org_invites_organization ON organization_invites(organization_id);
+CREATE INDEX IF NOT EXISTS idx_org_invites_email ON organization_invites(email);
+CREATE INDEX IF NOT EXISTS idx_org_invites_token ON organization_invites(invite_token);
+CREATE INDEX IF NOT EXISTS idx_org_invites_status ON organization_invites(status);
+CREATE INDEX IF NOT EXISTS idx_org_invites_invited_by ON organization_invites(invited_by_user_id);
+CREATE INDEX IF NOT EXISTS idx_org_invites_expires_at ON organization_invites(expires_at);
 
--- Composite index for common queries
-CREATE INDEX idx_org_invites_org_status ON organization_invites(organization_id, status);
+-- Composite index for common queries (idempotent)
+CREATE INDEX IF NOT EXISTS idx_org_invites_org_status ON organization_invites(organization_id, status);
 
 -- Comments
 COMMENT ON TABLE organization_invites IS 'Stores organization invitation records with secure token-based access';

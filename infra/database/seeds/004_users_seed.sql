@@ -1,5 +1,5 @@
 -- ============================
--- Seed roles
+-- Seed roles (idempotent)
 -- ============================
 
 INSERT INTO roles (
@@ -85,10 +85,11 @@ INSERT INTO roles (
         NOW(),
         NOW(),
         NULL
-    );
+    )
+ON CONFLICT (id) DO NOTHING;
 
 -- ============================
--- Seed core users
+-- Seed core users (idempotent)
 -- ============================
 
 -- Admin user
@@ -122,7 +123,8 @@ INSERT INTO users (
     'REF-ADMIN-0001',
     NOW(),
     NOW()
-);
+)
+ON CONFLICT (id) DO NOTHING;
 
 -- Admin email
 INSERT INTO user_emails (
@@ -141,7 +143,8 @@ INSERT INTO user_emails (
     TRUE,
     TRUE,
     NOW()
-);
+)
+ON CONFLICT (id) DO NOTHING;
 
 -- Admin phone
 INSERT INTO user_phones (
@@ -162,7 +165,8 @@ INSERT INTO user_phones (
     TRUE,
     TRUE,
     NOW()
-);
+)
+ON CONFLICT (id) DO NOTHING;
 
 -- Wire admin primary email/phone pointers
 UPDATE users
@@ -202,7 +206,8 @@ INSERT INTO users (
     'REF-DEMO-0001',
     NOW(),
     NOW()
-);
+)
+ON CONFLICT (id) DO NOTHING;
 
 -- Demo email
 INSERT INTO user_emails (
@@ -219,7 +224,8 @@ INSERT INTO user_emails (
     TRUE,
     TRUE,
     FALSE
-);
+)
+ON CONFLICT (id) DO NOTHING;
 
 -- Demo phone
 INSERT INTO user_phones (
@@ -238,7 +244,8 @@ INSERT INTO user_phones (
     TRUE,
     TRUE,
     FALSE
-);
+)
+ON CONFLICT (id) DO NOTHING;
 
 -- Wire demo primary email/phone pointers
 UPDATE users
@@ -248,7 +255,7 @@ WHERE id = '00000000-0000-0000-0000-000000000002';
 
 
 -- ============================
--- Seed user role assignments
+-- Seed user role assignments (idempotent)
 -- ============================
 
 INSERT INTO user_roles (
@@ -277,7 +284,8 @@ INSERT INTO user_roles (
         TRUE,
         NOW(),
         NOW()
-    );
+    )
+ON CONFLICT (id) DO NOTHING;
 
 
 

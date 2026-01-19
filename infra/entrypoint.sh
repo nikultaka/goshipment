@@ -21,6 +21,10 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
   version VARCHAR(255) PRIMARY KEY,
   applied_at TIMESTAMP DEFAULT NOW()
 );
+CREATE TABLE IF NOT EXISTS seed_migrations (
+  version VARCHAR(255) PRIMARY KEY,
+  applied_at TIMESTAMP DEFAULT NOW()
+);
 EOF
 
 # Run migrations from /sql/migrations directory
@@ -51,6 +55,36 @@ if [ -d /sql/migrations ]; then
   echo "All migrations processed."
 else
   echo "No migrations directory found at /sql/migrations"
+fi
+
+# Run seeds from /sql/seeds directory
+if [ -d /sql/seeds ]; then
+  echo "Running database seeds..."
+  for seed_file in /sql/seeds/*.sql; do
+    if [ -f "$seed_file" ]; then
+      seed_name=$(basename "$seed_file")
+
+      # Check if seed has already been applied
+      already_applied=$(PGPASSWORD=$DB_PASSWORD psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -tAc "SELECT COUNT(*) FROM seed_migrations WHERE version='$seed_name';" || echo "0")
+
+      if [ "$already_applied" = "0" ]; then
+        echo "Applying seed: $seed_name"
+        if PGPASSWORD=$DB_PASSWORD psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -f "$seed_file"; then
+          # Mark seed as applied
+          PGPASSWORD=$DB_PASSWORD psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -c "INSERT INTO seed_migrations (version) VALUES ('$seed_name');"
+          echo "✓ Successfully applied: $seed_name"
+        else
+          echo "✗ Failed to apply: $seed_name"
+          echo "Seed failed. Please check the error above."
+        fi
+      else
+        echo "⊘ Skipping (already applied): $seed_name"
+      fi
+    fi
+  done
+  echo "All seeds processed."
+else
+  echo "No seeds directory found at /sql/seeds"
 fi
 
 # Start the correct binary
