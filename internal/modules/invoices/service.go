@@ -455,13 +455,13 @@ func (s *InvoiceService) getInvoiceItems(invoiceID string) ([]InvoiceItemRespons
 func (s *InvoiceService) getInvoicePayments(invoiceID string) ([]InvoicePaymentResponse, error) {
 	query := `
 		SELECT
-			ip.id, ip.payment_method, ip.amount, ip.currency, ip.paid_at,
+			ip.id, ip.method, ip.amount, ip.currency, ip.processed_at,
 			ip.wallet_transaction_id, wt.transaction_number,
-			ip.stripe_payment_intent_id, ip.payment_reference, ip.notes
+			ip.stripe_payment_intent_id, ip.provider_reference, ip.note
 		FROM invoice_payments ip
 		LEFT JOIN wallet_transactions wt ON ip.wallet_transaction_id = wt.id
 		WHERE ip.invoice_id = $1
-		ORDER BY ip.paid_at DESC
+		ORDER BY ip.processed_at DESC
 	`
 
 	rows, err := s.db.DB.Query(query, invoiceID)
@@ -492,10 +492,10 @@ func (s *InvoiceService) getInvoiceEvents(invoiceID string) ([]InvoiceEventRespo
 	query := `
 		SELECT
 			ie.id, ie.event_type, ie.description,
-			ie.performed_by_user_id, u.name as user_name,
-			ie.is_system_generated, ie.metadata, ie.created_at
+			ie.actor_user_id, COALESCE(u.display_name, CONCAT(u.first_name, ' ', u.last_name)) as user_name,
+			ie.metadata, ie.created_at
 		FROM invoice_events ie
-		LEFT JOIN users u ON ie.performed_by_user_id = u.id
+		LEFT JOIN users u ON ie.actor_user_id = u.id
 		WHERE ie.invoice_id = $1
 		ORDER BY ie.created_at DESC
 	`
@@ -512,7 +512,7 @@ func (s *InvoiceService) getInvoiceEvents(invoiceID string) ([]InvoiceEventRespo
 		err := rows.Scan(
 			&event.ID, &event.EventType, &event.Description,
 			&event.PerformedByUserID, &event.PerformedByUserName,
-			&event.IsSystemGenerated, &event.Metadata, &event.CreatedAt,
+			&event.Metadata, &event.CreatedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan invoice event: %w", err)
@@ -527,9 +527,10 @@ func (s *InvoiceService) getInvoiceEvents(invoiceID string) ([]InvoiceEventRespo
 func (s *InvoiceService) getRefundSummary(invoiceID string) (*RefundSummary, error) {
 	query := `
 		SELECT
-			original_amount, total_refunded, refundable_remaining, refund_count
-		FROM v_invoice_refund_summary
-		WHERE invoice_id = $1
+			r.original_amount, r.total_refunded, r.refundable_remaining,
+			(SELECT COUNT(*) FROM invoices cn WHERE cn.parent_invoice_id = $1 AND cn.invoice_type = 'credit_note' AND cn.status <> 'void') AS refund_count
+		FROM v_invoice_refund_summary r
+		WHERE r.invoice_id = $1
 	`
 
 	var summary RefundSummary
@@ -621,7 +622,7 @@ func (s *InvoiceService) IssueRefund(req RefundInvoiceRequest, invoiceID, organi
 		FROM invoices i
 		LEFT JOIN v_invoice_refund_summary r ON i.id = r.invoice_id
 		WHERE i.id = $1 AND i.organization_id = $2
-		FOR UPDATE
+		FOR UPDATE OF i
 	`
 
 	var parentInvoice struct {
@@ -742,8 +743,8 @@ func (s *InvoiceService) IssueRefund(req RefundInvoiceRequest, invoiceID, organi
 	_, err = tx.Exec(`
 		INSERT INTO invoice_events (
 			invoice_id, event_type, description,
-			performed_by_user_id, is_system_generated, metadata
-		) VALUES ($1, $2, $3, $4, false, $5)
+			actor_user_id, metadata
+		) VALUES ($1, $2, $3, $4, $5)
 	`,
 		creditNoteID,
 		"invoice.credit_note_issued",
@@ -885,28 +886,14 @@ func (s *InvoiceService) VoidInvoice(req VoidInvoiceRequest, invoiceID, organiza
 		return nil, fmt.Errorf("can only void standard invoices, not %s", invoice.InvoiceType)
 	}
 	if invoice.Status == "void" {
-		return nil, fmt.Errorf("invoice is already voided")
-	}
-
-	// Check idempotency
-	var alreadyVoided bool
-	err = tx.QueryRow(`
-		SELECT status = 'void' FROM invoices
-		WHERE id = $1 AND idempotency_key = $2
-	`, invoiceID, req.IdempotencyKey).Scan(&alreadyVoided)
-	if err == nil && alreadyVoided {
-		// Already voided with this key
-		var resp VoidResponse
-		err = tx.QueryRow(`
-			SELECT id, invoice_number, status, voided_at, balance_due
-			FROM invoices WHERE id = $1
-		`, invoiceID).Scan(&resp.InvoiceID, &resp.InvoiceNumber, &resp.Status, &resp.VoidedAt, &resp.BalanceRefunded)
-		if err != nil {
-			return nil, fmt.Errorf("failed to retrieve void status: %w", err)
-		}
-		resp.VoidReason = req.Reason
-		tx.Commit()
-		return &resp, nil
+		// Already voided - return current state (idempotent)
+		return &VoidResponse{
+			InvoiceID:       invoice.ID,
+			InvoiceNumber:   invoice.InvoiceNumber,
+			Status:          "void",
+			VoidReason:      req.Reason,
+			BalanceRefunded: invoice.BalanceDue,
+		}, nil
 	}
 
 	// Void the invoice
@@ -915,10 +902,9 @@ func (s *InvoiceService) VoidInvoice(req VoidInvoiceRequest, invoiceID, organiza
 		UPDATE invoices
 		SET status = 'void',
 		    voided_at = $1,
-		    idempotency_key = $2,
 		    updated_at = NOW()
-		WHERE id = $3
-	`, now, req.IdempotencyKey, invoiceID)
+		WHERE id = $2
+	`, now, invoiceID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to void invoice: %w", err)
 	}
@@ -927,8 +913,8 @@ func (s *InvoiceService) VoidInvoice(req VoidInvoiceRequest, invoiceID, organiza
 	_, err = tx.Exec(`
 		INSERT INTO invoice_events (
 			invoice_id, event_type, description,
-			performed_by_user_id, is_system_generated, metadata
-		) VALUES ($1, $2, $3, $4, false, $5)
+			actor_user_id, metadata
+		) VALUES ($1, $2, $3, $4, $5)
 	`,
 		invoiceID,
 		"invoice.voided",

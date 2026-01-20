@@ -253,6 +253,128 @@ func (s *SimpleShipmentService) CreateShipment(
 		return nil, fmt.Errorf("failed to update wallet held balance: %w", err)
 	}
 
+	// 8. Create invoice for the shipment
+	invoiceID := uuid.New().String()
+	invoiceNumber := fmt.Sprintf("INV-%s", generateRandomCode(8))
+
+	// Get organization billing info for invoice
+	var orgName string
+	err = tx.QueryRow(`SELECT name FROM organizations WHERE id = $1`, organizationID).Scan(&orgName)
+	if err != nil {
+		orgName = "" // Non-critical, continue without it
+	}
+
+	// Calculate invoice amounts
+	subtotalAmount := selectedRate.BaseRate + selectedRate.FuelSurcharge + selectedRate.OtherFees
+	taxesAmount := selectedRate.Taxes
+	totalAmount := selectedRate.TotalAmount
+
+	// Build shipment summaries for invoice snapshot
+	fromSummary := fmt.Sprintf("%s, %s, %s", estimate.FromCity, nullStringToStr(estimate.FromRegionCode), estimate.FromCountry)
+	toSummary := fmt.Sprintf("%s, %s, %s", estimate.ToCity, nullStringToStr(estimate.ToRegionCode), estimate.ToCountry)
+
+	// Insert invoice
+	_, err = tx.Exec(`
+		INSERT INTO invoices (
+			id, invoice_number, organization_id, created_by_user_id,
+			invoice_type, status, payment_status, payment_method,
+			shipment_id, shipment_number,
+			shipment_from_summary, shipment_to_summary,
+			carrier_code, carrier_name, service_code, service_name,
+			total_packages, currency,
+			subtotal_amount, taxes_amount, discount_amount,
+			total_amount, amount_paid, balance_due, refundable_amount,
+			issued_at, created_at, updated_at
+		) VALUES (
+			$1, $2, $3, $4,
+			'invoice', 'issued', 'unpaid', 'unassigned',
+			$5, $6,
+			$7, $8,
+			$9, $10, $11, $12,
+			$13, $14,
+			$15, $16, 0,
+			$17, 0, $17, 0,
+			NOW(), NOW(), NOW()
+		)
+	`,
+		invoiceID, invoiceNumber, organizationID, userID,
+		shipmentID, shipmentNumber,
+		fromSummary, toSummary,
+		selectedRate.CarrierCode, selectedRate.CarrierName, selectedRate.ServiceCode, selectedRate.ServiceName,
+		1, "CAD",
+		subtotalAmount, taxesAmount,
+		totalAmount,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create invoice: %w", err)
+	}
+
+	// Insert invoice line items
+	itemIndex := 1
+
+	// Base rate item
+	_, err = tx.Exec(`
+		INSERT INTO invoice_items (
+			invoice_id, item_index, item_type, section,
+			description, quantity, unit_price, amount
+		) VALUES ($1, $2, 'base_rate', 'charges', $3, 1, $4, $4)
+	`, invoiceID, itemIndex, fmt.Sprintf("%s - %s", selectedRate.CarrierName, selectedRate.ServiceName), selectedRate.BaseRate)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create invoice base rate item: %w", err)
+	}
+	itemIndex++
+
+	// Fuel surcharge item (if applicable)
+	if selectedRate.FuelSurcharge > 0 {
+		_, err = tx.Exec(`
+			INSERT INTO invoice_items (
+				invoice_id, item_index, item_type, section,
+				description, quantity, unit_price, amount
+			) VALUES ($1, $2, 'fuel_surcharge', 'charges', 'Fuel Surcharge', 1, $3, $3)
+		`, invoiceID, itemIndex, selectedRate.FuelSurcharge)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create invoice fuel surcharge item: %w", err)
+		}
+		itemIndex++
+	}
+
+	// Other fees item (if applicable)
+	if selectedRate.OtherFees > 0 {
+		_, err = tx.Exec(`
+			INSERT INTO invoice_items (
+				invoice_id, item_index, item_type, section,
+				description, quantity, unit_price, amount
+			) VALUES ($1, $2, 'other', 'charges', 'Additional Fees', 1, $3, $3)
+		`, invoiceID, itemIndex, selectedRate.OtherFees)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create invoice other fees item: %w", err)
+		}
+		itemIndex++
+	}
+
+	// Tax item (if applicable)
+	if selectedRate.Taxes > 0 {
+		_, err = tx.Exec(`
+			INSERT INTO invoice_items (
+				invoice_id, item_index, item_type, section,
+				description, quantity, unit_price, amount
+			) VALUES ($1, $2, 'tax_hst', 'charges', 'HST (13%)', 1, $3, $3)
+		`, invoiceID, itemIndex, selectedRate.Taxes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create invoice tax item: %w", err)
+		}
+	}
+
+	// Create invoice event
+	_, err = tx.Exec(`
+		INSERT INTO invoice_events (
+			invoice_id, event_type, description, actor_user_id
+		) VALUES ($1, 'invoice.created', 'Invoice created for shipment', $2)
+	`, invoiceID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create invoice event: %w", err)
+	}
+
 	// Commit transaction
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
@@ -425,6 +547,14 @@ func generateRandomCode(length int) string {
 		code[i] = charset[rand.Intn(len(charset))]
 	}
 	return string(code)
+}
+
+// nullStringToStr returns string value or empty string for null
+func nullStringToStr(ns sql.NullString) string {
+	if ns.Valid {
+		return ns.String
+	}
+	return ""
 }
 
 // getMockRate returns mock rate data based on carrier and service code

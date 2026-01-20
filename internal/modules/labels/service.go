@@ -662,15 +662,25 @@ func (s *LabelService) createShipmentLabelEvent(tx *sql.Tx, shipment *shipmentIn
 }
 
 func (s *LabelService) updateInvoiceStatus(tx *sql.Tx, shipmentID string, paymentStatus string, paidAt time.Time) error {
+	// Determine payment method based on payment status
+	paymentMethod := "wallet"
+	if paymentStatus == "carrier_billed" {
+		paymentMethod = "carrier_account"
+	}
+
 	query := `
 		UPDATE invoices
 		SET payment_status = $1,
-		    paid_at = $2,
+		    payment_method = $2,
+		    amount_paid = total_amount,
+		    balance_due = 0,
+		    refundable_amount = total_amount,
+		    paid_at = $3,
 		    updated_at = NOW()
-		WHERE shipment_id = $3
+		WHERE shipment_id = $4
 	`
 
-	_, err := tx.Exec(query, paymentStatus, paidAt, shipmentID)
+	_, err := tx.Exec(query, paymentStatus, paymentMethod, paidAt, shipmentID)
 	return err
 }
 
