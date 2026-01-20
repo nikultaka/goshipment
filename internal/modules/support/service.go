@@ -47,18 +47,19 @@ func (s *SupportService) GetOrganizationIDFromUser(userID string) (string, error
 	return organizationID, nil
 }
 
-// GetUserRole retrieves the role of a user
+// GetUserRole retrieves the role of a user from organization_members
 func (s *SupportService) GetUserRole(userID string) (string, error) {
 	query := `
 		SELECT role
-		FROM users
-		WHERE id = $1
+		FROM organization_members
+		WHERE user_id = $1 AND is_active = true
+		LIMIT 1
 	`
 
 	var role string
 	err := s.db.DB.QueryRow(query, userID).Scan(&role)
 	if err == sql.ErrNoRows {
-		return "", fmt.Errorf("user not found")
+		return "", fmt.Errorf("user not found in any organization")
 	}
 	if err != nil {
 		return "", fmt.Errorf("failed to get user role: %w", err)
@@ -138,9 +139,12 @@ func (s *SupportService) CreateSupportTicket(req CreateSupportTicketRequest, org
 	// Log audit entry
 	_, err = tx.Exec(`
 		INSERT INTO audit_logs (
-			user_id, action, resource, resource_id, status, created_at
+			event_id, actor_type, user_id, action, resource_type, resource_id,
+			business_purpose, status, occurred_at
 		) VALUES (
-			$1, 'support.ticket_created', 'support_ticket', $2, 'success', $3
+			'evt_' || SUBSTRING(REPLACE(uuid_generate_v4()::text, '-', '') FROM 1 FOR 12),
+			'user', $1, 'support.ticket_created', 'support_ticket', $2,
+			'support', 'success', $3
 		)
 	`, userID, ticketID, now)
 	if err != nil {
@@ -377,9 +381,12 @@ func (s *SupportService) ManageSupportTicket(ticketID, organizationID, userID st
 	// Log audit entry
 	_, err = tx.Exec(`
 		INSERT INTO audit_logs (
-			user_id, action, resource, resource_id, status, created_at
+			event_id, actor_type, user_id, action, resource_type, resource_id,
+			business_purpose, status, occurred_at
 		) VALUES (
-			$1, 'support.ticket_' || $2, 'support_ticket', $3, 'success', $4
+			'evt_' || SUBSTRING(REPLACE(uuid_generate_v4()::text, '-', '') FROM 1 FOR 12),
+			'user', $1, 'support.ticket_' || $2, 'support_ticket', $3,
+			'support', 'success', $4
 		)
 	`, userID, req.Action, ticketID, now)
 	if err != nil {
