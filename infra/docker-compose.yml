@@ -147,6 +147,39 @@ services:
       GA4_API_SECRET: ""                  # GA4 API Secret
       GA4_ENABLED: "false"                # Enable GA4 tracking
 
+      # ============================================
+      # CARRIER API CREDENTIALS
+      # ============================================
+      # FedEx (https://developer.fedex.com)
+      FEDEX_CLIENT_ID: ""
+      FEDEX_CLIENT_SECRET: ""
+      FEDEX_ACCOUNT_NUMBER: ""
+
+      # UPS (https://developer.ups.com)
+      UPS_ENV: "TEST"                       # TEST or PRODUCTION
+      UPS_CLIENT_ID: "fJM00vAyOgGuntyrTgbAkt4hwJ785AF8lK70xiSQep7eIGV0"
+      UPS_CLIENT_SECRET: "MEiQZNE1anHIixJW65xtgzN5mRGSbFzVMYSOipe5tk35WBX08J7LnjNpV7WrRVb8"
+      UPS_ACCOUNT_NUMBER: "3V08R4"
+      UPS_TEST_TOKEN_URL: "https://wwwcie.ups.com/security/v1/oauth/token"
+      UPS_TEST_BASE_URL: "https://wwwcie.ups.com"
+      UPS_PROD_TOKEN_URL: "https://onlinetools.ups.com/security/v1/oauth/token"
+      UPS_PROD_BASE_URL: "https://onlinetools.ups.com"
+
+      # Purolator (https://eshiponline.purolator.com)
+      PUROLATOR_KEY: ""
+      PUROLATOR_PASSWORD: ""
+      PUROLATOR_ACCOUNT_NUMBER: ""
+
+      # DHL Express (https://developer.dhl.com)
+      DHL_API_KEY: ""
+      DHL_API_SECRET: ""
+      DHL_ACCOUNT_NUMBER: ""
+
+      # Canada Post (https://www.canadapost-postescanada.ca)
+      CANADA_POST_API_KEY: ""
+      CANADA_POST_API_SECRET: ""
+      CANADA_POST_CUSTOMER_NUMBER: ""
+
     depends_on:
       - db
       - redis
@@ -190,6 +223,30 @@ services:
       NATS_URLS: nats://nats:4222
       NATS_TOKEN: ""
       NATS_STREAM_NAME: "NOTIFICATIONS"
+
+      # ============================================
+      # CARRIER API CREDENTIALS (Worker)
+      # ============================================
+      FEDEX_CLIENT_ID: ""
+      FEDEX_CLIENT_SECRET: ""
+      FEDEX_ACCOUNT_NUMBER: ""
+      UPS_ENV: "TEST"
+      UPS_CLIENT_ID: "fJM00vAyOgGuntyrTgbAkt4hwJ785AF8lK70xiSQep7eIGV0"
+      UPS_CLIENT_SECRET: "MEiQZNE1anHIixJW65xtgzN5mRGSbFzVMYSOipe5tk35WBX08J7LnjNpV7WrRVb8"
+      UPS_ACCOUNT_NUMBER: "3V08R4"
+      UPS_TEST_TOKEN_URL: "https://wwwcie.ups.com/security/v1/oauth/token"
+      UPS_TEST_BASE_URL: "https://wwwcie.ups.com"
+      UPS_PROD_TOKEN_URL: "https://onlinetools.ups.com/security/v1/oauth/token"
+      UPS_PROD_BASE_URL: "https://onlinetools.ups.com"
+      PUROLATOR_KEY: ""
+      PUROLATOR_PASSWORD: ""
+      PUROLATOR_ACCOUNT_NUMBER: ""
+      DHL_API_KEY: ""
+      DHL_API_SECRET: ""
+      DHL_ACCOUNT_NUMBER: ""
+      CANADA_POST_API_KEY: ""
+      CANADA_POST_API_SECRET: ""
+      CANADA_POST_CUSTOMER_NUMBER: ""
 
     depends_on:
       - db
