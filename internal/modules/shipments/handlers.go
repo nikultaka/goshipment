@@ -19,6 +19,8 @@ type IShipmentService interface {
 	CancelShipment(shipmentID, organizationID, userID, reason string) error
 	VoidShipment(shipmentID, organizationID, userID, reason string) error
 	ArchiveShipment(shipmentID, organizationID, userID string) error
+	UpdateShipmentStatus(shipmentID, organizationID string, newStatus models.ShipmentStatus) error
+	GetShipmentStatus(shipmentID, organizationID string) (string, error)
 }
 
 // ShipmentHandlers handles shipment HTTP requests
@@ -426,6 +428,112 @@ func (h *ShipmentHandlers) ArchiveShipment(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusOK, msg, resp)
+}
+
+// UpdateStatus godoc
+// @Summary Update shipment status
+// @Description Update the status of a shipment. Validates status transitions. When status changes to "delivered", automatically creates commission for referrer.
+// @Tags Shipments
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Shipment ID (UUID)"
+// @Param request body UpdateStatusRequest true "Status update request"
+// @Success 200 {object} response.Response{data=UpdateStatusResponse} "Shipment status updated successfully"
+// @Failure 400 {object} response.Response "Invalid request or invalid status transition"
+// @Failure 401 {object} response.Response "Unauthorized"
+// @Failure 403 {object} response.Response "Forbidden"
+// @Failure 404 {object} response.Response "Shipment not found"
+// @Failure 409 {object} response.Response "Invalid status transition"
+// @Failure 500 {object} response.Response "Internal server error"
+// @Router /shipments/{id}/status [patch]
+func (h *ShipmentHandlers) UpdateStatus(c *gin.Context) {
+	// Get user ID from context
+	userID, exists := c.Get("user_id")
+	if !exists || userID == nil {
+		response.Unauthorized(c, "User context required")
+		return
+	}
+
+	// Get organization ID from user membership
+	organizationID, err := h.service.GetOrganizationIDFromUser(userID.(string))
+	if err != nil {
+		response.Forbidden(c, "User is not a member of any organization")
+		return
+	}
+
+	// Get shipment ID from path
+	shipmentID := c.Param("id")
+	if shipmentID == "" {
+		response.BadRequest(c, "Shipment ID is required")
+		return
+	}
+
+	// Parse request
+	var req UpdateStatusRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	// Get current status
+	currentStatus, err := h.service.GetShipmentStatus(shipmentID, organizationID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "access denied") {
+			response.NotFound(c, "Shipment not found or access denied")
+			return
+		}
+		response.InternalError(c, "Failed to get shipment status: "+err.Error())
+		return
+	}
+
+	// Validate status transition
+	if !IsValidTransition(currentStatus, req.Status) {
+		allowedTransitions := GetAllowedTransitions(currentStatus)
+		errMsg := "Invalid status transition from '" + currentStatus + "' to '" + req.Status + "'"
+		if len(allowedTransitions) > 0 {
+			errMsg += ". Allowed transitions: " + strings.Join(allowedTransitions, ", ")
+		} else {
+			errMsg += ". Current status is terminal and cannot be changed"
+		}
+		response.Error(c, http.StatusConflict, errMsg, "INVALID_TRANSITION")
+		return
+	}
+
+	// Update status
+	newStatus := models.ShipmentStatus(req.Status)
+	err = h.service.UpdateShipmentStatus(shipmentID, organizationID, newStatus)
+	if err != nil {
+		errMsg := err.Error()
+		switch {
+		case strings.Contains(errMsg, "not found"), strings.Contains(errMsg, "access denied"):
+			response.NotFound(c, err.Error())
+		default:
+			response.InternalError(c, "Failed to update shipment status: "+err.Error())
+		}
+		return
+	}
+
+	// Get updated shipment info
+	shipment, _, _, err := h.service.GetShipmentByID(shipmentID, organizationID)
+	if err != nil {
+		response.InternalError(c, "Status updated but failed to retrieve shipment data: "+err.Error())
+		return
+	}
+
+	// Build response
+	resp := UpdateStatusResponse{
+		ShipmentID:         shipment.ID,
+		ShipmentNumber:     shipment.ShipmentNumber,
+		PreviousStatus:     currentStatus,
+		CurrentStatus:      string(shipment.ShipmentStatus),
+		StatusLabel:        getStatusLabel(shipment.ShipmentStatus),
+		AllowedTransitions: GetAllowedTransitions(string(shipment.ShipmentStatus)),
+		CommissionCreated:  req.Status == "delivered" && currentStatus != "delivered",
+		UpdatedAt:          shipment.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+	}
+
+	response.Success(c, http.StatusOK, "Shipment status updated successfully", resp)
 }
 
 // =====================================================

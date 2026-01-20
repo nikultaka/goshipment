@@ -246,6 +246,97 @@ func (s *UserService) CreateUser(req *RegisterRequest) (*models.User, *models.Us
 		return nil, nil, "", fmt.Errorf("failed to set referral code: %w", err)
 	}
 
+	// =====================================================
+	// REFERRAL CODE REDEMPTION
+	// If user registered with a referral code, create the referral relationship
+	// =====================================================
+	if req.ReferralCode != "" {
+		// Look up the referrer by their referral code
+		var referrerID string
+		var referrerOrgID sql.NullString
+		err = tx.QueryRow(`
+			SELECT u.id, om.organization_id
+			FROM users u
+			LEFT JOIN organization_members om ON om.user_id = u.id AND om.is_active = true
+			WHERE u.referral_code = $1 AND u.deleted_at IS NULL
+			LIMIT 1
+		`, req.ReferralCode).Scan(&referrerID, &referrerOrgID)
+
+		if err == nil && referrerID != "" && referrerID != userID {
+			// Set referred_by_user_id on the new user
+			_, err = tx.Exec(`UPDATE users SET referred_by_user_id = $1 WHERE id = $2`, referrerID, userID)
+			if err != nil {
+				return nil, nil, "", fmt.Errorf("failed to set referred_by_user_id: %w", err)
+			}
+
+			// Get the default/active commission plan for the referrer's organization
+			var commissionPlanID, commissionNumber sql.NullString
+			var commissionBase, commissionValueType string
+			var commissionValue float64
+			planOrgID := referrerOrgID
+			if !planOrgID.Valid {
+				planOrgID.String = organizationID
+				planOrgID.Valid = true
+			}
+
+			err = tx.QueryRow(`
+				SELECT id, commission_number, commission_base, commission_value_type, value
+				FROM commission_plans
+				WHERE organization_id = $1 AND status = 'active'
+				ORDER BY created_at ASC
+				LIMIT 1
+			`, planOrgID.String).Scan(&commissionPlanID, &commissionNumber, &commissionBase, &commissionValueType, &commissionValue)
+
+			if err == sql.ErrNoRows {
+				// No commission plan exists, use default values
+				commissionBase = "profit"
+				commissionValueType = "percent"
+				commissionValue = 10.00
+				commissionNumber.String = "DEFAULT"
+				commissionNumber.Valid = true
+			} else if err != nil {
+				// Log but don't fail registration if commission plan lookup fails
+				// The referral is still valid
+				commissionBase = "profit"
+				commissionValueType = "percent"
+				commissionValue = 10.00
+				commissionNumber.String = "DEFAULT"
+				commissionNumber.Valid = true
+			}
+
+			// Generate referral reference number (REF-XXXXXXXX)
+			refReferenceNumber := fmt.Sprintf("REF-%s", generateRandomCode(8))
+			referralRedemptionID := uuid.New().String()
+
+			// Create referral_redemptions record with commission plan snapshot
+			_, err = tx.Exec(`
+				INSERT INTO referral_redemptions (
+					id, reference_number, organization_id, referrer_user_id, referred_user_id,
+					status, redeemed_at,
+					commission_plan_id, commission_number, commission_base,
+					commission_value_type, commission_value, snapshot_taken_at,
+					created_at
+				) VALUES (
+					$1, $2, $3, $4, $5,
+					'active', $6,
+					$7, $8, $9,
+					$10, $11, $12,
+					$13
+				)
+			`, referralRedemptionID, refReferenceNumber, planOrgID.String, referrerID, userID,
+				now,
+				commissionPlanID, commissionNumber.String, commissionBase,
+				commissionValueType, commissionValue, now,
+				now)
+			if err != nil {
+				// Log but don't fail registration if referral redemption creation fails
+				// The user account is still valid
+				// In production, you'd want to log this error properly
+			}
+		}
+		// If referral code is invalid or self-referral, silently ignore (don't fail registration)
+	}
+
 	// Commit transaction
 	if err = tx.Commit(); err != nil {
 		return nil, nil, "", fmt.Errorf("failed to commit transaction: %w", err)

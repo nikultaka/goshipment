@@ -57,5 +57,8 @@ func (m *ShipmentsModule) RegisterRoutes(router *gin.RouterGroup) {
 
 		// POST /shipments/:id/archive - Archive/unarchive shipment
 		shipments.POST("/:id/archive", m.handlers.ArchiveShipment)
+
+		// PATCH /shipments/:id/status - Update shipment status
+		shipments.PATCH("/:id/status", m.handlers.UpdateStatus)
 	}
 }

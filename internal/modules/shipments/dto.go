@@ -31,6 +31,74 @@ type ArchiveShipmentRequest struct {
 	// No fields needed - archival is a simple toggle
 }
 
+// UpdateStatusRequest represents the request to update shipment status
+type UpdateStatusRequest struct {
+	Status string `json:"status" binding:"required,oneof=draft awaiting_payment payment_failed label_purchased ready_for_pickup pickup_scheduled in_transit out_for_delivery delivered delivery_failed returned cancelled refunded voided" example:"delivered"`
+	Reason string `json:"reason,omitempty" example:"Package delivered to recipient"`
+}
+
+// ValidStatusTransitions defines which status transitions are allowed
+// Key: current status, Value: list of allowed next statuses
+var ValidStatusTransitions = map[string][]string{
+	// Pre-Label States
+	"draft":            {"awaiting_payment", "cancelled"},
+	"awaiting_payment": {"payment_failed", "label_purchased", "cancelled"},
+	"payment_failed":   {"awaiting_payment", "cancelled"},
+
+	// Label & Pickup States
+	"label_purchased":  {"ready_for_pickup", "pickup_scheduled", "in_transit", "voided", "cancelled"},
+	"ready_for_pickup": {"pickup_scheduled", "in_transit", "voided", "cancelled"},
+	"pickup_scheduled": {"in_transit", "voided", "cancelled"},
+
+	// In-Transit States
+	"in_transit":       {"out_for_delivery", "delivered", "delivery_failed", "returned"},
+	"out_for_delivery": {"delivered", "delivery_failed", "returned"},
+
+	// Delivery Outcome States
+	"delivery_failed": {"in_transit", "out_for_delivery", "returned"},
+	"returned":        {}, // Terminal state
+
+	// Final States (no transitions allowed)
+	"delivered":  {}, // Terminal state - triggers commission
+	"cancelled":  {}, // Terminal state
+	"refunded":   {}, // Terminal state
+	"voided":     {}, // Terminal state
+}
+
+// IsValidTransition checks if a status transition is allowed
+func IsValidTransition(currentStatus, newStatus string) bool {
+	allowedStatuses, exists := ValidStatusTransitions[currentStatus]
+	if !exists {
+		return false
+	}
+	for _, allowed := range allowedStatuses {
+		if allowed == newStatus {
+			return true
+		}
+	}
+	return false
+}
+
+// GetAllowedTransitions returns the list of allowed next statuses for a given status
+func GetAllowedTransitions(currentStatus string) []string {
+	if transitions, exists := ValidStatusTransitions[currentStatus]; exists {
+		return transitions
+	}
+	return []string{}
+}
+
+// UpdateStatusResponse represents the response after status update
+type UpdateStatusResponse struct {
+	ShipmentID        string   `json:"shipment_id"`
+	ShipmentNumber    string   `json:"shipment_number"`
+	PreviousStatus    string   `json:"previous_status"`
+	CurrentStatus     string   `json:"current_status"`
+	StatusLabel       string   `json:"status_label"`
+	AllowedTransitions []string `json:"allowed_transitions"`
+	CommissionCreated bool     `json:"commission_created,omitempty"`
+	UpdatedAt         string   `json:"updated_at"`
+}
+
 // ShipmentResponse represents a shipment in API responses
 type ShipmentResponse struct {
 	ID                 string                 `json:"id"`

@@ -539,6 +539,180 @@ func (s *SimpleShipmentService) ArchiveShipment(shipmentID, organizationID, user
 	return err
 }
 
+// GetShipmentStatus retrieves the current status of a shipment
+func (s *SimpleShipmentService) GetShipmentStatus(shipmentID, organizationID string) (string, error) {
+	var status string
+	err := s.db.QueryRow(`
+		SELECT shipment_status
+		FROM shipments
+		WHERE id = $1 AND organization_id = $2
+	`, shipmentID, organizationID).Scan(&status)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", fmt.Errorf("shipment not found or access denied")
+		}
+		return "", fmt.Errorf("failed to get shipment status: %w", err)
+	}
+	return status, nil
+}
+
+// UpdateShipmentStatus updates the status of a shipment and triggers commission creation when delivered
+// This function should be called by webhook handlers or tracking services when shipment status changes
+func (s *SimpleShipmentService) UpdateShipmentStatus(shipmentID, organizationID string, newStatus models.ShipmentStatus) error {
+	// Get current shipment info for commission calculation (if needed)
+	var currentStatus string
+	var revenueAmount, costAmount float64
+	var currency string
+	err := s.db.QueryRow(`
+		SELECT shipment_status, COALESCE(revenue_amount, 0), COALESCE(cost_amount, 0), COALESCE(currency, 'CAD')
+		FROM shipments
+		WHERE id = $1 AND organization_id = $2
+	`, shipmentID, organizationID).Scan(&currentStatus, &revenueAmount, &costAmount, &currency)
+	if err != nil {
+		return fmt.Errorf("failed to get shipment: %w", err)
+	}
+
+	// Update shipment status
+	_, err = s.db.Exec(`
+		UPDATE shipments SET shipment_status = $1, updated_at = NOW()
+		WHERE id = $2 AND organization_id = $3
+	`, string(newStatus), shipmentID, organizationID)
+	if err != nil {
+		return fmt.Errorf("failed to update shipment status: %w", err)
+	}
+
+	// If shipment is now delivered, trigger commission creation
+	if newStatus == models.ShipmentStatusDelivered && currentStatus != string(models.ShipmentStatusDelivered) {
+		err = s.createCommissionOnDelivery(shipmentID, organizationID, revenueAmount, costAmount, currency)
+		if err != nil {
+			// Log error but don't fail the status update
+			// In production, you'd want proper logging here
+			fmt.Printf("Warning: failed to create commission for shipment %s: %v\n", shipmentID, err)
+		}
+	}
+
+	return nil
+}
+
+// createCommissionOnDelivery creates a commission transaction when a shipment is delivered
+// This is called internally when shipment status changes to "delivered"
+func (s *SimpleShipmentService) createCommissionOnDelivery(shipmentID, organizationID string, revenueAmount, costAmount float64, currency string) error {
+	// Find if the shipment creator was referred by someone
+	var referredUserID string
+	var referrerUserID sql.NullString
+
+	// Get the user who created the shipment and check if they were referred
+	err := s.db.QueryRow(`
+		SELECT s.created_by_user_id, u.referred_by_user_id
+		FROM shipments s
+		JOIN users u ON u.id = s.created_by_user_id
+		WHERE s.id = $1 AND s.organization_id = $2
+	`, shipmentID, organizationID).Scan(&referredUserID, &referrerUserID)
+
+	if err != nil {
+		return fmt.Errorf("failed to get shipment creator: %w", err)
+	}
+
+	// If user wasn't referred, no commission to create
+	if !referrerUserID.Valid || referrerUserID.String == "" {
+		return nil
+	}
+
+	// Get the referral redemption to get the commission plan snapshot
+	var commissionPlanID sql.NullString
+	var commissionNumber, commissionBase, commissionValueType string
+	var commissionValue float64
+
+	err = s.db.QueryRow(`
+		SELECT commission_plan_id, commission_number, commission_base, commission_value_type, commission_value
+		FROM referral_redemptions
+		WHERE referred_user_id = $1 AND referrer_user_id = $2 AND status = 'active'
+		LIMIT 1
+	`, referredUserID, referrerUserID.String).Scan(&commissionPlanID, &commissionNumber, &commissionBase, &commissionValueType, &commissionValue)
+
+	if err == sql.ErrNoRows {
+		// No active referral relationship, no commission
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("failed to get referral redemption: %w", err)
+	}
+
+	// Check if commission already exists for this shipment+beneficiary combination
+	var existingCount int
+	err = s.db.QueryRow(`
+		SELECT COUNT(*) FROM commission_transactions
+		WHERE shipment_id = $1 AND beneficiary_user_id = $2
+	`, shipmentID, referrerUserID.String).Scan(&existingCount)
+	if err != nil {
+		return fmt.Errorf("failed to check existing commission: %w", err)
+	}
+	if existingCount > 0 {
+		// Commission already exists
+		return nil
+	}
+
+	// Calculate commission amount based on commission_base
+	profitAmount := revenueAmount - costAmount
+	var commissionAmount float64
+
+	switch commissionBase {
+	case "profit":
+		if commissionValueType == "percent" {
+			commissionAmount = profitAmount * (commissionValue / 100.0)
+		} else {
+			commissionAmount = commissionValue
+		}
+	case "revenue":
+		if commissionValueType == "percent" {
+			commissionAmount = revenueAmount * (commissionValue / 100.0)
+		} else {
+			commissionAmount = commissionValue
+		}
+	case "per_shipment":
+		commissionAmount = commissionValue // Fixed amount per shipment
+	default:
+		commissionAmount = profitAmount * (commissionValue / 100.0) // Default to profit-based percent
+	}
+
+	// Ensure commission is non-negative
+	if commissionAmount < 0 {
+		commissionAmount = 0
+	}
+
+	// Generate commission transaction number
+	txNumber := fmt.Sprintf("CTX-%s", generateRandomCode(8))
+	commissionID := uuid.New().String()
+	now := time.Now()
+
+	// Create the commission transaction (status: eligible since shipment is delivered)
+	_, err = s.db.Exec(`
+		INSERT INTO commission_transactions (
+			id, commission_transaction_number, organization_id, beneficiary_user_id,
+			source_user_id, shipment_id, commission_plan_id, commission_number,
+			commission_base, commission_value_type, commission_value,
+			currency, revenue_amount, cost_amount, profit_amount, commission_amount,
+			status, earned_at, eligible_at, created_at, updated_at
+		) VALUES (
+			$1, $2, $3, $4,
+			$5, $6, $7, $8,
+			$9, $10, $11,
+			$12, $13, $14, $15, $16,
+			'eligible', $17, $18, $19, $20
+		)
+	`, commissionID, txNumber, organizationID, referrerUserID.String,
+		referredUserID, shipmentID, commissionPlanID, commissionNumber,
+		commissionBase, commissionValueType, commissionValue,
+		currency, revenueAmount, costAmount, profitAmount, commissionAmount,
+		now, now, now, now)
+
+	if err != nil {
+		return fmt.Errorf("failed to create commission transaction: %w", err)
+	}
+
+	return nil
+}
+
 // generateRandomCode generates a random alphanumeric code
 func generateRandomCode(length int) string {
 	const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"

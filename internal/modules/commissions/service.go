@@ -48,18 +48,19 @@ func (s *CommissionService) GetOrganizationIDFromUser(userID string) (string, er
 	return organizationID, nil
 }
 
-// GetUserRole retrieves the role of a user
+// GetUserRole retrieves the role of a user from their organization membership
 func (s *CommissionService) GetUserRole(userID string) (string, error) {
 	query := `
 		SELECT role
-		FROM users
-		WHERE id = $1
+		FROM organization_members
+		WHERE user_id = $1 AND is_active = true
+		LIMIT 1
 	`
 
 	var role string
 	err := s.db.DB.QueryRow(query, userID).Scan(&role)
 	if err == sql.ErrNoRows {
-		return "", fmt.Errorf("user not found")
+		return "", fmt.Errorf("user not found in any organization")
 	}
 	if err != nil {
 		return "", fmt.Errorf("failed to get user role: %w", err)
@@ -406,13 +407,16 @@ func (s *CommissionService) RequestPayout(req RequestPayoutRequest, organization
 	}
 
 	// Log audit entry
+	eventID := fmt.Sprintf("evt_%s_%d", payoutRequestID[:8], now.UnixNano())
 	_, err = tx.Exec(`
 		INSERT INTO audit_logs (
-			user_id, action, resource, resource_id, status, created_at
+			event_id, actor_type, user_id, action, resource_type, resource_id,
+			business_purpose, status, occurred_at
 		) VALUES (
-			$1, 'commission.payout_requested', 'commission_payout_request', $2, 'success', $3
+			$1, 'user', $2, 'commission.payout_requested', 'commission_payout_request', $3,
+			'commission_management', 'success', $4
 		)
-	`, userID, payoutRequestID, now)
+	`, eventID, userID, payoutRequestID, now)
 	if err != nil {
 		return nil, fmt.Errorf("failed to log audit entry: %w", err)
 	}
@@ -481,13 +485,16 @@ func (s *CommissionService) ProcessPayout(req ProcessPayoutRequest, organization
 		}
 
 		// Log audit entry
+		rejectEventID := fmt.Sprintf("evt_%s_%d", req.PayoutRequestID[:8], now.UnixNano())
 		_, err = tx.Exec(`
 			INSERT INTO audit_logs (
-				user_id, action, resource, resource_id, status, created_at
+				event_id, actor_type, user_id, action, resource_type, resource_id,
+				business_purpose, status, occurred_at
 			) VALUES (
-				$1, 'commission.payout_rejected', 'commission_payout_request', $2, 'success', $3
+				$1, 'user', $2, 'commission.payout_rejected', 'commission_payout_request', $3,
+				'commission_management', 'success', $4
 			)
-		`, userID, req.PayoutRequestID, now)
+		`, rejectEventID, userID, req.PayoutRequestID, now)
 
 		if err = tx.Commit(); err != nil {
 			return nil, fmt.Errorf("failed to commit transaction: %w", err)
@@ -549,13 +556,16 @@ func (s *CommissionService) ProcessPayout(req ProcessPayoutRequest, organization
 	}
 
 	// Log audit entry
+	processEventID := fmt.Sprintf("evt_%s_%d", payoutID[:8], now.UnixNano())
 	_, err = tx.Exec(`
 		INSERT INTO audit_logs (
-			user_id, action, resource, resource_id, status, created_at
+			event_id, actor_type, user_id, action, resource_type, resource_id,
+			business_purpose, status, occurred_at
 		) VALUES (
-			$1, 'commission.payout_processed', 'commission_payout', $2, 'success', $3
+			$1, 'user', $2, 'commission.payout_processed', 'commission_payout', $3,
+			'commission_management', 'success', $4
 		)
-	`, userID, payoutID, now)
+	`, processEventID, userID, payoutID, now)
 
 	if err = tx.Commit(); err != nil {
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
@@ -569,4 +579,142 @@ func (s *CommissionService) ProcessPayout(req ProcessPayoutRequest, organization
 		Message:      "Payout processed successfully",
 		ProcessedAt:  now,
 	}, nil
+}
+
+// CreateCommissionOnShipmentComplete creates a commission transaction when a shipment is delivered
+// This should be called when shipment status changes to "delivered"
+func (s *CommissionService) CreateCommissionOnShipmentComplete(shipmentID, organizationID string, revenueAmount, costAmount float64, currency string) error {
+	// Find if the shipment creator was referred by someone
+	var referredUserID string
+	var referrerUserID sql.NullString
+	var commissionPlanID sql.NullString
+	var commissionNumber, commissionBase, commissionValueType string
+	var commissionValue float64
+
+	// Get the user who created the shipment and check if they were referred
+	err := s.db.DB.QueryRow(`
+		SELECT s.created_by_user_id, u.referred_by_user_id
+		FROM shipments s
+		JOIN users u ON u.id = s.created_by_user_id
+		WHERE s.id = $1 AND s.organization_id = $2
+	`, shipmentID, organizationID).Scan(&referredUserID, &referrerUserID)
+
+	if err != nil {
+		return fmt.Errorf("failed to get shipment creator: %w", err)
+	}
+
+	// If user wasn't referred, no commission to create
+	if !referrerUserID.Valid || referrerUserID.String == "" {
+		return nil
+	}
+
+	// Get the referral redemption to get the commission plan snapshot
+	err = s.db.DB.QueryRow(`
+		SELECT commission_plan_id, commission_number, commission_base, commission_value_type, commission_value
+		FROM referral_redemptions
+		WHERE referred_user_id = $1 AND referrer_user_id = $2 AND status = 'active'
+		LIMIT 1
+	`, referredUserID, referrerUserID.String).Scan(&commissionPlanID, &commissionNumber, &commissionBase, &commissionValueType, &commissionValue)
+
+	if err == sql.ErrNoRows {
+		// No active referral relationship, no commission
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("failed to get referral redemption: %w", err)
+	}
+
+	// Check if commission already exists for this shipment+beneficiary+plan combination
+	var existingCount int
+	err = s.db.DB.QueryRow(`
+		SELECT COUNT(*) FROM commission_transactions
+		WHERE shipment_id = $1 AND beneficiary_user_id = $2 AND commission_number = $3
+	`, shipmentID, referrerUserID.String, commissionNumber).Scan(&existingCount)
+	if err != nil {
+		return fmt.Errorf("failed to check existing commission: %w", err)
+	}
+	if existingCount > 0 {
+		// Commission already exists
+		return nil
+	}
+
+	// Calculate commission amount based on commission_base
+	profitAmount := revenueAmount - costAmount
+	var commissionAmount float64
+
+	switch commissionBase {
+	case "profit":
+		if commissionValueType == "percent" {
+			commissionAmount = profitAmount * (commissionValue / 100.0)
+		} else {
+			commissionAmount = commissionValue
+		}
+	case "revenue":
+		if commissionValueType == "percent" {
+			commissionAmount = revenueAmount * (commissionValue / 100.0)
+		} else {
+			commissionAmount = commissionValue
+		}
+	case "per_shipment":
+		commissionAmount = commissionValue // Fixed amount per shipment
+	default:
+		commissionAmount = profitAmount * (commissionValue / 100.0) // Default to profit-based percent
+	}
+
+	// Ensure commission is non-negative
+	if commissionAmount < 0 {
+		commissionAmount = 0
+	}
+
+	// Generate commission transaction number
+	txNumber, err := s.generateCommissionTransactionNumber()
+	if err != nil {
+		return fmt.Errorf("failed to generate commission transaction number: %w", err)
+	}
+
+	now := time.Now()
+	commissionID := s.generateUUID()
+
+	// Create the commission transaction (status: eligible since shipment is completed)
+	_, err = s.db.DB.Exec(`
+		INSERT INTO commission_transactions (
+			id, commission_transaction_number, organization_id, beneficiary_user_id,
+			source_user_id, shipment_id, commission_plan_id, commission_number,
+			commission_base, commission_value_type, commission_value,
+			currency, revenue_amount, cost_amount, profit_amount, commission_amount,
+			status, earned_at, eligible_at, created_at, updated_at
+		) VALUES (
+			$1, $2, $3, $4,
+			$5, $6, $7, $8,
+			$9, $10, $11,
+			$12, $13, $14, $15, $16,
+			'eligible', $17, $18, $19, $20
+		)
+	`, commissionID, txNumber, organizationID, referrerUserID.String,
+		referredUserID, shipmentID, commissionPlanID, commissionNumber,
+		commissionBase, commissionValueType, commissionValue,
+		currency, revenueAmount, costAmount, profitAmount, commissionAmount,
+		now, now, now, now)
+
+	if err != nil {
+		return fmt.Errorf("failed to create commission transaction: %w", err)
+	}
+
+	return nil
+}
+
+// generateCommissionTransactionNumber generates a unique commission transaction number
+func (s *CommissionService) generateCommissionTransactionNumber() (string, error) {
+	bytes := make([]byte, 4)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return "CTX-" + hex.EncodeToString(bytes), nil
+}
+
+// generateUUID generates a new UUID string
+func (s *CommissionService) generateUUID() string {
+	bytes := make([]byte, 16)
+	rand.Read(bytes)
+	return fmt.Sprintf("%x-%x-%x-%x-%x", bytes[0:4], bytes[4:6], bytes[6:8], bytes[8:10], bytes[10:16])
 }

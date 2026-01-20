@@ -39,18 +39,19 @@ func (s *ReferralService) GetOrganizationIDFromUser(userID string) (string, erro
 	return organizationID, nil
 }
 
-// GetUserRole retrieves the role of a user
+// GetUserRole retrieves the role of a user from their organization membership
 func (s *ReferralService) GetUserRole(userID string) (string, error) {
 	query := `
 		SELECT role
-		FROM users
-		WHERE id = $1
+		FROM organization_members
+		WHERE user_id = $1 AND is_active = true
+		LIMIT 1
 	`
 
 	var role string
 	err := s.db.DB.QueryRow(query, userID).Scan(&role)
 	if err == sql.ErrNoRows {
-		return "", fmt.Errorf("user not found")
+		return "", fmt.Errorf("user not found in any organization")
 	}
 	if err != nil {
 		return "", fmt.Errorf("failed to get user role: %w", err)
@@ -83,9 +84,10 @@ func (s *ReferralService) ListReferrals(req ListReferralsRequest, userID string,
 			rr.commission_plan_id, rr.commission_number, rr.commission_base,
 			rr.commission_value_type, rr.commission_value, rr.snapshot_taken_at,
 			rr.metadata, rr.created_at,
-			u.email as referred_user_email
+			ue.email as referred_user_email
 		FROM referral_redemptions rr
 		LEFT JOIN users u ON u.id = rr.referred_user_id
+		LEFT JOIN user_emails ue ON ue.id = u.primary_email_id
 		WHERE 1=1
 	`
 	args := []interface{}{}
@@ -254,11 +256,13 @@ func (s *ReferralService) GetReferralByID(referralID string, userID string, isAd
 			rr.commission_plan_id, rr.commission_number, rr.commission_base,
 			rr.commission_value_type, rr.commission_value, rr.snapshot_taken_at,
 			rr.metadata, rr.created_at,
-			u1.email as referrer_email,
-			u2.email as referred_email
+			ue1.email as referrer_email,
+			ue2.email as referred_email
 		FROM referral_redemptions rr
 		LEFT JOIN users u1 ON u1.id = rr.referrer_user_id
+		LEFT JOIN user_emails ue1 ON ue1.id = u1.primary_email_id
 		LEFT JOIN users u2 ON u2.id = rr.referred_user_id
+		LEFT JOIN user_emails ue2 ON ue2.id = u2.primary_email_id
 		WHERE rr.id = $1
 	`
 	args := []interface{}{referralID}

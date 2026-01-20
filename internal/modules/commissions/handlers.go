@@ -61,7 +61,7 @@ func (h *CommissionHandlers) ListCommissions(c *gin.Context) {
 		return
 	}
 
-	isAdmin := role == "admin" || role == "manager"
+	isAdmin := role == "owner" || role == "administrator" || role == "manager"
 
 	// Parse query parameters
 	var req ListCommissionsRequest
@@ -119,7 +119,7 @@ func (h *CommissionHandlers) ListPayouts(c *gin.Context) {
 		return
 	}
 
-	isAdmin := role == "admin" || role == "manager"
+	isAdmin := role == "owner" || role == "administrator" || role == "manager"
 
 	// Parse query parameters
 	var req ListPayoutsRequest
@@ -228,8 +228,8 @@ func (h *CommissionHandlers) ProcessPayout(c *gin.Context) {
 		return
 	}
 
-	if role != "admin" && role != "manager" {
-		response.Forbidden(c, "Only admins and managers can process payout requests")
+	if role != "owner" && role != "administrator" && role != "manager" {
+		response.Forbidden(c, "Only owners, administrators and managers can process payout requests")
 		return
 	}
 
