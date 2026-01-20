@@ -2,6 +2,7 @@ package invoices
 
 import (
 	"net/http"
+	"strconv"
 
 	"gogin/internal/response"
 
@@ -179,7 +180,7 @@ func (h *InvoiceHandlers) DownloadInvoice(c *gin.Context) {
 	filename := invoice.InvoiceNumber + ".pdf"
 	c.Header("Content-Type", "application/pdf")
 	c.Header("Content-Disposition", "attachment; filename=\""+filename+"\"")
-	c.Header("Content-Length", string(len(pdfBytes)))
+	c.Header("Content-Length", strconv.Itoa(len(pdfBytes)))
 
 	// Write PDF bytes
 	c.Data(http.StatusOK, "application/pdf", pdfBytes)

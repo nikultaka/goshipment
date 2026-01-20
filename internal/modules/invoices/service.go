@@ -1,11 +1,13 @@
 package invoices
 
 import (
+	"bytes"
 	"database/sql"
 	"fmt"
 	"math"
 	"time"
 
+	"github.com/go-pdf/fpdf"
 	"gogin/internal/clients"
 )
 
@@ -565,39 +567,303 @@ func (s *InvoiceService) GeneratePDF(invoiceID, organizationID, userID string) (
 		return nil, err
 	}
 
-	// TODO: Replace with actual PDF generation library (e.g., go-pdf, wkhtmltopdf)
-	// For now, return mock PDF content
-	mockPDF := fmt.Sprintf(`%%PDF-1.4
-MOCK INVOICE PDF
+	// Create PDF document
+	pdf := fpdf.New("P", "mm", "A4", "")
+	pdf.SetMargins(15, 15, 15)
+	pdf.AddPage()
 
-Invoice Number: %s
-Organization: %s
-Type: %s
-Status: %s
-Payment Status: %s
+	// Helper function to format currency
+	formatCurrency := func(amount float64, currency string) string {
+		return fmt.Sprintf("%.2f %s", amount, currency)
+	}
 
-Total Amount: %.2f %s
-Amount Paid: %.2f %s
-Balance Due: %.2f %s
+	// Helper function to format date
+	formatDate := func(t *time.Time) string {
+		if t == nil {
+			return "N/A"
+		}
+		return t.Format("Jan 02, 2006")
+	}
 
-Issued At: %v
-Due Date: %v
+	// ===== HEADER SECTION =====
+	pdf.SetFont("Arial", "B", 20)
+	titleText := "INVOICE"
+	if invoice.InvoiceType == "credit_note" {
+		titleText = "CREDIT NOTE"
+	}
+	pdf.Cell(0, 10, titleText)
+	pdf.Ln(12)
 
-This is a mock PDF. Replace with actual PDF generation using go-pdf or similar library.
-`,
-		invoice.InvoiceNumber,
-		invoice.OrganizationName,
-		invoice.InvoiceType,
-		invoice.Status,
-		invoice.PaymentStatus,
-		invoice.TotalAmount, invoice.Currency,
-		invoice.AmountPaid, invoice.Currency,
-		invoice.BalanceDue, invoice.Currency,
-		invoice.IssuedAt,
-		invoice.DueDate,
-	)
+	// Invoice number and organization
+	pdf.SetFont("Arial", "B", 12)
+	pdf.Cell(0, 6, invoice.InvoiceNumber)
+	pdf.Ln(6)
+	pdf.SetFont("Arial", "", 10)
+	pdf.Cell(0, 5, invoice.OrganizationName)
+	pdf.Ln(10)
 
-	return []byte(mockPDF), nil
+	// ===== STATUS ROW =====
+	pdf.SetFont("Arial", "B", 9)
+	pdf.SetFillColor(240, 240, 240)
+	pdf.CellFormat(45, 7, "Status", "1", 0, "C", true, 0, "")
+	pdf.CellFormat(45, 7, "Payment Status", "1", 0, "C", true, 0, "")
+	pdf.CellFormat(45, 7, "Issue Date", "1", 0, "C", true, 0, "")
+	pdf.CellFormat(45, 7, "Due Date", "1", 0, "C", true, 0, "")
+	pdf.Ln(7)
+
+	pdf.SetFont("Arial", "", 9)
+	pdf.CellFormat(45, 7, capitalizeFirst(invoice.Status), "1", 0, "C", false, 0, "")
+	pdf.CellFormat(45, 7, capitalizeFirst(invoice.PaymentStatus), "1", 0, "C", false, 0, "")
+	pdf.CellFormat(45, 7, formatDate(invoice.IssuedAt), "1", 0, "C", false, 0, "")
+	pdf.CellFormat(45, 7, formatDate(invoice.DueDate), "1", 0, "C", false, 0, "")
+	pdf.Ln(12)
+
+	// ===== BILLING ADDRESS =====
+	if invoice.BillingAddress != nil {
+		pdf.SetFont("Arial", "B", 10)
+		pdf.Cell(0, 6, "Bill To:")
+		pdf.Ln(6)
+		pdf.SetFont("Arial", "", 9)
+		ba := invoice.BillingAddress
+		if ba.CompanyName != nil && *ba.CompanyName != "" {
+			pdf.Cell(0, 5, *ba.CompanyName)
+			pdf.Ln(5)
+		}
+		if ba.ContactName != "" {
+			pdf.Cell(0, 5, ba.ContactName)
+			pdf.Ln(5)
+		}
+		if ba.AddressLine1 != "" {
+			pdf.Cell(0, 5, ba.AddressLine1)
+			pdf.Ln(5)
+		}
+		if ba.AddressLine2 != nil && *ba.AddressLine2 != "" {
+			pdf.Cell(0, 5, *ba.AddressLine2)
+			pdf.Ln(5)
+		}
+		cityLine := ba.City
+		if ba.StateProvince != "" {
+			cityLine += ", " + ba.StateProvince
+		}
+		if ba.PostalCode != "" {
+			cityLine += " " + ba.PostalCode
+		}
+		if cityLine != "" {
+			pdf.Cell(0, 5, cityLine)
+			pdf.Ln(5)
+		}
+		if ba.CountryCode != "" {
+			pdf.Cell(0, 5, ba.CountryCode)
+			pdf.Ln(5)
+		}
+		if ba.ContactEmail != "" {
+			pdf.Cell(0, 5, ba.ContactEmail)
+			pdf.Ln(5)
+		}
+		if ba.ContactPhone != nil && *ba.ContactPhone != "" {
+			pdf.Cell(0, 5, *ba.ContactPhone)
+			pdf.Ln(5)
+		}
+		pdf.Ln(5)
+	}
+
+	// ===== SHIPMENT INFO =====
+	if invoice.ShipmentSnapshot != nil {
+		ss := invoice.ShipmentSnapshot
+		pdf.SetFont("Arial", "B", 10)
+		pdf.Cell(0, 6, "Shipment Details:")
+		pdf.Ln(6)
+		pdf.SetFont("Arial", "", 9)
+		if ss.ShipmentNumber != "" {
+			pdf.Cell(0, 5, fmt.Sprintf("Shipment #: %s", ss.ShipmentNumber))
+			pdf.Ln(5)
+		}
+		if ss.CarrierName != "" {
+			pdf.Cell(0, 5, fmt.Sprintf("Carrier: %s", ss.CarrierName))
+			pdf.Ln(5)
+		}
+		if ss.ServiceType != "" {
+			pdf.Cell(0, 5, fmt.Sprintf("Service: %s", ss.ServiceType))
+			pdf.Ln(5)
+		}
+		if ss.OriginCity != "" || ss.DestinationCity != "" {
+			routeStr := fmt.Sprintf("Route: %s -> %s", ss.OriginCity, ss.DestinationCity)
+			pdf.Cell(0, 5, routeStr)
+			pdf.Ln(5)
+		}
+		if ss.TotalPackages > 0 {
+			pdf.Cell(0, 5, fmt.Sprintf("Total Packages: %d", ss.TotalPackages))
+			pdf.Ln(5)
+		}
+		pdf.Ln(5)
+	}
+
+	// ===== LINE ITEMS TABLE =====
+	if len(invoice.Items) > 0 {
+		pdf.SetFont("Arial", "B", 10)
+		pdf.Cell(0, 6, "Line Items:")
+		pdf.Ln(6)
+
+		// Table header
+		pdf.SetFont("Arial", "B", 9)
+		pdf.SetFillColor(50, 50, 50)
+		pdf.SetTextColor(255, 255, 255)
+		pdf.CellFormat(80, 7, "Description", "1", 0, "L", true, 0, "")
+		pdf.CellFormat(20, 7, "Qty", "1", 0, "C", true, 0, "")
+		pdf.CellFormat(35, 7, "Unit Price", "1", 0, "R", true, 0, "")
+		pdf.CellFormat(35, 7, "Amount", "1", 0, "R", true, 0, "")
+		pdf.Ln(7)
+
+		// Reset text color
+		pdf.SetTextColor(0, 0, 0)
+		pdf.SetFont("Arial", "", 9)
+
+		for _, item := range invoice.Items {
+			desc := item.Description
+			if len(desc) > 45 {
+				desc = desc[:42] + "..."
+			}
+			pdf.CellFormat(80, 6, desc, "1", 0, "L", false, 0, "")
+			pdf.CellFormat(20, 6, fmt.Sprintf("%d", item.Quantity), "1", 0, "C", false, 0, "")
+			pdf.CellFormat(35, 6, formatCurrency(item.UnitPrice, item.Currency), "1", 0, "R", false, 0, "")
+			pdf.CellFormat(35, 6, formatCurrency(item.TotalPrice, item.Currency), "1", 0, "R", false, 0, "")
+			pdf.Ln(6)
+		}
+		pdf.Ln(5)
+	}
+
+	// ===== TOTALS SECTION =====
+	pdf.SetFont("Arial", "B", 10)
+	pdf.Cell(0, 6, "Summary:")
+	pdf.Ln(6)
+
+	totalsX := 115.0
+	pdf.SetFont("Arial", "", 9)
+
+	pdf.SetX(totalsX)
+	pdf.CellFormat(40, 6, "Subtotal:", "", 0, "L", false, 0, "")
+	pdf.CellFormat(30, 6, formatCurrency(invoice.SubtotalAmount, invoice.Currency), "", 0, "R", false, 0, "")
+	pdf.Ln(6)
+
+	if invoice.TaxAmount > 0 {
+		pdf.SetX(totalsX)
+		pdf.CellFormat(40, 6, "Taxes:", "", 0, "L", false, 0, "")
+		pdf.CellFormat(30, 6, formatCurrency(invoice.TaxAmount, invoice.Currency), "", 0, "R", false, 0, "")
+		pdf.Ln(6)
+	}
+
+	if invoice.DiscountAmount > 0 {
+		pdf.SetX(totalsX)
+		pdf.CellFormat(40, 6, "Discount:", "", 0, "L", false, 0, "")
+		pdf.CellFormat(30, 6, "-"+formatCurrency(invoice.DiscountAmount, invoice.Currency), "", 0, "R", false, 0, "")
+		pdf.Ln(6)
+	}
+
+	pdf.SetFont("Arial", "B", 10)
+	pdf.SetX(totalsX)
+	pdf.CellFormat(40, 7, "Total:", "", 0, "L", false, 0, "")
+	pdf.CellFormat(30, 7, formatCurrency(invoice.TotalAmount, invoice.Currency), "", 0, "R", false, 0, "")
+	pdf.Ln(7)
+
+	pdf.SetFont("Arial", "", 9)
+	pdf.SetX(totalsX)
+	pdf.CellFormat(40, 6, "Amount Paid:", "", 0, "L", false, 0, "")
+	pdf.CellFormat(30, 6, formatCurrency(invoice.AmountPaid, invoice.Currency), "", 0, "R", false, 0, "")
+	pdf.Ln(6)
+
+	pdf.SetFont("Arial", "B", 10)
+	pdf.SetX(totalsX)
+	pdf.CellFormat(40, 7, "Balance Due:", "", 0, "L", false, 0, "")
+	pdf.CellFormat(30, 7, formatCurrency(invoice.BalanceDue, invoice.Currency), "", 0, "R", false, 0, "")
+	pdf.Ln(10)
+
+	// ===== PAYMENTS SECTION =====
+	if len(invoice.Payments) > 0 {
+		pdf.SetFont("Arial", "B", 10)
+		pdf.Cell(0, 6, "Payment History:")
+		pdf.Ln(6)
+
+		// Table header
+		pdf.SetFont("Arial", "B", 9)
+		pdf.SetFillColor(50, 50, 50)
+		pdf.SetTextColor(255, 255, 255)
+		pdf.CellFormat(50, 7, "Date", "1", 0, "L", true, 0, "")
+		pdf.CellFormat(50, 7, "Method", "1", 0, "L", true, 0, "")
+		pdf.CellFormat(50, 7, "Amount", "1", 0, "R", true, 0, "")
+		pdf.Ln(7)
+
+		pdf.SetTextColor(0, 0, 0)
+		pdf.SetFont("Arial", "", 9)
+
+		for _, payment := range invoice.Payments {
+			pdf.CellFormat(50, 6, payment.PaidAt.Format("Jan 02, 2006"), "1", 0, "L", false, 0, "")
+			pdf.CellFormat(50, 6, capitalizeFirst(payment.PaymentMethod), "1", 0, "L", false, 0, "")
+			pdf.CellFormat(50, 6, formatCurrency(payment.Amount, payment.Currency), "1", 0, "R", false, 0, "")
+			pdf.Ln(6)
+		}
+		pdf.Ln(5)
+	}
+
+	// ===== CREDIT NOTE INFO =====
+	if invoice.InvoiceType == "credit_note" && invoice.ParentInvoiceID != nil {
+		pdf.SetFont("Arial", "B", 10)
+		pdf.Cell(0, 6, "Credit Note Information:")
+		pdf.Ln(6)
+		pdf.SetFont("Arial", "", 9)
+		pdf.Cell(0, 5, fmt.Sprintf("Parent Invoice: %s", stringPtrValue(invoice.ParentInvoiceID)))
+		pdf.Ln(5)
+		if invoice.CreditNoteReason != nil {
+			pdf.Cell(0, 5, fmt.Sprintf("Reason: %s", *invoice.CreditNoteReason))
+			pdf.Ln(5)
+		}
+		if invoice.CreditNoteReasonNotes != nil && *invoice.CreditNoteReasonNotes != "" {
+			pdf.Cell(0, 5, fmt.Sprintf("Notes: %s", *invoice.CreditNoteReasonNotes))
+			pdf.Ln(5)
+		}
+		pdf.Ln(5)
+	}
+
+	// ===== FOOTER =====
+	pdf.SetY(-30)
+	pdf.SetFont("Arial", "I", 8)
+	pdf.SetTextColor(128, 128, 128)
+	pdf.CellFormat(0, 5, fmt.Sprintf("Generated on %s", time.Now().Format("Jan 02, 2006 at 03:04 PM")), "", 0, "C", false, 0, "")
+	pdf.Ln(5)
+	pdf.CellFormat(0, 5, "Thank you for your business!", "", 0, "C", false, 0, "")
+
+	// Generate PDF bytes
+	var buf bytes.Buffer
+	err = pdf.Output(&buf)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate PDF: %w", err)
+	}
+
+	return buf.Bytes(), nil
+}
+
+// capitalizeFirst capitalizes the first letter of a string
+func capitalizeFirst(s string) string {
+	if s == "" {
+		return s
+	}
+	if len(s) == 1 {
+		if s[0] >= 'a' && s[0] <= 'z' {
+			return string(s[0] - 32)
+		}
+		return s
+	}
+	if s[0] >= 'a' && s[0] <= 'z' {
+		return string(s[0]-32) + s[1:]
+	}
+	return s
+}
+
+// stringPtrValue returns the string value or empty string if nil
+func stringPtrValue(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }
 
 // =====================================================
