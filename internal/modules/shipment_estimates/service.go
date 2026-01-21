@@ -2,6 +2,7 @@ package shipment_estimates
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -129,6 +130,12 @@ func (s *EstimateService) CreateEstimate(
 		}
 	}
 
+	// Serialize carrier rates to JSON
+	carrierRatesJSON, err := json.Marshal(carrierRates)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to serialize carrier rates: %w", err)
+	}
+
 	// Insert estimate
 	query := `
 		INSERT INTO shipment_estimates (
@@ -138,10 +145,10 @@ func (s *EstimateService) CreateEstimate(
 			to_country, to_region_code, to_city, to_postal_code,
 			total_packages, total_weight, weight_unit,
 			currency, expires_at, is_locked,
-			is_deleted, created_at
+			is_deleted, carrier_rates_json, created_at
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-			$11, $12, $13, $14, $15, $16, $17, $18, $19, $20, NOW()
+			$11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, NOW()
 		) RETURNING id, created_at
 	`
 
@@ -152,7 +159,7 @@ func (s *EstimateService) CreateEstimate(
 		estimate.ToCountry, estimate.ToRegionCode, estimate.ToCity, estimate.ToPostalCode,
 		estimate.TotalPackages, estimate.TotalWeight, estimate.WeightUnit,
 		estimate.Currency, estimate.ExpiresAt, estimate.IsLocked,
-		estimate.IsDeleted,
+		estimate.IsDeleted, carrierRatesJSON,
 	).Scan(&estimate.ID, &estimate.CreatedAt)
 
 	if err != nil {
@@ -231,12 +238,13 @@ func (s *EstimateService) GetEstimateByID(estimateID string) (*models.ShipmentEs
 			expires_at, is_locked, locked_at,
 			selected_carrier_id, selected_servicelevel_name, selected_servicelevel_code,
 			selected_amount, rate_selected_at,
-			is_deleted, created_at
+			is_deleted, created_at, COALESCE(carrier_rates_json, '[]'::jsonb)
 		FROM shipment_estimates
 		WHERE id = $1 AND is_deleted = FALSE
 	`
 
 	estimate := &models.ShipmentEstimate{}
+	var carrierRatesJSON []byte
 	err := s.db.DB.QueryRow(query, estimateID).Scan(
 		&estimate.ID, &estimate.OrganizationID, &estimate.UserID, &estimate.Source,
 		&estimate.FromAddressBookID, &estimate.ToAddressBookID,
@@ -247,7 +255,7 @@ func (s *EstimateService) GetEstimateByID(estimateID string) (*models.ShipmentEs
 		&estimate.ExpiresAt, &estimate.IsLocked, &estimate.LockedAt,
 		&estimate.SelectedCarrierID, &estimate.SelectedServiceLevelName, &estimate.SelectedServiceLevelCode,
 		&estimate.SelectedAmount, &estimate.RateSelectedAt,
-		&estimate.IsDeleted, &estimate.CreatedAt,
+		&estimate.IsDeleted, &estimate.CreatedAt, &carrierRatesJSON,
 	)
 
 	if err == sql.ErrNoRows {
@@ -263,9 +271,13 @@ func (s *EstimateService) GetEstimateByID(estimateID string) (*models.ShipmentEs
 		return nil, nil, nil, fmt.Errorf("failed to get packages: %w", err)
 	}
 
-	// Carrier rates are not stored in database, return empty array
-	// Rates are only available at creation time and expire after 15 minutes
+	// Deserialize carrier rates from JSON
 	var carrierRates []models.CarrierRate
+	if len(carrierRatesJSON) > 0 {
+		if err := json.Unmarshal(carrierRatesJSON, &carrierRates); err != nil {
+			return nil, nil, nil, fmt.Errorf("failed to parse carrier rates: %w", err)
+		}
+	}
 
 	return estimate, packages, carrierRates, nil
 }
@@ -319,6 +331,41 @@ func (s *EstimateService) getEstimatePackages(estimateID string) ([]*models.Ship
 	return packages, rows.Err()
 }
 
+// SelectRate updates the estimate with the selected carrier rate
+func (s *EstimateService) SelectRate(estimateID string, rate *models.CarrierRate) error {
+	query := `
+		UPDATE shipment_estimates
+		SET
+			selected_carrier_id = (SELECT id FROM carriers WHERE LOWER(code) = LOWER($2) LIMIT 1),
+			selected_servicelevel_name = $3,
+			selected_servicelevel_code = $4,
+			selected_amount = $5,
+			is_locked = true,
+			locked_at = NOW(),
+			rate_selected_at = NOW(),
+			total_amount = $5
+		WHERE id = $1 AND is_deleted = FALSE AND is_locked = FALSE
+	`
+
+	result, err := s.db.DB.Exec(query,
+		estimateID,
+		rate.CarrierCode,
+		rate.ServiceName,
+		rate.ServiceCode,
+		rate.TotalAmount,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to select rate: %w", err)
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		return fmt.Errorf("estimate not found or already locked")
+	}
+
+	return nil
+}
+
 // getCarrierRates fetches carrier rates for the given request
 // TODO: In production, this will call real carrier APIs (FedEx, UPS, etc.)
 // For now, returns mock data
@@ -332,9 +379,15 @@ func (s *EstimateService) getCarrierRates(req CreateEstimateRequest) ([]models.C
 
 	isDomestic := strings.ToUpper(req.FromAddress.Country) == strings.ToUpper(req.ToAddress.Country)
 
+	// Real carrier UUIDs from database
+	const (
+		fedexCarrierID = "550e8400-e29b-41d4-a716-446655440001"
+		upsCarrierID   = "550e8400-e29b-41d4-a716-446655440002"
+	)
+
 	rates := []models.CarrierRate{
 		{
-			CarrierID:              "mock-fedex-id",
+			CarrierID:              fedexCarrierID,
 			CarrierCode:            "fedex",
 			CarrierName:            "FedEx",
 			ServiceCode:            "FEDEX_GROUND",
@@ -353,7 +406,7 @@ func (s *EstimateService) getCarrierRates(req CreateEstimateRequest) ([]models.C
 			SupportsSaturdayDelivery: false,
 		},
 		{
-			CarrierID:              "mock-ups-id",
+			CarrierID:              upsCarrierID,
 			CarrierCode:            "ups",
 			CarrierName:            "UPS",
 			ServiceCode:            "UPS_STANDARD",
@@ -376,7 +429,7 @@ func (s *EstimateService) getCarrierRates(req CreateEstimateRequest) ([]models.C
 	if isDomestic {
 		// Add express options for domestic
 		rates = append(rates, models.CarrierRate{
-			CarrierID:              "mock-fedex-id",
+			CarrierID:              fedexCarrierID,
 			CarrierCode:            "fedex",
 			CarrierName:            "FedEx",
 			ServiceCode:            "FEDEX_EXPRESS",

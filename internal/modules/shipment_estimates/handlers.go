@@ -126,6 +126,187 @@ func (h *EstimateHandlers) GetEstimate(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Estimate retrieved successfully", resp)
 }
 
+// RequestRates godoc
+// @Summary Request rates for an existing estimate
+// @Description Retrieve or refresh carrier rates for an existing shipment estimate.
+// @Tags Shipment Estimates
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Estimate ID (UUID)"
+// @Success 200 {object} response.Response{data=RatesResponse} "Rates retrieved successfully"
+// @Failure 403 {object} response.Response "Access denied - estimate belongs to different organization"
+// @Failure 404 {object} response.Response "Estimate not found"
+// @Failure 410 {object} response.Response "Estimate has expired"
+// @Failure 500 {object} response.Response "Internal server error"
+// @Router /shipment-estimates/{id}/rates [post]
+func (h *EstimateHandlers) RequestRates(c *gin.Context) {
+	estimateID := c.Param("id")
+
+	// Get estimate
+	estimate, _, carrierRates, err := h.service.GetEstimateByID(estimateID)
+	if err != nil {
+		if err.Error() == "estimate not found" {
+			response.NotFound(c, "Estimate not found")
+			return
+		}
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	// Check if expired
+	if estimate.IsExpired() {
+		response.Error(c, http.StatusGone, "Estimate has expired", "ESTIMATE_EXPIRED")
+		return
+	}
+
+	// Authorization check for org-scoped estimates
+	var organizationID string
+	var isGuest = true
+
+	if orgID, exists := c.Get("organization_id"); exists && orgID != nil {
+		organizationID = orgID.(string)
+		isGuest = false
+	}
+
+	// Check access permissions
+	if !estimate.CanBeAccessedBy(organizationID, isGuest) {
+		response.Forbidden(c, "Access denied - estimate belongs to different organization")
+		return
+	}
+
+	// Build rates response
+	carrierRatesResp := make([]CarrierRateResponse, len(carrierRates))
+	for i, rate := range carrierRates {
+		carrierRatesResp[i] = CarrierRateResponse{
+			CarrierID:                rate.CarrierID,
+			CarrierCode:              rate.CarrierCode,
+			CarrierName:              rate.CarrierName,
+			ServiceCode:              rate.ServiceCode,
+			ServiceName:              rate.ServiceName,
+			ServiceCategory:          rate.ServiceCategory,
+			BaseRate:                 rate.BaseRate,
+			FuelSurcharge:            rate.FuelSurcharge,
+			OtherFees:                rate.OtherFees,
+			Taxes:                    rate.Taxes,
+			TotalAmount:              rate.TotalAmount,
+			Currency:                 rate.Currency,
+			EstimatedDeliveryDate:    nullStringToPtr(rate.EstimatedDeliveryDate),
+			TransitDays:              nullIntToPtr(rate.TransitDays),
+			SupportsPickup:           rate.SupportsPickup,
+			SupportsSignature:        rate.SupportsSignature,
+			SupportsSaturdayDelivery: rate.SupportsSaturdayDelivery,
+		}
+	}
+
+	resp := RatesResponse{
+		EstimateID:   estimate.ID,
+		CarrierRates: carrierRatesResp,
+		ExpiresAt:    estimate.ExpiresAt.Format("2006-01-02T15:04:05Z07:00"),
+	}
+
+	response.Success(c, http.StatusOK, "Rates retrieved successfully", resp)
+}
+
+// SelectRate godoc
+// @Summary Select a carrier rate for an estimate
+// @Description Select a specific carrier and service level from available rates. This locks the estimate.
+// @Tags Shipment Estimates
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Estimate ID (UUID)"
+// @Param body body SelectRateRequest true "Rate selection"
+// @Success 200 {object} response.Response{data=SelectRateResponse} "Rate selected successfully"
+// @Failure 400 {object} response.Response "Invalid request or rate not found"
+// @Failure 403 {object} response.Response "Access denied"
+// @Failure 404 {object} response.Response "Estimate not found"
+// @Failure 409 {object} response.Response "Estimate already locked"
+// @Failure 410 {object} response.Response "Estimate has expired"
+// @Failure 500 {object} response.Response "Internal server error"
+// @Router /shipment-estimates/{id}/select-rate [patch]
+func (h *EstimateHandlers) SelectRate(c *gin.Context) {
+	estimateID := c.Param("id")
+
+	var req SelectRateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request payload")
+		return
+	}
+
+	// Get estimate with rates
+	estimate, _, carrierRates, err := h.service.GetEstimateByID(estimateID)
+	if err != nil {
+		if err.Error() == "estimate not found" {
+			response.NotFound(c, "Estimate not found")
+			return
+		}
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	// Check if expired
+	if estimate.IsExpired() {
+		response.Error(c, http.StatusGone, "Estimate has expired", "ESTIMATE_EXPIRED")
+		return
+	}
+
+	// Check if already locked
+	if estimate.IsLocked {
+		response.Error(c, http.StatusConflict, "Estimate is already locked", "ESTIMATE_LOCKED")
+		return
+	}
+
+	// Authorization check
+	var organizationID string
+	var isGuest = true
+
+	if orgID, exists := c.Get("organization_id"); exists && orgID != nil {
+		organizationID = orgID.(string)
+		isGuest = false
+	}
+
+	if !estimate.CanBeAccessedBy(organizationID, isGuest) {
+		response.Forbidden(c, "Access denied - estimate belongs to different organization")
+		return
+	}
+
+	// Find the selected rate
+	var selectedRate *models.CarrierRate
+	for _, rate := range carrierRates {
+		if rate.CarrierID == req.CarrierID && rate.ServiceCode == req.ServiceCode {
+			selectedRate = &rate
+			break
+		}
+	}
+
+	if selectedRate == nil {
+		response.BadRequest(c, "Selected rate not found in available rates")
+		return
+	}
+
+	// Update estimate with selected rate
+	err = h.service.SelectRate(estimateID, selectedRate)
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	resp := SelectRateResponse{
+		EstimateID:     estimateID,
+		Status:         "locked",
+		CarrierCode:    selectedRate.CarrierCode,
+		ServiceCode:    selectedRate.ServiceCode,
+		ServiceName:    selectedRate.ServiceName,
+		SelectedAmount: selectedRate.TotalAmount,
+		Currency:       selectedRate.Currency,
+		IsLocked:       true,
+		RateSelectedAt: estimate.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+	}
+
+	response.Success(c, http.StatusOK, "Rate selected successfully", resp)
+}
+
 // buildEstimateResponse constructs the API response from models
 func (h *EstimateHandlers) buildEstimateResponse(
 	estimate *models.ShipmentEstimate,

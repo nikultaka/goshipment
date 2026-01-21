@@ -12,7 +12,6 @@ import (
 	"gogin/internal/clients"
 	"gogin/internal/config"
 	"gogin/internal/middleware"
-	"gogin/internal/modules/addresses"
 	"gogin/internal/modules/apiclient"
 	"gogin/internal/modules/audit"
 	"gogin/internal/modules/commissions"
@@ -23,6 +22,8 @@ import (
 	"gogin/internal/modules/oauth2"
 	"gogin/internal/modules/organizations"
 	"gogin/internal/modules/pickups"
+	"gogin/internal/modules/carriers"
+	"gogin/internal/modules/geo"
 	"gogin/internal/modules/referrals"
 	"gogin/internal/modules/reviews"
 	"gogin/internal/modules/settings"
@@ -274,11 +275,6 @@ func main() {
 	auditModule.RegisterRoutes(v1)
 	log.Println("✓ Audit module registered")
 
-	// Addresses module (address book)
-	addressesModule := addresses.NewAddressesModule(db, redis, cfg)
-	addressesModule.RegisterRoutes(v1)
-	log.Println("✓ Addresses module registered")
-
 	// Organizations module
 	organizationsModule := organizations.NewOrganizationsModule(db, redis, cfg)
 	organizationsModule.RegisterRoutes(v1)
@@ -328,6 +324,16 @@ func main() {
 	referralsModule := referrals.NewReferralModule(db, redis, cfg)
 	referralsModule.RegisterRoutes(v1)
 	log.Println("✓ Referrals module registered")
+
+	// Geo module (countries, regions - reference data)
+	geoModule := geo.NewGeoModule(db, redis, cfg)
+	geoModule.RegisterRoutes(v1)
+	log.Println("✓ Geo module registered")
+
+	// Carriers module (carrier info and availability)
+	carriersModule := carriers.NewCarrierModule(db, redis, cfg)
+	carriersModule.RegisterRoutes(v1)
+	log.Println("✓ Carriers module registered")
 
 	// Apply rate limiting after authentication routes
 	rateLimiter := middleware.NewRateLimiter(redis, cfg.App.RateLimitRPS, 60)

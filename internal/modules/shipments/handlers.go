@@ -536,6 +536,64 @@ func (h *ShipmentHandlers) UpdateStatus(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Shipment status updated successfully", resp)
 }
 
+// GetShipmentTimeline godoc
+// @Summary Get shipment timeline/events
+// @Description Get the timeline of events for a specific shipment
+// @Tags Shipments
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Shipment ID (UUID)"
+// @Success 200 {object} response.Response{data=object} "Timeline retrieved successfully"
+// @Failure 401 {object} response.Response "Unauthorized"
+// @Failure 403 {object} response.Response "Forbidden"
+// @Failure 404 {object} response.Response "Shipment not found"
+// @Failure 500 {object} response.Response "Internal server error"
+// @Router /shipments/{id}/timeline [get]
+func (h *ShipmentHandlers) GetShipmentTimeline(c *gin.Context) {
+	// Get user ID from context
+	userID, exists := c.Get("user_id")
+	if !exists || userID == nil {
+		response.Unauthorized(c, "User context required")
+		return
+	}
+
+	// Get organization ID from user membership
+	organizationID, err := h.service.GetOrganizationIDFromUser(userID.(string))
+	if err != nil {
+		response.Forbidden(c, "User is not a member of any organization")
+		return
+	}
+
+	// Get shipment ID from path
+	shipmentID := c.Param("id")
+	if shipmentID == "" {
+		response.BadRequest(c, "Shipment ID is required")
+		return
+	}
+
+	// Get shipment with events
+	shipment, _, events, err := h.service.GetShipmentByID(shipmentID, organizationID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "access denied") {
+			response.NotFound(c, "Shipment not found or access denied")
+			return
+		}
+		response.InternalError(c, "Failed to get shipment timeline: "+err.Error())
+		return
+	}
+
+	// Build timeline response
+	resp := map[string]interface{}{
+		"shipment_id":     shipment.ID,
+		"shipment_number": shipment.ShipmentNumber,
+		"current_status":  shipment.ShipmentStatus,
+		"events":          events,
+		"total_events":    len(events),
+	}
+
+	response.Success(c, http.StatusOK, "Timeline retrieved successfully", resp)
+}
+
 // =====================================================
 // HELPER METHODS
 // =====================================================

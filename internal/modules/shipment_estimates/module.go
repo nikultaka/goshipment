@@ -46,5 +46,11 @@ func (m *EstimatesModule) RegisterRoutes(router *gin.RouterGroup) {
 		// GET /shipment-estimates/:id - Get estimate (public, auth optional)
 		// Guest estimates accessible by anyone, org estimates require auth + membership
 		estimates.GET("/:id", m.authMiddleware.OptionalAuth(), m.handlers.GetEstimate)
+
+		// POST /shipment-estimates/:id/rates - Request rates for estimate
+		estimates.POST("/:id/rates", m.authMiddleware.OptionalAuth(), m.handlers.RequestRates)
+
+		// PATCH /shipment-estimates/:id/select-rate - Select a carrier rate
+		estimates.PATCH("/:id/select-rate", m.authMiddleware.OptionalAuth(), m.handlers.SelectRate)
 	}
 }

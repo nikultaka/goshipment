@@ -60,5 +60,8 @@ func (m *ShipmentsModule) RegisterRoutes(router *gin.RouterGroup) {
 
 		// PATCH /shipments/:id/status - Update shipment status
 		shipments.PATCH("/:id/status", m.handlers.UpdateStatus)
+
+		// GET /shipments/:id/timeline - Get shipment timeline/events
+		shipments.GET("/:id/timeline", m.handlers.GetShipmentTimeline)
 	}
 }

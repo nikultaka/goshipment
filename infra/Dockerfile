@@ -6,14 +6,11 @@ WORKDIR /app
 COPY ../../go.mod ../../go.sum ./
 RUN go mod download
 
-# Install swag CLI for generating Swagger docs
-RUN go install github.com/swaggo/swag/cmd/swag@latest
-
 # Copy source
 COPY ../../ .
 
-# Generate Swagger documentation
-RUN swag init -g cmd/api/main.go --output docs
+# Note: Swagger docs are managed manually - do not regenerate
+# To regenerate: swag init -g cmd/api/main.go --output docs
 
 # Build both binaries
 RUN CGO_ENABLED=0 GOOS=linux go build -o /bin/api ./cmd/api && \

@@ -12755,6 +12755,237 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/carriers": {
+            "get": {
+                "security": [{"BearerAuth": []}],
+                "description": "Retrieve a list of all enabled carriers on the platform.",
+                "produces": ["application/json"],
+                "tags": ["Carriers"],
+                "summary": "List all available carriers",
+                "operationId": "listCarriers",
+                "parameters": [
+                    {"type": "string", "enum": ["parcel", "freight_ltl", "freight_ftl"], "description": "Filter by carrier type", "name": "carrier_type", "in": "query"},
+                    {"type": "boolean", "description": "Filter carriers supporting international", "name": "supports_international", "in": "query"}
+                ],
+                "responses": {
+                    "200": {"description": "Carriers retrieved successfully", "schema": {"$ref": "#/definitions/internal_modules_carriers.CarrierListResponse"}},
+                    "401": {"description": "Unauthorized", "schema": {"$ref": "#/definitions/gogin_internal_response.Response"}},
+                    "500": {"description": "Internal server error", "schema": {"$ref": "#/definitions/gogin_internal_response.Response"}}
+                }
+            }
+        },
+        "/carriers/{id}": {
+            "get": {
+                "security": [{"BearerAuth": []}],
+                "description": "Retrieve detailed information about a specific carrier.",
+                "produces": ["application/json"],
+                "tags": ["Carriers"],
+                "summary": "Get carrier details by ID",
+                "operationId": "getCarrierById",
+                "parameters": [
+                    {"type": "string", "description": "Carrier ID (UUID)", "name": "id", "in": "path", "required": true}
+                ],
+                "responses": {
+                    "200": {"description": "Carrier details retrieved", "schema": {"$ref": "#/definitions/internal_modules_carriers.CarrierDetailResponse"}},
+                    "401": {"description": "Unauthorized", "schema": {"$ref": "#/definitions/gogin_internal_response.Response"}},
+                    "404": {"description": "Carrier not found", "schema": {"$ref": "#/definitions/gogin_internal_response.Response"}},
+                    "500": {"description": "Internal server error", "schema": {"$ref": "#/definitions/gogin_internal_response.Response"}}
+                }
+            }
+        },
+        "/carriers/availability/{code}": {
+            "get": {
+                "security": [{"BearerAuth": []}],
+                "description": "Check if a carrier is available for pickup on a specific date.",
+                "produces": ["application/json"],
+                "tags": ["Carriers"],
+                "summary": "Check carrier availability for a date",
+                "operationId": "getCarrierAvailability",
+                "parameters": [
+                    {"type": "string", "description": "Carrier code", "name": "code", "in": "path", "required": true},
+                    {"type": "string", "format": "date", "description": "Date (YYYY-MM-DD)", "name": "date", "in": "query", "required": true},
+                    {"type": "string", "description": "Country code", "name": "country_code", "in": "query"},
+                    {"type": "string", "description": "Region code", "name": "region_code", "in": "query"}
+                ],
+                "responses": {
+                    "200": {"description": "Availability retrieved", "schema": {"$ref": "#/definitions/internal_modules_carriers.CarrierAvailabilityResponse"}},
+                    "400": {"description": "Invalid date", "schema": {"$ref": "#/definitions/gogin_internal_response.Response"}},
+                    "401": {"description": "Unauthorized", "schema": {"$ref": "#/definitions/gogin_internal_response.Response"}},
+                    "404": {"description": "Carrier not found", "schema": {"$ref": "#/definitions/gogin_internal_response.Response"}},
+                    "500": {"description": "Internal server error", "schema": {"$ref": "#/definitions/gogin_internal_response.Response"}}
+                }
+            }
+        },
+        "/geo/countries": {
+            "get": {
+                "security": [{"BearerAuth": []}],
+                "description": "Retrieve a list of all countries supported for shipping.",
+                "produces": ["application/json"],
+                "tags": ["Geography"],
+                "summary": "List all supported countries",
+                "operationId": "listCountries",
+                "parameters": [
+                    {"type": "boolean", "default": true, "description": "Filter by active status", "name": "is_active", "in": "query"}
+                ],
+                "responses": {
+                    "200": {"description": "Countries retrieved", "schema": {"$ref": "#/definitions/internal_modules_geo.CountryListResponse"}},
+                    "500": {"description": "Internal server error", "schema": {"$ref": "#/definitions/gogin_internal_response.Response"}}
+                }
+            }
+        },
+        "/geo/countries/{code}/regions": {
+            "get": {
+                "security": [{"BearerAuth": []}],
+                "description": "Retrieve all states/provinces/territories for a country.",
+                "produces": ["application/json"],
+                "tags": ["Geography"],
+                "summary": "List regions for a country",
+                "operationId": "listRegionsByCountry",
+                "parameters": [
+                    {"type": "string", "description": "Country code (ISO-3166-1 alpha-2)", "name": "code", "in": "path", "required": true},
+                    {"type": "string", "enum": ["state", "province", "territory", "region"], "description": "Filter by type", "name": "type", "in": "query"}
+                ],
+                "responses": {
+                    "200": {"description": "Regions retrieved", "schema": {"$ref": "#/definitions/internal_modules_geo.RegionListResponse"}},
+                    "404": {"description": "Country not found", "schema": {"$ref": "#/definitions/gogin_internal_response.Response"}},
+                    "500": {"description": "Internal server error", "schema": {"$ref": "#/definitions/gogin_internal_response.Response"}}
+                }
+            }
+        },
+        "/shipment-estimates/{id}/rates": {
+            "post": {
+                "security": [{"BearerAuth": []}],
+                "description": "Trigger rate requests to carriers for a shipment estimate.",
+                "consumes": ["application/json"],
+                "produces": ["application/json"],
+                "tags": ["Shipment Estimates"],
+                "summary": "Request carrier rates for an estimate",
+                "operationId": "requestEstimateRates",
+                "parameters": [
+                    {"type": "string", "description": "Estimate ID (UUID)", "name": "id", "in": "path", "required": true},
+                    {"description": "Rate request options", "name": "body", "in": "body", "schema": {"$ref": "#/definitions/internal_modules_shipment_estimates.RequestRatesRequest"}}
+                ],
+                "responses": {
+                    "200": {"description": "Rates retrieved", "schema": {"$ref": "#/definitions/internal_modules_shipment_estimates.RequestRatesResponse"}},
+                    "400": {"description": "Invalid request", "schema": {"$ref": "#/definitions/gogin_internal_response.Response"}},
+                    "401": {"description": "Unauthorized", "schema": {"$ref": "#/definitions/gogin_internal_response.Response"}},
+                    "404": {"description": "Estimate not found", "schema": {"$ref": "#/definitions/gogin_internal_response.Response"}},
+                    "410": {"description": "Estimate expired", "schema": {"$ref": "#/definitions/gogin_internal_response.Response"}},
+                    "500": {"description": "Internal server error", "schema": {"$ref": "#/definitions/gogin_internal_response.Response"}}
+                }
+            }
+        },
+        "/shipment-estimates/{id}/select-rate": {
+            "patch": {
+                "security": [{"BearerAuth": []}],
+                "description": "Select a carrier and service level from the available rates.",
+                "consumes": ["application/json"],
+                "produces": ["application/json"],
+                "tags": ["Shipment Estimates"],
+                "summary": "Select a rate from available options",
+                "operationId": "selectEstimateRate",
+                "parameters": [
+                    {"type": "string", "description": "Estimate ID (UUID)", "name": "id", "in": "path", "required": true},
+                    {"description": "Rate selection", "name": "body", "in": "body", "required": true, "schema": {"$ref": "#/definitions/internal_modules_shipment_estimates.SelectRateRequest"}}
+                ],
+                "responses": {
+                    "200": {"description": "Rate selected", "schema": {"$ref": "#/definitions/internal_modules_shipment_estimates.SelectRateResponse"}},
+                    "400": {"description": "Invalid request", "schema": {"$ref": "#/definitions/gogin_internal_response.Response"}},
+                    "401": {"description": "Unauthorized", "schema": {"$ref": "#/definitions/gogin_internal_response.Response"}},
+                    "404": {"description": "Estimate not found", "schema": {"$ref": "#/definitions/gogin_internal_response.Response"}},
+                    "409": {"description": "Already locked", "schema": {"$ref": "#/definitions/gogin_internal_response.Response"}},
+                    "500": {"description": "Internal server error", "schema": {"$ref": "#/definitions/gogin_internal_response.Response"}}
+                }
+            }
+        },
+        "/shipments/{id}/timeline": {
+            "get": {
+                "security": [{"BearerAuth": []}],
+                "description": "Retrieve chronological event timeline for a shipment.",
+                "produces": ["application/json"],
+                "tags": ["Shipments"],
+                "summary": "Get shipment event timeline",
+                "operationId": "getShipmentTimeline",
+                "parameters": [
+                    {"type": "string", "description": "Shipment ID (UUID)", "name": "id", "in": "path", "required": true},
+                    {"type": "string", "enum": ["shipment", "package", "pickup"], "description": "Filter by entity type", "name": "entity_type", "in": "query"},
+                    {"type": "integer", "default": 50, "description": "Max events", "name": "limit", "in": "query"},
+                    {"type": "integer", "default": 0, "description": "Offset", "name": "offset", "in": "query"}
+                ],
+                "responses": {
+                    "200": {"description": "Timeline retrieved", "schema": {"$ref": "#/definitions/internal_modules_shipments.TimelineResponse"}},
+                    "401": {"description": "Unauthorized", "schema": {"$ref": "#/definitions/gogin_internal_response.Response"}},
+                    "403": {"description": "Access denied", "schema": {"$ref": "#/definitions/gogin_internal_response.Response"}},
+                    "404": {"description": "Shipment not found", "schema": {"$ref": "#/definitions/gogin_internal_response.Response"}},
+                    "500": {"description": "Internal server error", "schema": {"$ref": "#/definitions/gogin_internal_response.Response"}}
+                }
+            }
+        },
+        "/pickups/{id}": {
+            "get": {
+                "security": [{"BearerAuth": []}],
+                "description": "Retrieve detailed information about a scheduled pickup.",
+                "produces": ["application/json"],
+                "tags": ["Pickups"],
+                "summary": "Get pickup details by ID",
+                "operationId": "getPickupById",
+                "parameters": [
+                    {"type": "string", "description": "Pickup ID (UUID)", "name": "id", "in": "path", "required": true}
+                ],
+                "responses": {
+                    "200": {"description": "Pickup details retrieved", "schema": {"$ref": "#/definitions/internal_modules_pickups.PickupDetailResponse"}},
+                    "401": {"description": "Unauthorized", "schema": {"$ref": "#/definitions/gogin_internal_response.Response"}},
+                    "403": {"description": "Access denied", "schema": {"$ref": "#/definitions/gogin_internal_response.Response"}},
+                    "404": {"description": "Pickup not found", "schema": {"$ref": "#/definitions/gogin_internal_response.Response"}},
+                    "500": {"description": "Internal server error", "schema": {"$ref": "#/definitions/gogin_internal_response.Response"}}
+                }
+            }
+        },
+        "/wallet/transactions": {
+            "get": {
+                "security": [{"BearerAuth": []}],
+                "description": "Retrieve paginated list of wallet transactions.",
+                "produces": ["application/json"],
+                "tags": ["Wallet"],
+                "summary": "List wallet transactions",
+                "operationId": "listWalletTransactions",
+                "parameters": [
+                    {"type": "string", "enum": ["topup", "shipment_payment", "shipment_refund", "hold_capture", "hold_release"], "description": "Transaction type", "name": "tx_type", "in": "query"},
+                    {"type": "string", "enum": ["credit", "debit"], "description": "Direction", "name": "direction", "in": "query"},
+                    {"type": "string", "format": "date", "description": "Start date", "name": "start_date", "in": "query"},
+                    {"type": "string", "format": "date", "description": "End date", "name": "end_date", "in": "query"},
+                    {"type": "integer", "default": 25, "description": "Limit", "name": "limit", "in": "query"},
+                    {"type": "integer", "default": 0, "description": "Offset", "name": "offset", "in": "query"}
+                ],
+                "responses": {
+                    "200": {"description": "Transactions retrieved", "schema": {"$ref": "#/definitions/internal_modules_wallet.TransactionListResponse"}},
+                    "401": {"description": "Unauthorized", "schema": {"$ref": "#/definitions/gogin_internal_response.Response"}},
+                    "404": {"description": "Wallet not found", "schema": {"$ref": "#/definitions/gogin_internal_response.Response"}},
+                    "500": {"description": "Internal server error", "schema": {"$ref": "#/definitions/gogin_internal_response.Response"}}
+                }
+            }
+        },
+        "/wallet/holds": {
+            "get": {
+                "security": [{"BearerAuth": []}],
+                "description": "Retrieve paginated list of wallet holds.",
+                "produces": ["application/json"],
+                "tags": ["Wallet"],
+                "summary": "List wallet holds",
+                "operationId": "listWalletHolds",
+                "parameters": [
+                    {"type": "string", "enum": ["pending", "captured", "released", "expired"], "description": "Hold status", "name": "status", "in": "query"},
+                    {"type": "integer", "default": 25, "description": "Limit", "name": "limit", "in": "query"},
+                    {"type": "integer", "default": 0, "description": "Offset", "name": "offset", "in": "query"}
+                ],
+                "responses": {
+                    "200": {"description": "Holds retrieved", "schema": {"$ref": "#/definitions/internal_modules_wallet.HoldListResponse"}},
+                    "401": {"description": "Unauthorized", "schema": {"$ref": "#/definitions/gogin_internal_response.Response"}},
+                    "404": {"description": "Wallet not found", "schema": {"$ref": "#/definitions/gogin_internal_response.Response"}},
+                    "500": {"description": "Internal server error", "schema": {"$ref": "#/definitions/gogin_internal_response.Response"}}
+                }
+            }
         }
     },
     "definitions": {
@@ -18455,6 +18686,243 @@ const docTemplate = `{
                     ]
                 }
             }
+        },
+        "internal_modules_carriers.CarrierListResponse": {
+            "type": "object",
+            "properties": {
+                "carriers": {"type": "array", "items": {"$ref": "#/definitions/internal_modules_carriers.CarrierResponse"}},
+                "total": {"type": "integer"}
+            }
+        },
+        "internal_modules_carriers.CarrierResponse": {
+            "type": "object",
+            "properties": {
+                "id": {"type": "string", "format": "uuid"},
+                "code": {"type": "string"},
+                "name": {"type": "string"},
+                "display_name": {"type": "string"},
+                "carrier_type": {"type": "string"},
+                "is_enabled": {"type": "boolean"}
+            }
+        },
+        "internal_modules_carriers.CarrierDetailResponse": {
+            "type": "object",
+            "properties": {
+                "id": {"type": "string", "format": "uuid"},
+                "code": {"type": "string"},
+                "name": {"type": "string"},
+                "service_levels": {"type": "array", "items": {"$ref": "#/definitions/internal_modules_carriers.ServiceLevelResponse"}},
+                "is_enabled": {"type": "boolean"}
+            }
+        },
+        "internal_modules_carriers.ServiceLevelResponse": {
+            "type": "object",
+            "properties": {
+                "id": {"type": "string", "format": "uuid"},
+                "code": {"type": "string"},
+                "name": {"type": "string"},
+                "is_enabled": {"type": "boolean"}
+            }
+        },
+        "internal_modules_carriers.PackageTypeResponse": {
+            "type": "object",
+            "properties": {
+                "id": {"type": "string", "format": "uuid"},
+                "code": {"type": "string"},
+                "name": {"type": "string"}
+            }
+        },
+        "internal_modules_carriers.CarrierAvailabilityResponse": {
+            "type": "object",
+            "properties": {
+                "carrier_id": {"type": "string", "format": "uuid"},
+                "carrier_code": {"type": "string"},
+                "date": {"type": "string", "format": "date"},
+                "is_available": {"type": "boolean"},
+                "is_holiday": {"type": "boolean"}
+            }
+        },
+        "internal_modules_geo.CountryListResponse": {
+            "type": "object",
+            "properties": {
+                "countries": {"type": "array", "items": {"$ref": "#/definitions/internal_modules_geo.CountryResponse"}},
+                "total": {"type": "integer"}
+            }
+        },
+        "internal_modules_geo.CountryResponse": {
+            "type": "object",
+            "properties": {
+                "code": {"type": "string"},
+                "name": {"type": "string"},
+                "currency_code": {"type": "string"},
+                "is_active": {"type": "boolean"}
+            }
+        },
+        "internal_modules_geo.RegionListResponse": {
+            "type": "object",
+            "properties": {
+                "country_code": {"type": "string"},
+                "regions": {"type": "array", "items": {"$ref": "#/definitions/internal_modules_geo.RegionResponse"}},
+                "total": {"type": "integer"}
+            }
+        },
+        "internal_modules_geo.RegionResponse": {
+            "type": "object",
+            "properties": {
+                "id": {"type": "string", "format": "uuid"},
+                "code": {"type": "string"},
+                "name": {"type": "string"},
+                "type": {"type": "string"},
+                "is_active": {"type": "boolean"}
+            }
+        },
+        "internal_modules_shipment_estimates.RequestRatesRequest": {
+            "type": "object",
+            "properties": {
+                "carrier_codes": {"type": "array", "items": {"type": "string"}},
+                "force_refresh": {"type": "boolean"}
+            }
+        },
+        "internal_modules_shipment_estimates.RequestRatesResponse": {
+            "type": "object",
+            "properties": {
+                "estimate_id": {"type": "string", "format": "uuid"},
+                "estimate_number": {"type": "string"},
+                "status": {"type": "string"},
+                "carrier_rates": {"type": "array", "items": {"$ref": "#/definitions/internal_modules_shipment_estimates.CarrierRateResponse"}},
+                "expires_at": {"type": "string", "format": "date-time"}
+            }
+        },
+        "internal_modules_shipment_estimates.SelectRateRequest": {
+            "type": "object",
+            "properties": {
+                "carrier_id": {"type": "string", "format": "uuid"},
+                "service_code": {"type": "string"}
+            }
+        },
+        "internal_modules_shipment_estimates.SelectRateResponse": {
+            "type": "object",
+            "properties": {
+                "estimate_id": {"type": "string", "format": "uuid"},
+                "estimate_number": {"type": "string"},
+                "status": {"type": "string"},
+                "selected_rate": {"$ref": "#/definitions/internal_modules_shipment_estimates.SelectedRateInfo"}
+            }
+        },
+        "internal_modules_shipment_estimates.SelectedRateInfo": {
+            "type": "object",
+            "properties": {
+                "carrier_id": {"type": "string", "format": "uuid"},
+                "carrier_code": {"type": "string"},
+                "service_code": {"type": "string"},
+                "total_amount": {"type": "number"},
+                "currency": {"type": "string"}
+            }
+        },
+        "internal_modules_address_book.DeleteAddressResponse": {
+            "type": "object",
+            "properties": {
+                "id": {"type": "string", "format": "uuid"},
+                "address_number": {"type": "string"},
+                "deleted": {"type": "boolean"},
+                "deleted_at": {"type": "string", "format": "date-time"}
+            }
+        },
+        "internal_modules_shipments.TimelineResponse": {
+            "type": "object",
+            "properties": {
+                "shipment_id": {"type": "string", "format": "uuid"},
+                "shipment_number": {"type": "string"},
+                "events": {"type": "array", "items": {"$ref": "#/definitions/internal_modules_shipments.TimelineEventResponse"}},
+                "pagination": {"$ref": "#/definitions/internal_modules_common.PaginationResponse"}
+            }
+        },
+        "internal_modules_shipments.TimelineEventResponse": {
+            "type": "object",
+            "properties": {
+                "id": {"type": "string", "format": "uuid"},
+                "event_key": {"type": "string"},
+                "entity_type": {"type": "string"},
+                "title": {"type": "string"},
+                "message": {"type": "string"},
+                "occurred_at": {"type": "string", "format": "date-time"}
+            }
+        },
+        "internal_modules_pickups.PickupDetailResponse": {
+            "type": "object",
+            "properties": {
+                "id": {"type": "string", "format": "uuid"},
+                "pickup_number": {"type": "string"},
+                "status": {"type": "string"},
+                "carrier": {"$ref": "#/definitions/internal_modules_pickups.PickupCarrierInfo"},
+                "pickup_date": {"type": "string", "format": "date"}
+            }
+        },
+        "internal_modules_pickups.PickupCarrierInfo": {
+            "type": "object",
+            "properties": {
+                "id": {"type": "string", "format": "uuid"},
+                "code": {"type": "string"},
+                "name": {"type": "string"}
+            }
+        },
+        "internal_modules_wallet.TransactionListResponse": {
+            "type": "object",
+            "properties": {
+                "wallet": {"$ref": "#/definitions/internal_modules_wallet.WalletSummary"},
+                "transactions": {"type": "array", "items": {"$ref": "#/definitions/internal_modules_wallet.TransactionDetailResponse"}},
+                "pagination": {"$ref": "#/definitions/internal_modules_common.PaginationResponse"}
+            }
+        },
+        "internal_modules_wallet.WalletSummary": {
+            "type": "object",
+            "properties": {
+                "id": {"type": "string", "format": "uuid"},
+                "wallet_number": {"type": "string"},
+                "balance": {"type": "number"},
+                "held_balance": {"type": "number"},
+                "currency": {"type": "string"},
+                "status": {"type": "string"}
+            }
+        },
+        "internal_modules_wallet.TransactionDetailResponse": {
+            "type": "object",
+            "properties": {
+                "id": {"type": "string", "format": "uuid"},
+                "transaction_number": {"type": "string"},
+                "direction": {"type": "string"},
+                "tx_type": {"type": "string"},
+                "amount": {"type": "number"},
+                "currency": {"type": "string"},
+                "created_at": {"type": "string", "format": "date-time"}
+            }
+        },
+        "internal_modules_wallet.HoldListResponse": {
+            "type": "object",
+            "properties": {
+                "wallet": {"$ref": "#/definitions/internal_modules_wallet.WalletSummary"},
+                "holds": {"type": "array", "items": {"$ref": "#/definitions/internal_modules_wallet.HoldDetailResponse"}},
+                "pagination": {"$ref": "#/definitions/internal_modules_common.PaginationResponse"}
+            }
+        },
+        "internal_modules_wallet.HoldDetailResponse": {
+            "type": "object",
+            "properties": {
+                "id": {"type": "string", "format": "uuid"},
+                "hold_number": {"type": "string"},
+                "amount": {"type": "number"},
+                "status": {"type": "string"},
+                "expires_at": {"type": "string", "format": "date-time"}
+            }
+        },
+        "internal_modules_common.PaginationResponse": {
+            "type": "object",
+            "properties": {
+                "total": {"type": "integer"},
+                "limit": {"type": "integer"},
+                "offset": {"type": "integer"},
+                "has_more": {"type": "boolean"}
+            }
         }
     },
     "securityDefinitions": {
@@ -18549,6 +19017,18 @@ const docTemplate = `{
         {
             "description": "Referral redemption records - immutable ledger tracking referred users and commission eligibility (READ-ONLY FINANCIAL RECORDS)",
             "name": "Referrals"
+        },
+        {
+            "description": "Carrier management - list carriers, get details, check availability",
+            "name": "Carriers"
+        },
+        {
+            "description": "Geographic reference data - countries and regions",
+            "name": "Geography"
+        },
+        {
+            "description": "Shipment management and tracking",
+            "name": "Shipments"
         }
     ]
 }`

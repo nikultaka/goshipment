@@ -19,6 +19,64 @@ type Config struct {
 	Storage  StorageConfig
 	GA4      GA4Config
 	SendGrid SendGridConfig
+	Carriers CarrierConfig
+}
+
+// CarrierConfig holds all carrier API configurations
+type CarrierConfig struct {
+	FedEx FedExConfig
+	UPS   UPSConfig
+}
+
+// FedExConfig holds FedEx API configuration
+type FedExConfig struct {
+	Env           string // TEST or PRODUCTION
+	ClientID      string
+	ClientSecret  string
+	AccountNumber string
+	TestBaseURL   string
+	ProdBaseURL   string
+}
+
+// BaseURL returns the appropriate base URL based on environment
+func (c *FedExConfig) BaseURL() string {
+	if c.Env == "PRODUCTION" {
+		return c.ProdBaseURL
+	}
+	return c.TestBaseURL
+}
+
+// TokenURL returns the OAuth token endpoint
+func (c *FedExConfig) TokenURL() string {
+	return c.BaseURL() + "/oauth/token"
+}
+
+// UPSConfig holds UPS API configuration
+type UPSConfig struct {
+	Env           string // TEST or PRODUCTION
+	ClientID      string
+	ClientSecret  string
+	AccountNumber string
+	TestTokenURL  string
+	TestBaseURL   string
+	ProdTokenURL  string
+	ProdBaseURL   string
+}
+
+// BaseURL returns the appropriate base URL based on environment
+func (c *UPSConfig) BaseURL() string {
+	if c.Env == "PRODUCTION" {
+		return c.ProdBaseURL
+	}
+	return c.TestBaseURL
+}
+
+// TokenURL returns the appropriate token URL based on environment
+func (c *UPSConfig) TokenURL() string {
+	if c.Env == "PRODUCTION" {
+		return c.ProdTokenURL
+	}
+	return c.TestTokenURL
 }
 
 // AppConfig holds application-level configuration
@@ -175,6 +233,26 @@ func Load() (*Config, error) {
 			FromName:     getEnv("SENDGRID_FROM_NAME", "GoShipment"),
 			ReplyToEmail: getEnv("SENDGRID_REPLY_TO_EMAIL", "support@goshipment.com"),
 			Enabled:      getEnvBool("SENDGRID_ENABLED", false),
+		},
+		Carriers: CarrierConfig{
+			FedEx: FedExConfig{
+				Env:           getEnv("FEDEX_ENV", "TEST"),
+				ClientID:      getEnv("FEDEX_CLIENT_ID", ""),
+				ClientSecret:  getEnv("FEDEX_CLIENT_SECRET", ""),
+				AccountNumber: getEnv("FEDEX_ACCOUNT_NUMBER", ""),
+				TestBaseURL:   getEnv("FEDEX_TEST_BASE_URL", "https://apis-sandbox.fedex.com"),
+				ProdBaseURL:   getEnv("FEDEX_PROD_BASE_URL", "https://apis.fedex.com"),
+			},
+			UPS: UPSConfig{
+				Env:           getEnv("UPS_ENV", "TEST"),
+				ClientID:      getEnv("UPS_CLIENT_ID", ""),
+				ClientSecret:  getEnv("UPS_CLIENT_SECRET", ""),
+				AccountNumber: getEnv("UPS_ACCOUNT_NUMBER", ""),
+				TestTokenURL:  getEnv("UPS_TEST_TOKEN_URL", "https://wwwcie.ups.com/security/v1/oauth/token"),
+				TestBaseURL:   getEnv("UPS_TEST_BASE_URL", "https://wwwcie.ups.com"),
+				ProdTokenURL:  getEnv("UPS_PROD_TOKEN_URL", "https://onlinetools.ups.com/security/v1/oauth/token"),
+				ProdBaseURL:   getEnv("UPS_PROD_BASE_URL", "https://onlinetools.ups.com"),
+			},
 		},
 	}
 

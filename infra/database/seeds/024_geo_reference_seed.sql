@@ -147,6 +147,35 @@ INSERT INTO regions (country_code, code, name, type, is_active) VALUES
 
 ON CONFLICT (country_code, code) DO NOTHING;
 
+-- Argentina Provinces
+INSERT INTO regions (country_code, code, name, type, is_active) VALUES
+('AR', 'B', 'Buenos Aires', 'province', TRUE),
+('AR', 'C', 'Ciudad Autónoma de Buenos Aires', 'region', TRUE),
+('AR', 'K', 'Catamarca', 'province', TRUE),
+('AR', 'H', 'Chaco', 'province', TRUE),
+('AR', 'U', 'Chubut', 'province', TRUE),
+('AR', 'X', 'Córdoba', 'province', TRUE),
+('AR', 'W', 'Corrientes', 'province', TRUE),
+('AR', 'E', 'Entre Ríos', 'province', TRUE),
+('AR', 'P', 'Formosa', 'province', TRUE),
+('AR', 'Y', 'Jujuy', 'province', TRUE),
+('AR', 'L', 'La Pampa', 'province', TRUE),
+('AR', 'F', 'La Rioja', 'province', TRUE),
+('AR', 'M', 'Mendoza', 'province', TRUE),
+('AR', 'N', 'Misiones', 'province', TRUE),
+('AR', 'Q', 'Neuquén', 'province', TRUE),
+('AR', 'R', 'Río Negro', 'province', TRUE),
+('AR', 'A', 'Salta', 'province', TRUE),
+('AR', 'J', 'San Juan', 'province', TRUE),
+('AR', 'D', 'San Luis', 'province', TRUE),
+('AR', 'Z', 'Santa Cruz', 'province', TRUE),
+('AR', 'S', 'Santa Fe', 'province', TRUE),
+('AR', 'G', 'Santiago del Estero', 'province', TRUE),
+('AR', 'V', 'Tierra del Fuego', 'province', TRUE),
+('AR', 'T', 'Tucumán', 'province', TRUE)
+
+ON CONFLICT (country_code, code) DO NOTHING;
+
 -- =====================================================
 -- NOTES
 -- =====================================================
@@ -154,5 +183,6 @@ ON CONFLICT (country_code, code) DO NOTHING;
 -- 1. 55+ major countries with their ISO codes and currency codes
 -- 2. All Canadian provinces and territories
 -- 3. All US states and DC
--- 4. Additional regions can be added as needed for other countries
+-- 4. All Argentine provinces
+-- 5. Additional regions can be added as needed for other countries
 -- =====================================================

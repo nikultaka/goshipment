@@ -151,15 +151,19 @@ services:
       # CARRIER API CREDENTIALS
       # ============================================
       # FedEx (https://developer.fedex.com)
-      FEDEX_CLIENT_ID: ""
-      FEDEX_CLIENT_SECRET: ""
-      FEDEX_ACCOUNT_NUMBER: ""
+      FEDEX_ENV: "TEST"                     # TEST or PRODUCTION
+      FEDEX_CLIENT_ID: "l748b4fb6e20b04071a4c99bb51daf0614"                   # Set in .env file - DO NOT commit
+      FEDEX_CLIENT_SECRET: "b97b42595b6441db9ac84eaa43418b4fShow"               # Set in .env file - DO NOT commit
+      FEDEX_ACCOUNT_NUMBER: "130125136"              # Set in .env file - DO NOT commit
+      FEDEX_LOCATION: "Canada"
+      FEDEX_TEST_BASE_URL: "https://apis-sandbox.fedex.com"
+      FEDEX_PROD_BASE_URL: "https://apis.fedex.com"
 
       # UPS (https://developer.ups.com)
       UPS_ENV: "TEST"                       # TEST or PRODUCTION
-      UPS_CLIENT_ID: "fJM00vAyOgGuntyrTgbAkt4hwJ785AF8lK70xiSQep7eIGV0"
-      UPS_CLIENT_SECRET: "MEiQZNE1anHIixJW65xtgzN5mRGSbFzVMYSOipe5tk35WBX08J7LnjNpV7WrRVb8"
-      UPS_ACCOUNT_NUMBER: "3V08R4"
+      UPS_CLIENT_ID: "fJM00vAyOgGuntyrTgbAkt4hwJ785AF8lK70xiSQep7eIGV0"                     # Set in .env file - DO NOT commit
+      UPS_CLIENT_SECRET: "MEiQZNE1anHIixJW65xtgzN5mRGSbFzVMYSOipe5tk35WBX08J7LnjNpV7WrRVb8"                 # Set in .env file - DO NOT commit
+      UPS_ACCOUNT_NUMBER: "3V08R4"                # Set in .env file - DO NOT commit
       UPS_TEST_TOKEN_URL: "https://wwwcie.ups.com/security/v1/oauth/token"
       UPS_TEST_BASE_URL: "https://wwwcie.ups.com"
       UPS_PROD_TOKEN_URL: "https://onlinetools.ups.com/security/v1/oauth/token"
@@ -227,9 +231,12 @@ services:
       # ============================================
       # CARRIER API CREDENTIALS (Worker)
       # ============================================
-      FEDEX_CLIENT_ID: ""
-      FEDEX_CLIENT_SECRET: ""
-      FEDEX_ACCOUNT_NUMBER: ""
+      FEDEX_ENV: "TEST"
+      FEDEX_CLIENT_ID: "l748b4fb6e20b04071a4c99bb51daf0614"
+      FEDEX_CLIENT_SECRET: "b97b42595b6441db9ac84eaa43418b4fShow"
+      FEDEX_ACCOUNT_NUMBER: "130125136"
+      FEDEX_TEST_BASE_URL: "https://apis-sandbox.fedex.com"
+      FEDEX_PROD_BASE_URL: "https://apis.fedex.com"
       UPS_ENV: "TEST"
       UPS_CLIENT_ID: "fJM00vAyOgGuntyrTgbAkt4hwJ785AF8lK70xiSQep7eIGV0"
       UPS_CLIENT_SECRET: "MEiQZNE1anHIixJW65xtgzN5mRGSbFzVMYSOipe5tk35WBX08J7LnjNpV7WrRVb8"
@@ -260,9 +267,9 @@ services:
     ports:
       - "8083:8080"
     environment:
-      SWAGGER_JSON: /openapi/openapi.yaml
+      SWAGGER_JSON: /openapi/swagger.yaml
       BASE_URL: /swagger
-      URLS: "[{ url: '/openapi/openapi.yaml', name: 'OAuth2/OIDC API' }]"
+      URLS: "[{ url: '/openapi/swagger.yaml', name: 'ShipInAFlash API' }]"
       DOC_EXPANSION: list
     volumes:
       - ../docs:/openapi:ro

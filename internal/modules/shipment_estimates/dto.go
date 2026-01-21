@@ -110,6 +110,32 @@ type AddressResponse struct {
 	City       *string `json:"city,omitempty"`
 }
 
+// RatesResponse represents carrier rates response
+type RatesResponse struct {
+	EstimateID   string                `json:"estimate_id"`
+	CarrierRates []CarrierRateResponse `json:"carrier_rates"`
+	ExpiresAt    string                `json:"expires_at"`
+}
+
+// SelectRateRequest represents the request to select a carrier rate
+type SelectRateRequest struct {
+	CarrierID   string `json:"carrier_id" binding:"required" example:"mock-fedex-id"`
+	ServiceCode string `json:"service_code" binding:"required" example:"FEDEX_GROUND"`
+}
+
+// SelectRateResponse represents the response after selecting a rate
+type SelectRateResponse struct {
+	EstimateID      string  `json:"estimate_id"`
+	Status          string  `json:"status"`
+	CarrierCode     string  `json:"carrier_code"`
+	ServiceCode     string  `json:"service_code"`
+	ServiceName     string  `json:"service_name"`
+	SelectedAmount  float64 `json:"selected_amount"`
+	Currency        string  `json:"currency"`
+	IsLocked        bool    `json:"is_locked"`
+	RateSelectedAt  string  `json:"rate_selected_at"`
+}
+
 // Helper functions to convert models to DTOs
 
 func nullStringToPtr(ns string) *string {
