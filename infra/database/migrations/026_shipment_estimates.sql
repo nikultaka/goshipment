@@ -73,6 +73,11 @@ CREATE TABLE shipment_estimates (
     locked_at TIMESTAMP WITHOUT TIME ZONE,
 
     -- -------------------------------------------------
+    -- CARRIER RATES (JSON SNAPSHOT)
+    -- -------------------------------------------------
+    carrier_rates_json JSONB DEFAULT '[]'::jsonb,
+
+    -- -------------------------------------------------
     -- SELECTED RATE
     -- -------------------------------------------------
     selected_carrier_id UUID,
