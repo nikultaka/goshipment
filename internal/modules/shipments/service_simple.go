@@ -2,6 +2,7 @@ package shipments
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -57,29 +58,31 @@ func (s *SimpleShipmentService) CreateShipment(
 	}
 	defer tx.Rollback()
 
-	// 1. Verify estimate exists and get basic info
+	// 1. Verify estimate exists and get basic info including carrier rates
 	var estimate struct {
-		ID             string
-		FromCountry    string
-		FromRegionCode sql.NullString
-		FromCity       string
-		FromPostalCode string
-		ToCountry      string
-		ToRegionCode   sql.NullString
-		ToCity         string
-		ToPostalCode   string
-		ExpiresAt      time.Time
+		ID               string
+		FromCountry      string
+		FromRegionCode   sql.NullString
+		FromCity         string
+		FromPostalCode   string
+		ToCountry        string
+		ToRegionCode     sql.NullString
+		ToCity           string
+		ToPostalCode     string
+		ExpiresAt        time.Time
+		CarrierRatesJSON []byte
 	}
 
 	err = tx.QueryRow(`
 		SELECT id, from_country, from_region_code, from_city, from_postal_code,
-		       to_country, to_region_code, to_city, to_postal_code, expires_at
+		       to_country, to_region_code, to_city, to_postal_code, expires_at,
+		       COALESCE(carrier_rates_json, '[]'::jsonb)
 		FROM shipment_estimates
 		WHERE id = $1 AND (organization_id = $2 OR organization_id IS NULL) AND is_deleted = FALSE
 	`, req.EstimateID, organizationID).Scan(
 		&estimate.ID, &estimate.FromCountry, &estimate.FromRegionCode, &estimate.FromCity, &estimate.FromPostalCode,
 		&estimate.ToCountry, &estimate.ToRegionCode, &estimate.ToCity, &estimate.ToPostalCode,
-		&estimate.ExpiresAt,
+		&estimate.ExpiresAt, &estimate.CarrierRatesJSON,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -94,8 +97,25 @@ func (s *SimpleShipmentService) CreateShipment(
 	}
 
 	// 3. Get rate based on selected carrier and service code
-	// Since carrier_rates_snapshot is not stored in DB, use mock rate lookup
-	selectedRate := getMockRate(req.SelectedCarrierID, req.SelectedServiceCode)
+	// First try to find rate in stored carrier_rates_json from estimate
+	var carrierRates []models.CarrierRate
+	if err := json.Unmarshal(estimate.CarrierRatesJSON, &carrierRates); err != nil {
+		return nil, fmt.Errorf("failed to parse carrier rates: %w", err)
+	}
+
+	var selectedRate *models.CarrierRate
+	for i, rate := range carrierRates {
+		if rate.CarrierID == req.SelectedCarrierID && rate.ServiceCode == req.SelectedServiceCode {
+			selectedRate = &carrierRates[i]
+			break
+		}
+	}
+
+	// Fallback to mock rates if not found in stored rates (for backwards compatibility)
+	if selectedRate == nil {
+		selectedRate = getMockRate(req.SelectedCarrierID, req.SelectedServiceCode)
+	}
+
 	if selectedRate == nil {
 		return nil, errors.New("selected rate not found - invalid carrier or service code")
 	}
@@ -731,12 +751,18 @@ func nullStringToStr(ns sql.NullString) string {
 	return ""
 }
 
+// Real carrier UUIDs from database (must match shipment_estimates module)
+const (
+	fedexCarrierID = "550e8400-e29b-41d4-a716-446655440001"
+	upsCarrierID   = "550e8400-e29b-41d4-a716-446655440002"
+)
+
 // getMockRate returns mock rate data based on carrier and service code
 // This matches the mock rates returned by the shipment_estimates module
 func getMockRate(carrierID, serviceCode string) *models.CarrierRate {
 	mockRates := []models.CarrierRate{
 		{
-			CarrierID:       "mock-fedex-id",
+			CarrierID:       fedexCarrierID,
 			CarrierCode:     "fedex",
 			CarrierName:     "FedEx",
 			ServiceCode:     "FEDEX_GROUND",
@@ -750,7 +776,7 @@ func getMockRate(carrierID, serviceCode string) *models.CarrierRate {
 			Currency:        "CAD",
 		},
 		{
-			CarrierID:       "mock-ups-id",
+			CarrierID:       upsCarrierID,
 			CarrierCode:     "ups",
 			CarrierName:     "UPS",
 			ServiceCode:     "UPS_STANDARD",
@@ -764,7 +790,7 @@ func getMockRate(carrierID, serviceCode string) *models.CarrierRate {
 			Currency:        "CAD",
 		},
 		{
-			CarrierID:       "mock-fedex-id",
+			CarrierID:       fedexCarrierID,
 			CarrierCode:     "fedex",
 			CarrierName:     "FedEx",
 			ServiceCode:     "FEDEX_EXPRESS",
