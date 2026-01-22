@@ -59,5 +59,38 @@ func (m *CommissionModule) RegisterRoutes(router *gin.RouterGroup) {
 		// Scope: commissions.manage (admin only)
 		// Approve or reject payout requests
 		commissions.POST("/payout/process", m.handlers.ProcessPayout)
+
+		// =====================================================
+		// COMMISSION PLANS (Admin/Manager Only)
+		// =====================================================
+
+		// GET /commissions/plans - List commission plans
+		// Scope: commissions.manage (admin only)
+		commissions.GET("/plans", m.handlers.ListPlans)
+
+		// POST /commissions/plans - Create a commission plan
+		// Scope: commissions.manage (admin only)
+		commissions.POST("/plans", m.handlers.CreatePlan)
+
+		// GET /commissions/plans/:id - Get a commission plan
+		// Scope: commissions.manage (admin only)
+		commissions.GET("/plans/:id", m.handlers.GetPlan)
+
+		// PATCH /commissions/plans/:id - Update a commission plan
+		// Scope: commissions.manage (admin only)
+		commissions.PATCH("/plans/:id", m.handlers.UpdatePlan)
+
+		// DELETE /commissions/plans/:id - Delete a commission plan
+		// Scope: commissions.manage (admin only)
+		commissions.DELETE("/plans/:id", m.handlers.DeletePlan)
+
+		// =====================================================
+		// MANUAL COMMISSION TRANSACTIONS (Admin/Manager Only)
+		// =====================================================
+
+		// POST /commissions/transactions - Create a commission transaction manually
+		// Scope: commissions.manage (admin only)
+		// Allows admins to manually create commission transactions
+		commissions.POST("/transactions", m.handlers.CreateCommissionTransaction)
 	}
 }

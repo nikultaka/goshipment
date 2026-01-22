@@ -119,12 +119,15 @@ func ToCommissionTransactionResponse(tx *models.CommissionTransaction) *Commissi
 	resp := &CommissionTransactionResponse{
 		ID:                          tx.ID,
 		CommissionTransactionNumber: tx.CommissionTransactionNumber,
-		ShipmentID:                  tx.ShipmentID,
 		CommissionAmount:            tx.CommissionAmount,
 		Currency:                    tx.Currency,
 		Status:                      string(tx.Status),
 		EarnedAt:                    tx.EarnedAt,
 		CreatedAt:                   tx.CreatedAt,
+	}
+
+	if tx.ShipmentID.Valid {
+		resp.ShipmentID = tx.ShipmentID.String
 	}
 
 	if tx.EligibleAt.Valid {
@@ -168,4 +171,133 @@ func ToPayoutResponse(payout *models.CommissionPayout) *PayoutResponse {
 	}
 
 	return resp
+}
+
+// =====================================================
+// COMMISSION PLANS DTOs
+// =====================================================
+
+// ListPlansRequest represents query parameters for listing commission plans
+type ListPlansRequest struct {
+	Status   string `form:"status" binding:"omitempty,oneof=active paused"`
+	Page     int    `form:"page" binding:"omitempty,min=1"`
+	PageSize int    `form:"page_size" binding:"omitempty,min=1,max=100"`
+}
+
+// CreatePlanRequest represents a request to create a commission plan
+type CreatePlanRequest struct {
+	Name                     string  `json:"name" binding:"required,min=1,max=120"`
+	Description              string  `json:"description,omitempty" binding:"omitempty,max=1000"`
+	CommissionBase           string  `json:"commission_base" binding:"required,oneof=profit revenue per_shipment"`
+	CommissionValueType      string  `json:"commission_value_type" binding:"required,oneof=percent fixed_amount"`
+	Value                    float64 `json:"value" binding:"required,gt=0"`
+	ApplyWhen                string  `json:"apply_when,omitempty" binding:"omitempty,oneof=shipment_completed include_refunded_shipments"`
+	IncludeRefundedShipments bool    `json:"include_refunded_shipments,omitempty"`
+	Status                   string  `json:"status,omitempty" binding:"omitempty,oneof=active paused"`
+}
+
+// UpdatePlanRequest represents a request to update a commission plan
+type UpdatePlanRequest struct {
+	Name                     *string  `json:"name,omitempty" binding:"omitempty,min=1,max=120"`
+	Description              *string  `json:"description,omitempty" binding:"omitempty,max=1000"`
+	CommissionBase           *string  `json:"commission_base,omitempty" binding:"omitempty,oneof=profit revenue per_shipment"`
+	CommissionValueType      *string  `json:"commission_value_type,omitempty" binding:"omitempty,oneof=percent fixed_amount"`
+	Value                    *float64 `json:"value,omitempty" binding:"omitempty,gt=0"`
+	ApplyWhen                *string  `json:"apply_when,omitempty" binding:"omitempty,oneof=shipment_completed include_refunded_shipments"`
+	IncludeRefundedShipments *bool    `json:"include_refunded_shipments,omitempty"`
+	Status                   *string  `json:"status,omitempty" binding:"omitempty,oneof=active paused"`
+}
+
+// CommissionPlanResponse represents a commission plan in API responses
+type CommissionPlanResponse struct {
+	ID                       string    `json:"id"`
+	CommissionNumber         string    `json:"commission_number"`
+	Name                     string    `json:"name"`
+	Description              string    `json:"description,omitempty"`
+	CommissionBase           string    `json:"commission_base"`
+	CommissionValueType      string    `json:"commission_value_type"`
+	Value                    float64   `json:"value"`
+	ApplyWhen                string    `json:"apply_when"`
+	IncludeRefundedShipments bool      `json:"include_refunded_shipments"`
+	Status                   string    `json:"status"`
+	CreatedByUserID          string    `json:"created_by_user_id,omitempty"`
+	CreatedAt                time.Time `json:"created_at"`
+	UpdatedAt                time.Time `json:"updated_at"`
+}
+
+// ListPlansResponse represents the response for listing commission plans
+type ListPlansResponse struct {
+	Plans      []*CommissionPlanResponse `json:"plans"`
+	TotalCount int                       `json:"total_count"`
+	Page       int                       `json:"page"`
+	PageSize   int                       `json:"page_size"`
+	TotalPages int                       `json:"total_pages"`
+}
+
+// ToCommissionPlanResponse converts a CommissionPlan model to response DTO
+func ToCommissionPlanResponse(plan *models.CommissionPlan) *CommissionPlanResponse {
+	resp := &CommissionPlanResponse{
+		ID:                       plan.ID,
+		CommissionNumber:         plan.CommissionNumber,
+		Name:                     plan.Name,
+		CommissionBase:           string(plan.CommissionBase),
+		CommissionValueType:      string(plan.CommissionValueType),
+		Value:                    plan.Value,
+		ApplyWhen:                string(plan.ApplyWhen),
+		IncludeRefundedShipments: plan.IncludeRefundedShipments,
+		Status:                   string(plan.Status),
+		CreatedAt:                plan.CreatedAt,
+		UpdatedAt:                plan.UpdatedAt,
+	}
+
+	if plan.Description.Valid {
+		resp.Description = plan.Description.String
+	}
+
+	if plan.CreatedByUserID.Valid {
+		resp.CreatedByUserID = plan.CreatedByUserID.String
+	}
+
+	return resp
+}
+
+// =====================================================
+// MANUAL COMMISSION TRANSACTION DTOs
+// =====================================================
+
+// CreateCommissionTransactionRequest represents a request to manually create a commission transaction
+type CreateCommissionTransactionRequest struct {
+	BeneficiaryUserID string  `json:"beneficiary_user_id" binding:"required,uuid" example:"550e8400-e29b-41d4-a716-446655440000"`
+	SourceUserID      string  `json:"source_user_id,omitempty" binding:"omitempty,uuid" example:"550e8400-e29b-41d4-a716-446655440001"`
+	ShipmentID        string  `json:"shipment_id,omitempty" binding:"omitempty,uuid" example:"550e8400-e29b-41d4-a716-446655440002"`
+	CommissionPlanID  string  `json:"commission_plan_id" binding:"required,uuid" example:"550e8400-e29b-41d4-a716-446655440003"`
+	RevenueAmount     float64 `json:"revenue_amount" binding:"required,gte=0" example:"100.00"`
+	CostAmount        float64 `json:"cost_amount" binding:"required,gte=0" example:"60.00"`
+	Currency          string  `json:"currency,omitempty" binding:"omitempty,len=3" example:"CAD"`
+	Status            string  `json:"status,omitempty" binding:"omitempty,oneof=pending eligible" example:"eligible"`
+	Note              string  `json:"note,omitempty" binding:"omitempty,max=500" example:"Manual commission for Q1 bonus"`
+}
+
+// CreateCommissionTransactionResponse represents the response after creating a commission transaction
+type CreateCommissionTransactionResponse struct {
+	ID                          string    `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	CommissionTransactionNumber string    `json:"commission_transaction_number" example:"CTX-a1b2c3d4"`
+	BeneficiaryUserID           string    `json:"beneficiary_user_id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	SourceUserID                string    `json:"source_user_id,omitempty" example:"550e8400-e29b-41d4-a716-446655440001"`
+	ShipmentID                  string    `json:"shipment_id,omitempty" example:"550e8400-e29b-41d4-a716-446655440002"`
+	CommissionPlanID            string    `json:"commission_plan_id" example:"550e8400-e29b-41d4-a716-446655440003"`
+	CommissionNumber            string    `json:"commission_number" example:"COM-12345678"`
+	CommissionBase              string    `json:"commission_base" example:"profit"`
+	CommissionValueType         string    `json:"commission_value_type" example:"percent"`
+	CommissionValue             float64   `json:"commission_value" example:"10"`
+	Currency                    string    `json:"currency" example:"CAD"`
+	RevenueAmount               float64   `json:"revenue_amount" example:"100.00"`
+	CostAmount                  float64   `json:"cost_amount" example:"60.00"`
+	ProfitAmount                float64   `json:"profit_amount" example:"40.00"`
+	CommissionAmount            float64   `json:"commission_amount" example:"4.00"`
+	Status                      string    `json:"status" example:"eligible"`
+	EarnedAt                    time.Time `json:"earned_at"`
+	EligibleAt                  time.Time `json:"eligible_at,omitempty"`
+	CreatedAt                   time.Time `json:"created_at"`
+	Message                     string    `json:"message" example:"Commission transaction created successfully"`
 }

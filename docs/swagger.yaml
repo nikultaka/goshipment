@@ -251,6 +251,35 @@ definitions:
       total_pages:
         type: integer
     type: object
+  internal_modules_commissions.CommissionPlanResponse:
+    properties:
+      apply_when:
+        type: string
+      commission_base:
+        type: string
+      commission_number:
+        type: string
+      commission_value_type:
+        type: string
+      created_at:
+        type: string
+      created_by_user_id:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      include_refunded_shipments:
+        type: boolean
+      name:
+        type: string
+      status:
+        type: string
+      updated_at:
+        type: string
+      value:
+        type: number
+    type: object
   internal_modules_commissions.CommissionTransactionResponse:
     properties:
       commission_amount:
@@ -275,6 +304,147 @@ definitions:
         type: string
       status:
         type: string
+    type: object
+  internal_modules_commissions.CreateCommissionTransactionRequest:
+    properties:
+      beneficiary_user_id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      commission_plan_id:
+        example: 550e8400-e29b-41d4-a716-446655440003
+        type: string
+      cost_amount:
+        example: 60
+        minimum: 0
+        type: number
+      currency:
+        example: CAD
+        type: string
+      note:
+        example: Manual commission for Q1 bonus
+        maxLength: 500
+        type: string
+      revenue_amount:
+        example: 100
+        minimum: 0
+        type: number
+      shipment_id:
+        example: 550e8400-e29b-41d4-a716-446655440002
+        type: string
+      source_user_id:
+        example: 550e8400-e29b-41d4-a716-446655440001
+        type: string
+      status:
+        enum:
+        - pending
+        - eligible
+        example: eligible
+        type: string
+    required:
+    - beneficiary_user_id
+    - commission_plan_id
+    - cost_amount
+    - revenue_amount
+    type: object
+  internal_modules_commissions.CreateCommissionTransactionResponse:
+    properties:
+      beneficiary_user_id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      commission_amount:
+        example: 4
+        type: number
+      commission_base:
+        example: profit
+        type: string
+      commission_number:
+        example: COM-12345678
+        type: string
+      commission_plan_id:
+        example: 550e8400-e29b-41d4-a716-446655440003
+        type: string
+      commission_transaction_number:
+        example: CTX-a1b2c3d4
+        type: string
+      commission_value:
+        example: 10
+        type: number
+      commission_value_type:
+        example: percent
+        type: string
+      cost_amount:
+        example: 60
+        type: number
+      created_at:
+        type: string
+      currency:
+        example: CAD
+        type: string
+      earned_at:
+        type: string
+      eligible_at:
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      message:
+        example: Commission transaction created successfully
+        type: string
+      profit_amount:
+        example: 40
+        type: number
+      revenue_amount:
+        example: 100
+        type: number
+      shipment_id:
+        example: 550e8400-e29b-41d4-a716-446655440002
+        type: string
+      source_user_id:
+        example: 550e8400-e29b-41d4-a716-446655440001
+        type: string
+      status:
+        example: eligible
+        type: string
+    type: object
+  internal_modules_commissions.CreatePlanRequest:
+    properties:
+      apply_when:
+        enum:
+        - shipment_completed
+        - include_refunded_shipments
+        type: string
+      commission_base:
+        enum:
+        - profit
+        - revenue
+        - per_shipment
+        type: string
+      commission_value_type:
+        enum:
+        - percent
+        - fixed_amount
+        type: string
+      description:
+        maxLength: 1000
+        type: string
+      include_refunded_shipments:
+        type: boolean
+      name:
+        maxLength: 120
+        minLength: 1
+        type: string
+      status:
+        enum:
+        - active
+        - paused
+        type: string
+      value:
+        type: number
+    required:
+    - commission_base
+    - commission_value_type
+    - name
+    - value
     type: object
   internal_modules_commissions.ListCommissionsResponse:
     properties:
@@ -306,6 +476,21 @@ definitions:
       payouts:
         items:
           $ref: '#/definitions/internal_modules_commissions.PayoutResponse'
+        type: array
+      total_count:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
+  internal_modules_commissions.ListPlansResponse:
+    properties:
+      page:
+        type: integer
+      page_size:
+        type: integer
+      plans:
+        items:
+          $ref: '#/definitions/internal_modules_commissions.CommissionPlanResponse'
         type: array
       total_count:
         type: integer
@@ -409,6 +594,41 @@ definitions:
         type: string
       transaction_count:
         type: integer
+    type: object
+  internal_modules_commissions.UpdatePlanRequest:
+    properties:
+      apply_when:
+        enum:
+        - shipment_completed
+        - include_refunded_shipments
+        type: string
+      commission_base:
+        enum:
+        - profit
+        - revenue
+        - per_shipment
+        type: string
+      commission_value_type:
+        enum:
+        - percent
+        - fixed_amount
+        type: string
+      description:
+        maxLength: 1000
+        type: string
+      include_refunded_shipments:
+        type: boolean
+      name:
+        maxLength: 120
+        minLength: 1
+        type: string
+      status:
+        enum:
+        - active
+        - paused
+        type: string
+      value:
+        type: number
     type: object
   internal_modules_invoices.BillingAddressSnapshot:
     properties:
@@ -2449,6 +2669,50 @@ definitions:
       width:
         type: number
     type: object
+  internal_modules_shipment_estimates.RatesResponse:
+    properties:
+      carrier_rates:
+        items:
+          $ref: '#/definitions/internal_modules_shipment_estimates.CarrierRateResponse'
+        type: array
+      estimate_id:
+        type: string
+      expires_at:
+        type: string
+    type: object
+  internal_modules_shipment_estimates.SelectRateRequest:
+    properties:
+      carrier_id:
+        example: mock-fedex-id
+        type: string
+      service_code:
+        example: FEDEX_GROUND
+        type: string
+    required:
+    - carrier_id
+    - service_code
+    type: object
+  internal_modules_shipment_estimates.SelectRateResponse:
+    properties:
+      carrier_code:
+        type: string
+      currency:
+        type: string
+      estimate_id:
+        type: string
+      is_locked:
+        type: boolean
+      rate_selected_at:
+        type: string
+      selected_amount:
+        type: number
+      service_code:
+        type: string
+      service_name:
+        type: string
+      status:
+        type: string
+    type: object
   internal_modules_shipments.AddressSnapshot:
     properties:
       address_line1:
@@ -3942,938 +4206,6 @@ definitions:
     required:
     - status
     type: object
-  internal_modules_carriers.CarrierResponse:
-    type: object
-    description: Carrier details response
-    properties:
-      id:
-        type: string
-        format: uuid
-        example: "550e8400-e29b-41d4-a716-446655440000"
-      code:
-        type: string
-        example: "fedex"
-        description: Unique carrier code (fedex, ups, dhl_express, canada_post, purolator)
-      name:
-        type: string
-        example: "FedEx"
-      display_name:
-        type: string
-        example: "FedEx Express"
-      carrier_type:
-        type: string
-        enum: [parcel, freight_ltl, freight_ftl]
-        example: "parcel"
-      capabilities:
-        $ref: '#/definitions/internal_modules_carriers.CarrierCapabilities'
-      is_enabled:
-        type: boolean
-        example: true
-        description: Whether carrier is available for new shipments
-      logo_url:
-        type: string
-        example: "https://cdn.example.com/carriers/fedex.png"
-      color_hex:
-        type: string
-        example: "#4D148C"
-      sort_order:
-        type: integer
-        example: 1
-  internal_modules_carriers.CarrierCapabilities:
-    type: object
-    description: Carrier capability flags
-    properties:
-      supports_domestic:
-        type: boolean
-        example: true
-      supports_international:
-        type: boolean
-        example: true
-      supports_pickup:
-        type: boolean
-        example: true
-      supports_drop_off:
-        type: boolean
-        example: true
-      supports_returns:
-        type: boolean
-        example: false
-      supports_labels:
-        type: boolean
-        example: true
-      supports_tracking:
-        type: boolean
-        example: true
-      supports_insurance:
-        type: boolean
-        example: false
-      supports_signature:
-        type: boolean
-        example: true
-      supports_cod:
-        type: boolean
-        example: false
-  internal_modules_carriers.CarrierListResponse:
-    type: object
-    properties:
-      carriers:
-        type: array
-        items:
-          $ref: '#/definitions/internal_modules_carriers.CarrierResponse'
-      total:
-        type: integer
-        example: 5
-  internal_modules_carriers.CarrierDetailResponse:
-    type: object
-    description: Full carrier details including service levels and package types
-    properties:
-      id:
-        type: string
-        format: uuid
-      code:
-        type: string
-        example: "fedex"
-      name:
-        type: string
-        example: "FedEx"
-      display_name:
-        type: string
-        example: "FedEx Express"
-      carrier_type:
-        type: string
-        enum: [parcel, freight_ltl, freight_ftl]
-      capabilities:
-        $ref: '#/definitions/internal_modules_carriers.CarrierCapabilities'
-      settings:
-        $ref: '#/definitions/internal_modules_carriers.CarrierSettingsResponse'
-      service_levels:
-        type: array
-        items:
-          $ref: '#/definitions/internal_modules_carriers.ServiceLevelResponse'
-      package_types:
-        type: array
-        items:
-          $ref: '#/definitions/internal_modules_carriers.PackageTypeResponse'
-      is_enabled:
-        type: boolean
-      logo_url:
-        type: string
-      color_hex:
-        type: string
-  internal_modules_carriers.CarrierSettingsResponse:
-    type: object
-    description: Carrier operational settings (non-sensitive)
-    properties:
-      min_pickup_lead_hours:
-        type: integer
-        example: 2
-        description: Minimum hours before pickup can be scheduled
-      max_pickup_days_ahead:
-        type: integer
-        example: 14
-        description: Maximum days in advance for pickup scheduling
-      max_packages_per_shipment:
-        type: integer
-        example: 10
-      max_package_weight_kg:
-        type: number
-        example: 68.0
-      max_package_length_cm:
-        type: number
-        example: 274.0
-      max_declared_value:
-        type: number
-        example: 50000.00
-      pickup_fee_amount:
-        type: number
-        example: 5.00
-        description: Pickup fee in CAD
-  internal_modules_carriers.ServiceLevelResponse:
-    type: object
-    description: Carrier service level (Ground, Express, etc.)
-    properties:
-      id:
-        type: string
-        format: uuid
-      code:
-        type: string
-        example: "FEDEX_GROUND"
-      carrier_code:
-        type: string
-        example: "GROUND_HOME_DELIVERY"
-        description: Carrier's internal API code
-      name:
-        type: string
-        example: "FedEx Ground"
-      display_name:
-        type: string
-        example: "Ground (3-7 days)"
-      category:
-        type: string
-        enum: [ground, express, priority, same_day, economy, international]
-        example: "ground"
-      min_transit_days:
-        type: integer
-        example: 3
-      max_transit_days:
-        type: integer
-        example: 7
-      delivery_time_description:
-        type: string
-        example: "3-7 business days"
-      is_domestic:
-        type: boolean
-        example: true
-      is_international:
-        type: boolean
-        example: false
-      supports_pickup:
-        type: boolean
-        example: true
-      supports_saturday_delivery:
-        type: boolean
-        example: false
-      supports_signature:
-        type: boolean
-        example: true
-      max_weight_kg:
-        type: number
-        example: 68.0
-      max_length_cm:
-        type: number
-        example: 274.0
-      is_enabled:
-        type: boolean
-        example: true
-      sort_order:
-        type: integer
-        example: 1
-  internal_modules_carriers.PackageTypeResponse:
-    type: object
-    description: Carrier package type
-    properties:
-      id:
-        type: string
-        format: uuid
-      code:
-        type: string
-        example: "YOUR_PACKAGING"
-      carrier_code:
-        type: string
-        example: "YOUR_PACKAGING"
-      name:
-        type: string
-        example: "Your Packaging"
-      display_name:
-        type: string
-        example: "Custom Box/Packaging"
-      is_custom:
-        type: boolean
-        example: true
-        description: True if customer provides packaging
-      is_carrier_provided:
-        type: boolean
-        example: false
-        description: True if carrier provides packaging
-      length_cm:
-        type: number
-        description: Pre-defined length for carrier packaging
-      width_cm:
-        type: number
-      height_cm:
-        type: number
-      max_weight_kg:
-        type: number
-      is_enabled:
-        type: boolean
-        example: true
-      sort_order:
-        type: integer
-  internal_modules_carriers.CarrierAvailabilityResponse:
-    type: object
-    description: Carrier availability for a specific date
-    properties:
-      carrier_id:
-        type: string
-        format: uuid
-      carrier_code:
-        type: string
-        example: "fedex"
-      carrier_name:
-        type: string
-        example: "FedEx"
-      date:
-        type: string
-        format: date
-        example: "2026-01-22"
-      day_of_week:
-        type: string
-        example: "thursday"
-      is_available:
-        type: boolean
-        example: true
-        description: True if carrier operates on this date
-      is_holiday:
-        type: boolean
-        example: false
-      holiday_name:
-        type: string
-        description: Holiday name if applicable
-      schedule:
-        $ref: '#/definitions/internal_modules_carriers.OperatingScheduleResponse'
-  internal_modules_carriers.OperatingScheduleResponse:
-    type: object
-    description: Operating schedule for a specific day
-    properties:
-      is_operating:
-        type: boolean
-        example: true
-      pickup_start_time:
-        type: string
-        example: "09:00"
-        description: HH:MM format
-      pickup_end_time:
-        type: string
-        example: "17:00"
-      same_day_cutoff_time:
-        type: string
-        example: "12:00"
-        description: Cutoff for same-day pickup
-      next_day_cutoff_time:
-        type: string
-        example: "15:00"
-        description: Cutoff for next-day pickup
-      notes:
-        type: string
-  internal_modules_geo.CountryResponse:
-    type: object
-    description: Country information
-    properties:
-      code:
-        type: string
-        example: "CA"
-        description: ISO-3166-1 alpha-2 code
-      name:
-        type: string
-        example: "Canada"
-      currency_code:
-        type: string
-        example: "CAD"
-        description: ISO-4217 currency code
-      is_active:
-        type: boolean
-        example: true
-  internal_modules_geo.CountryListResponse:
-    type: object
-    properties:
-      countries:
-        type: array
-        items:
-          $ref: '#/definitions/internal_modules_geo.CountryResponse'
-      total:
-        type: integer
-        example: 2
-  internal_modules_geo.RegionResponse:
-    type: object
-    description: Region (state/province/territory) information
-    properties:
-      id:
-        type: string
-        format: uuid
-      code:
-        type: string
-        example: "ON"
-        description: Region code
-      name:
-        type: string
-        example: "Ontario"
-      type:
-        type: string
-        enum: [state, province, territory, region]
-        example: "province"
-      country_code:
-        type: string
-        example: "CA"
-      is_active:
-        type: boolean
-        example: true
-  internal_modules_geo.RegionListResponse:
-    type: object
-    properties:
-      country_code:
-        type: string
-        example: "CA"
-      country_name:
-        type: string
-        example: "Canada"
-      regions:
-        type: array
-        items:
-          $ref: '#/definitions/internal_modules_geo.RegionResponse'
-      total:
-        type: integer
-        example: 13
-  internal_modules_shipment_estimates.RequestRatesRequest:
-    type: object
-    description: Request to fetch/refresh carrier rates for an estimate
-    properties:
-      carrier_codes:
-        type: array
-        items:
-          type: string
-        description: Optional filter - only request rates from these carriers
-        example: ["fedex", "ups"]
-      force_refresh:
-        type: boolean
-        default: false
-        description: Force refresh rates even if cached rates exist
-  internal_modules_shipment_estimates.RequestRatesResponse:
-    type: object
-    description: Response with carrier rates
-    properties:
-      estimate_id:
-        type: string
-        format: uuid
-      estimate_number:
-        type: string
-        example: "EST-ABC12345"
-        description: |
-          Human-readable identifier (format: EST-XXXXXXXX).
-          **Note:** Generated at API level from UUID. NOT stored in database.
-      status:
-        type: string
-        enum: [active, expired, locked]
-        example: "active"
-        description: |
-          Estimate status. **Note:** This is a COMPUTED field, NOT stored in DB.
-          Derived from: is_locked=true → "locked", expires_at < now → "expired", else "active"
-      carrier_rates:
-        type: array
-        items:
-          $ref: '#/definitions/internal_modules_shipment_estimates.CarrierRateResponse'
-      expires_at:
-        type: string
-        format: date-time
-        description: When these rates expire (from shipment_estimates.expires_at)
-      errors:
-        type: array
-        items:
-          $ref: '#/definitions/internal_modules_shipment_estimates.RateErrorResponse'
-        description: Errors from carriers that failed to return rates
-  internal_modules_shipment_estimates.RateErrorResponse:
-    type: object
-    description: Error from a carrier rate request
-    properties:
-      carrier_code:
-        type: string
-        example: "ups"
-      carrier_name:
-        type: string
-        example: "UPS"
-      error_code:
-        type: string
-        example: "RATE_UNAVAILABLE"
-      error_message:
-        type: string
-        example: "Service not available for this route"
-  internal_modules_shipment_estimates.SelectRateRequest:
-    type: object
-    description: Request to select a rate from available options
-    required:
-      - carrier_id
-      - service_code
-    properties:
-      carrier_id:
-        type: string
-        format: uuid
-        description: Selected carrier UUID
-      service_code:
-        type: string
-        example: "FEDEX_GROUND"
-        description: Selected service level code
-  internal_modules_shipment_estimates.SelectRateResponse:
-    type: object
-    description: Response after selecting a rate
-    properties:
-      estimate_id:
-        type: string
-        format: uuid
-      estimate_number:
-        type: string
-        example: "EST-ABC12345"
-        description: |
-          Human-readable identifier (format: EST-XXXXXXXX).
-          **Note:** Generated at API level from UUID. NOT stored in database.
-      status:
-        type: string
-        enum: [active, expired, locked]
-        example: "locked"
-        description: |
-          Estimate status after selection. **Note:** This is a COMPUTED field, NOT stored in DB.
-          Derived from: is_locked=true → "locked", expires_at < now → "expired", else "active"
-      selected_rate:
-        $ref: '#/definitions/internal_modules_shipment_estimates.SelectedRateInfo'
-      next_step:
-        type: string
-        example: "POST /shipments"
-        description: Suggested next API call (computed, not stored)
-  internal_modules_shipment_estimates.SelectedRateInfo:
-    type: object
-    description: Selected rate details
-    properties:
-      carrier_id:
-        type: string
-        format: uuid
-      carrier_code:
-        type: string
-        example: "fedex"
-      carrier_name:
-        type: string
-        example: "FedEx"
-      service_code:
-        type: string
-        example: "FEDEX_GROUND"
-      service_name:
-        type: string
-        example: "FedEx Ground"
-      total_amount:
-        type: number
-        example: 25.50
-      currency:
-        type: string
-        example: "CAD"
-      estimated_delivery_date:
-        type: string
-        format: date
-        example: "2026-01-28"
-      transit_days:
-        type: integer
-        example: 5
-  internal_modules_address_book.DeleteAddressResponse:
-    type: object
-    description: Response after deleting an address
-    properties:
-      id:
-        type: string
-        format: uuid
-      address_number:
-        type: string
-        example: "ADR-ABC12345"
-      deleted:
-        type: boolean
-        example: true
-      deleted_at:
-        type: string
-        format: date-time
-  internal_modules_shipments.TimelineResponse:
-    type: object
-    description: Shipment event timeline
-    properties:
-      shipment_id:
-        type: string
-        format: uuid
-      shipment_number:
-        type: string
-        example: "SHP-ABC12345"
-      events:
-        type: array
-        items:
-          $ref: '#/definitions/internal_modules_shipments.TimelineEventResponse'
-      pagination:
-        $ref: '#/definitions/internal_modules_common.PaginationResponse'
-  internal_modules_shipments.TimelineEventResponse:
-    type: object
-    description: Single timeline event
-    properties:
-      id:
-        type: string
-        format: uuid
-      event_key:
-        type: string
-        example: "shipment.created"
-        description: Stable event identifier for UI/templates
-      entity_type:
-        type: string
-        enum: [shipment, package, pickup]
-        example: "shipment"
-      source:
-        type: string
-        enum: [system, user, admin, provider]
-        example: "user"
-      severity:
-        type: string
-        enum: [info, warning, error]
-        example: "info"
-      title:
-        type: string
-        example: "Shipment Created"
-      message:
-        type: string
-        example: "Shipment was created by John Doe"
-      provider:
-        type: string
-        example: "fedex"
-        description: Carrier code if provider event
-      package_id:
-        type: string
-        format: uuid
-        description: Package UUID if package-level event
-      pickup_id:
-        type: string
-        format: uuid
-        description: Pickup UUID if pickup-level event
-      actor:
-        $ref: '#/definitions/internal_modules_shipments.EventActorResponse'
-      occurred_at:
-        type: string
-        format: date-time
-        example: "2026-01-21T10:30:00Z"
-      created_at:
-        type: string
-        format: date-time
-  internal_modules_shipments.EventActorResponse:
-    type: object
-    description: User who triggered the event
-    properties:
-      user_id:
-        type: string
-        format: uuid
-      display_name:
-        type: string
-        example: "John Doe"
-  internal_modules_pickups.PickupDetailResponse:
-    type: object
-    description: Detailed pickup information
-    properties:
-      id:
-        type: string
-        format: uuid
-      pickup_number:
-        type: string
-        example: "PKU-ABC12345"
-      status:
-        type: string
-        enum: [draft, scheduled, rescheduled, cancelled, completed, failed]
-        example: "scheduled"
-      carrier:
-        $ref: '#/definitions/internal_modules_pickups.PickupCarrierInfo'
-      shipment:
-        $ref: '#/definitions/internal_modules_pickups.PickupShipmentInfo'
-      pickup_address:
-        $ref: '#/definitions/internal_modules_pickups.PickupAddressSnapshot'
-      location:
-        $ref: '#/definitions/internal_modules_pickups.PickupLocationInfo'
-      schedule:
-        $ref: '#/definitions/internal_modules_pickups.PickupScheduleInfo'
-      provider:
-        $ref: '#/definitions/internal_modules_pickups.PickupProviderInfo'
-      timestamps:
-        $ref: '#/definitions/internal_modules_pickups.PickupTimestamps'
-      failure_reason:
-        type: string
-        description: Reason if pickup failed
-      created_by:
-        $ref: '#/definitions/internal_modules_shipments.EventActorResponse'
-  internal_modules_pickups.PickupCarrierInfo:
-    type: object
-    properties:
-      id:
-        type: string
-        format: uuid
-      code:
-        type: string
-        example: "fedex"
-      name:
-        type: string
-        example: "FedEx"
-  internal_modules_pickups.PickupShipmentInfo:
-    type: object
-    properties:
-      id:
-        type: string
-        format: uuid
-      shipment_number:
-        type: string
-        example: "SHP-ABC12345"
-  internal_modules_pickups.PickupAddressSnapshot:
-    type: object
-    description: Immutable address snapshot at time of pickup creation
-    properties:
-      name:
-        type: string
-        example: "John Sender"
-      company:
-        type: string
-        example: "Acme Corp"
-      phone:
-        type: string
-        example: "416-555-1234"
-      email:
-        type: string
-        example: "john@acme.com"
-      address_line1:
-        type: string
-        example: "123 Shipper St"
-      address_line2:
-        type: string
-      city:
-        type: string
-        example: "Toronto"
-      region_code:
-        type: string
-        example: "ON"
-      postal_code:
-        type: string
-        example: "M5V3A8"
-      country_code:
-        type: string
-        example: "CA"
-      is_residential:
-        type: boolean
-        example: false
-  internal_modules_pickups.PickupLocationInfo:
-    type: object
-    properties:
-      building_type:
-        type: string
-        enum: [house, apartment, condo, office, warehouse, retail, industrial, medical, government, other]
-        example: "office"
-      pickup_location:
-        type: string
-        enum: [front_door, basement, between_doors, counter, desk, front_desk, back_door, front_porch, garage, gate_house, kiosk, lab, loading_dock, lobby, mailroom, mailbox, outside_door, parts_department, pharmacy, pro_shop, receiving, security, service_counter, shipping, side_door, switchboard, vault, other]
-        example: "front_desk"
-      instructions:
-        type: string
-        example: "Ask for shipping department"
-  internal_modules_pickups.PickupScheduleInfo:
-    type: object
-    properties:
-      pickup_date:
-        type: string
-        format: date
-        example: "2026-01-22"
-      window_start:
-        type: string
-        example: "09:00"
-        description: HH:MM format
-      window_end:
-        type: string
-        example: "17:00"
-      timezone:
-        type: string
-        example: "America/Toronto"
-  internal_modules_pickups.PickupProviderInfo:
-    type: object
-    description: Carrier's pickup confirmation details
-    properties:
-      pickup_id:
-        type: string
-        example: "FEDEX123456"
-        description: Carrier's pickup confirmation number
-      reference:
-        type: string
-        example: "REF789"
-  internal_modules_pickups.PickupTimestamps:
-    type: object
-    properties:
-      created_at:
-        type: string
-        format: date-time
-      scheduled_at:
-        type: string
-        format: date-time
-        description: When carrier confirmed the pickup
-      cancelled_at:
-        type: string
-        format: date-time
-      updated_at:
-        type: string
-        format: date-time
-  internal_modules_wallet.TransactionListResponse:
-    type: object
-    description: Paginated list of wallet transactions
-    properties:
-      wallet:
-        $ref: '#/definitions/internal_modules_wallet.WalletSummary'
-      transactions:
-        type: array
-        items:
-          $ref: '#/definitions/internal_modules_wallet.TransactionDetailResponse'
-      pagination:
-        $ref: '#/definitions/internal_modules_common.PaginationResponse'
-  internal_modules_wallet.WalletSummary:
-    type: object
-    description: Wallet balance summary
-    properties:
-      id:
-        type: string
-        format: uuid
-      wallet_number:
-        type: string
-        example: "WAL-ABC12345"
-      balance:
-        type: number
-        example: 150.00
-        description: Available balance in CAD
-      held_balance:
-        type: number
-        example: 25.00
-        description: Amount held for pending transactions
-      total_balance:
-        type: number
-        example: 175.00
-        description: balance + held_balance
-      currency:
-        type: string
-        example: "CAD"
-      status:
-        type: string
-        enum: [active, locked, disabled]
-        example: "active"
-  internal_modules_wallet.TransactionDetailResponse:
-    type: object
-    description: Detailed transaction information
-    properties:
-      id:
-        type: string
-        format: uuid
-      transaction_number:
-        type: string
-        example: "TRX-ABC12345"
-      direction:
-        type: string
-        enum: [credit, debit]
-        example: "debit"
-      tx_type:
-        type: string
-        enum: [topup, topup_refund, shipment_payment, shipment_refund, hold_capture, hold_release, adjustment_charge, adjustment_refund, commission_credit, promotional_credit, manual_credit, manual_debit, chargeback, chargeback_reversal]
-        example: "shipment_payment"
-      amount:
-        type: number
-        example: 15.50
-      currency:
-        type: string
-        example: "CAD"
-      balance_before:
-        type: number
-        example: 165.50
-      balance_after:
-        type: number
-        example: 150.00
-      description:
-        type: string
-        example: "Shipment SHP-12345678 - FedEx Ground"
-      reference:
-        $ref: '#/definitions/internal_modules_wallet.TransactionReference'
-      performed_by:
-        $ref: '#/definitions/internal_modules_shipments.EventActorResponse'
-      is_system_generated:
-        type: boolean
-        example: false
-      created_at:
-        type: string
-        format: date-time
-  internal_modules_wallet.TransactionReference:
-    type: object
-    description: Reference to related entity
-    properties:
-      type:
-        type: string
-        example: "shipment"
-        description: Reference type (shipment, invoice, hold, topup)
-      id:
-        type: string
-        format: uuid
-  internal_modules_wallet.HoldListResponse:
-    type: object
-    description: Paginated list of wallet holds
-    properties:
-      wallet:
-        $ref: '#/definitions/internal_modules_wallet.WalletSummary'
-      holds:
-        type: array
-        items:
-          $ref: '#/definitions/internal_modules_wallet.HoldDetailResponse'
-      summary:
-        $ref: '#/definitions/internal_modules_wallet.HoldSummary'
-      pagination:
-        $ref: '#/definitions/internal_modules_common.PaginationResponse'
-  internal_modules_wallet.HoldDetailResponse:
-    type: object
-    description: Detailed hold information
-    properties:
-      id:
-        type: string
-        format: uuid
-      hold_number:
-        type: string
-        example: "HLD-ABC12345"
-      amount:
-        type: number
-        example: 25.00
-      currency:
-        type: string
-        example: "CAD"
-      status:
-        type: string
-        enum: [pending, captured, released, expired]
-        example: "pending"
-      reference:
-        $ref: '#/definitions/internal_modules_wallet.TransactionReference'
-      description:
-        type: string
-        example: "Hold for shipment checkout"
-      expires_at:
-        type: string
-        format: date-time
-        description: When hold will auto-expire if not captured/released
-      captured_at:
-        type: string
-        format: date-time
-      released_at:
-        type: string
-        format: date-time
-      created_by:
-        $ref: '#/definitions/internal_modules_shipments.EventActorResponse'
-      created_at:
-        type: string
-        format: date-time
-  internal_modules_wallet.HoldSummary:
-    type: object
-    description: Summary of hold activity
-    properties:
-      total_pending:
-        type: number
-        example: 25.00
-        description: Total amount in pending holds
-      total_captured_today:
-        type: number
-        example: 45.00
-        description: Total captured today
-      total_released_today:
-        type: number
-        example: 10.00
-        description: Total released today
-  internal_modules_common.PaginationResponse:
-    type: object
-    description: Pagination metadata
-    properties:
-      total:
-        type: integer
-        example: 45
-        description: Total number of items
-      limit:
-        type: integer
-        example: 25
-        description: Items per page
-      offset:
-        type: integer
-        example: 0
-        description: Current offset
-      has_more:
-        type: boolean
-        example: true
-        description: Whether more items exist
 host: localhost:8081
 info:
   contact:
@@ -7170,6 +6502,299 @@ paths:
       summary: List commission payouts
       tags:
       - Commissions
+  /commissions/plans:
+    get:
+      description: Retrieve a list of commission plans for the organization. Only
+        accessible by admins/managers.
+      parameters:
+      - description: Filter by plan status
+        enum:
+        - active
+        - paused
+        in: query
+        name: status
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - default: 20
+        description: Number of items per page
+        in: query
+        maximum: 100
+        minimum: 1
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Plans retrieved successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/gogin_internal_response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_modules_commissions.ListPlansResponse'
+              type: object
+        "400":
+          description: Invalid query parameters
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+        "403":
+          description: Forbidden - requires admin role
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+      security:
+      - BearerAuth: []
+      summary: List commission plans
+      tags:
+      - Commissions
+    post:
+      consumes:
+      - application/json
+      description: Create a new commission plan for the organization. Only accessible
+        by admins/managers.
+      parameters:
+      - description: Commission plan details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_modules_commissions.CreatePlanRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Plan created successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/gogin_internal_response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_modules_commissions.CommissionPlanResponse'
+              type: object
+        "400":
+          description: Invalid request or validation error
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+        "403":
+          description: Forbidden - requires admin role
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+      security:
+      - BearerAuth: []
+      summary: Create a commission plan
+      tags:
+      - Commissions
+  /commissions/plans/{id}:
+    delete:
+      description: Delete a commission plan. Plan cannot be deleted if it has active
+        referrals or transactions. Only accessible by admins/managers.
+      parameters:
+      - description: Plan ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Plan deleted successfully
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+        "400":
+          description: Cannot delete - plan is in use
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+        "403":
+          description: Forbidden - requires admin role
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+        "404":
+          description: Plan not found
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete a commission plan
+      tags:
+      - Commissions
+    get:
+      description: Retrieve a specific commission plan by ID. Only accessible by admins/managers.
+      parameters:
+      - description: Plan ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Plan retrieved successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/gogin_internal_response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_modules_commissions.CommissionPlanResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+        "403":
+          description: Forbidden - requires admin role
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+        "404":
+          description: Plan not found
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a commission plan
+      tags:
+      - Commissions
+    patch:
+      consumes:
+      - application/json
+      description: Update an existing commission plan. Only accessible by admins/managers.
+      parameters:
+      - description: Plan ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_modules_commissions.UpdatePlanRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Plan updated successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/gogin_internal_response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_modules_commissions.CommissionPlanResponse'
+              type: object
+        "400":
+          description: Invalid request or validation error
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+        "403":
+          description: Forbidden - requires admin role
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+        "404":
+          description: Plan not found
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+      security:
+      - BearerAuth: []
+      summary: Update a commission plan
+      tags:
+      - Commissions
+  /commissions/transactions:
+    post:
+      consumes:
+      - application/json
+      description: Admin endpoint to manually create a commission transaction using
+        an existing commission plan. This allows admins to credit commissions for
+        bonuses, adjustments, or special cases without requiring a shipment or referral.
+      parameters:
+      - description: Commission transaction details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_modules_commissions.CreateCommissionTransactionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Commission transaction created successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/gogin_internal_response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_modules_commissions.CreateCommissionTransactionResponse'
+              type: object
+        "400":
+          description: Invalid request or validation error
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+        "403":
+          description: Forbidden - requires admin role
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+        "404":
+          description: Commission plan or beneficiary user not found
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+      security:
+      - BearerAuth: []
+      summary: Create a commission transaction manually
+      tags:
+      - Commissions
   /forgot-password:
     post:
       consumes:
@@ -9448,6 +9073,109 @@ paths:
       summary: Get shipment estimate by ID
       tags:
       - Shipment Estimates
+  /shipment-estimates/{id}/rates:
+    post:
+      consumes:
+      - application/json
+      description: Retrieve or refresh carrier rates for an existing shipment estimate.
+      parameters:
+      - description: Estimate ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Rates retrieved successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/gogin_internal_response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_modules_shipment_estimates.RatesResponse'
+              type: object
+        "403":
+          description: Access denied - estimate belongs to different organization
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+        "404":
+          description: Estimate not found
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+        "410":
+          description: Estimate has expired
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+      security:
+      - BearerAuth: []
+      summary: Request rates for an existing estimate
+      tags:
+      - Shipment Estimates
+  /shipment-estimates/{id}/select-rate:
+    patch:
+      consumes:
+      - application/json
+      description: Select a specific carrier and service level from available rates.
+        This locks the estimate.
+      parameters:
+      - description: Estimate ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Rate selection
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_modules_shipment_estimates.SelectRateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Rate selected successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/gogin_internal_response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_modules_shipment_estimates.SelectRateResponse'
+              type: object
+        "400":
+          description: Invalid request or rate not found
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+        "403":
+          description: Access denied
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+        "404":
+          description: Estimate not found
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+        "409":
+          description: Estimate already locked
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+        "410":
+          description: Estimate has expired
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+      security:
+      - BearerAuth: []
+      summary: Select a carrier rate for an estimate
+      tags:
+      - Shipment Estimates
   /shipments:
     get:
       description: Get a paginated list of shipments for the current organization
@@ -9758,6 +9486,48 @@ paths:
       security:
       - BearerAuth: []
       summary: Update shipment status
+      tags:
+      - Shipments
+  /shipments/{id}/timeline:
+    get:
+      description: Get the timeline of events for a specific shipment
+      parameters:
+      - description: Shipment ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Timeline retrieved successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/gogin_internal_response.Response'
+            - properties:
+                data:
+                  type: object
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+        "404":
+          description: Shipment not found
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/gogin_internal_response.Response'
+      security:
+      - BearerAuth: []
+      summary: Get shipment timeline/events
       tags:
       - Shipments
   /shipments/{id}/void:
@@ -12744,672 +12514,6 @@ paths:
       summary: Unlock organization wallet
       tags:
       - Wallet
-  /carriers:
-    get:
-      tags:
-        - Carriers
-      summary: List all available carriers
-      description: |
-        Retrieve a list of all enabled carriers on the platform.
-        Returns carrier details, capabilities, and operational status.
-
-        **Internal Notes:**
-        - Queries: carriers (WHERE is_enabled=true, is_active=true)
-        - Joins: carrier_settings for operational limits
-        - No audit log (read-only)
-        - No carrier credentials exposed
-      operationId: listCarriers
-      produces:
-        - application/json
-      parameters:
-        - name: carrier_type
-          in: query
-          type: string
-          enum: [parcel, freight_ltl, freight_ftl]
-          description: Filter by carrier type
-        - name: supports_international
-          in: query
-          type: boolean
-          description: Filter carriers that support international shipping
-      responses:
-        "200":
-          description: Carriers retrieved successfully
-          schema:
-            allOf:
-              - $ref: '#/definitions/gogin_internal_response.Response'
-              - type: object
-                properties:
-                  data:
-                    $ref: '#/definitions/internal_modules_carriers.CarrierListResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-      security:
-        - BearerAuth: []
-  /carriers/{id}:
-    get:
-      tags:
-        - Carriers
-      summary: Get carrier details by ID
-      description: |
-        Retrieve detailed information about a specific carrier including
-        service levels and package types.
-
-        **Internal Notes:**
-        - Queries: carriers, carrier_settings, carrier_service_levels, carrier_package_types
-        - All joins filtered by is_enabled=true
-        - No audit log (read-only)
-        - No carrier credentials or API keys exposed
-      operationId: getCarrierById
-      produces:
-        - application/json
-      parameters:
-        - name: id
-          in: path
-          type: string
-          format: uuid
-          required: true
-          description: Carrier ID (UUID)
-      responses:
-        "200":
-          description: Carrier details retrieved successfully
-          schema:
-            allOf:
-              - $ref: '#/definitions/gogin_internal_response.Response'
-              - type: object
-                properties:
-                  data:
-                    $ref: '#/definitions/internal_modules_carriers.CarrierDetailResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-        "404":
-          description: Carrier not found
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-      security:
-        - BearerAuth: []
-  /carriers/availability/{code}:
-    get:
-      tags:
-        - Carriers
-      summary: Check carrier availability for a date
-      description: |
-        Check if a carrier is available for pickup on a specific date.
-        Returns operating hours, holiday status, and cutoff times.
-
-        **Internal Notes:**
-        - Queries: carriers, carrier_operating_schedule, carrier_holidays
-        - Uses get_carrier_availability() database function
-        - No audit log (read-only)
-        - Date must be today or future
-      operationId: getCarrierAvailability
-      produces:
-        - application/json
-      parameters:
-        - name: code
-          in: path
-          type: string
-          required: true
-          description: Carrier code (fedex, ups, dhl_express, canada_post, purolator)
-          example: fedex
-        - name: date
-          in: query
-          type: string
-          format: date
-          required: true
-          description: Date to check availability (YYYY-MM-DD)
-          example: "2026-01-22"
-        - name: country_code
-          in: query
-          type: string
-          description: Country code for regional holidays (ISO-3166-1 alpha-2)
-          example: CA
-        - name: region_code
-          in: query
-          type: string
-          description: Region code for regional holidays
-          example: ON
-      responses:
-        "200":
-          description: Availability information retrieved
-          schema:
-            allOf:
-              - $ref: '#/definitions/gogin_internal_response.Response'
-              - type: object
-                properties:
-                  data:
-                    $ref: '#/definitions/internal_modules_carriers.CarrierAvailabilityResponse'
-        "400":
-          description: Invalid date format or date in past
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-        "404":
-          description: Carrier not found
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-      security:
-        - BearerAuth: []
-  /geo/countries:
-    get:
-      tags:
-        - Geography
-      summary: List all supported countries
-      description: |
-        Retrieve a list of all countries supported for shipping.
-        Returns ISO country codes, names, and currency codes.
-
-        **Internal Notes:**
-        - Queries: countries (WHERE is_active=true)
-        - Public endpoint - no organization scope
-        - No audit log (read-only)
-      operationId: listCountries
-      produces:
-        - application/json
-      parameters:
-        - name: is_active
-          in: query
-          type: boolean
-          default: true
-          description: Filter by active status
-      responses:
-        "200":
-          description: Countries retrieved successfully
-          schema:
-            allOf:
-              - $ref: '#/definitions/gogin_internal_response.Response'
-              - type: object
-                properties:
-                  data:
-                    $ref: '#/definitions/internal_modules_geo.CountryListResponse'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-      security:
-        - BearerAuth: []
-  /geo/countries/{code}/regions:
-    get:
-      tags:
-        - Geography
-      summary: List regions for a country
-      description: |
-        Retrieve all states/provinces/territories for a country.
-
-        **Internal Notes:**
-        - Queries: countries, regions (WHERE is_active=true)
-        - Validates country exists
-        - No audit log (read-only)
-      operationId: listRegionsByCountry
-      produces:
-        - application/json
-      parameters:
-        - name: code
-          in: path
-          type: string
-          required: true
-          description: Country code (ISO-3166-1 alpha-2)
-          example: CA
-        - name: type
-          in: query
-          type: string
-          enum: [state, province, territory, region]
-          description: Filter by region type
-      responses:
-        "200":
-          description: Regions retrieved successfully
-          schema:
-            allOf:
-              - $ref: '#/definitions/gogin_internal_response.Response'
-              - type: object
-                properties:
-                  data:
-                    $ref: '#/definitions/internal_modules_geo.RegionListResponse'
-        "404":
-          description: Country not found
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-      security:
-        - BearerAuth: []
-  /shipment-estimates/{id}/rates:
-    post:
-      tags:
-        - Shipment Estimates
-      summary: Request carrier rates for an estimate
-      description: |
-        Trigger rate requests to carriers for a shipment estimate.
-        This endpoint calls carrier APIs to get live rates.
-
-        **Internal Notes:**
-        - Queries: shipment_estimates, shipment_packages, carriers
-        - Validates: estimate exists, belongs to org, not expired
-        - Invokes: Carrier rate adapters (FedEx, UPS, etc.)
-        - Credentials: Resolved from environment variables
-        - Audit: Creates audit_logs entry (action: estimate.rates_requested)
-        - Caching: Rates are cached temporarily (Redis/memory) with TTL matching expires_at
-        - Note: Rates are NOT persisted to shipment_estimates table
-      operationId: requestEstimateRates
-      consumes:
-        - application/json
-      produces:
-        - application/json
-      parameters:
-        - name: id
-          in: path
-          type: string
-          format: uuid
-          required: true
-          description: Estimate ID (UUID)
-        - name: body
-          in: body
-          required: false
-          schema:
-            $ref: '#/definitions/internal_modules_shipment_estimates.RequestRatesRequest'
-      responses:
-        "200":
-          description: Rates retrieved successfully
-          schema:
-            allOf:
-              - $ref: '#/definitions/gogin_internal_response.Response'
-              - type: object
-                properties:
-                  data:
-                    $ref: '#/definitions/internal_modules_shipment_estimates.RequestRatesResponse'
-        "400":
-          description: Invalid request
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-        "403":
-          description: Access denied - estimate belongs to different organization
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-        "404":
-          description: Estimate not found
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-        "410":
-          description: Estimate has expired
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-        "502":
-          description: Carrier API error - partial or no rates available
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-      security:
-        - BearerAuth: []
-  /shipment-estimates/{id}/select-rate:
-    patch:
-      tags:
-        - Shipment Estimates
-      summary: Select a rate from available options
-      description: |
-        Select a carrier and service level from the available rates.
-        This locks the estimate and prepares it for shipment creation.
-
-        **Internal Notes:**
-        - Queries: shipment_estimates, carriers, carrier_service_levels
-        - Validates: rate exists in carrier_rates_json, not expired
-        - Updates: selected_carrier_id, selected_service_code, selected_amount, status='locked'
-        - Audit: Creates audit_logs entry (action: estimate.rate_selected)
-      operationId: selectEstimateRate
-      consumes:
-        - application/json
-      produces:
-        - application/json
-      parameters:
-        - name: id
-          in: path
-          type: string
-          format: uuid
-          required: true
-          description: Estimate ID (UUID)
-        - name: body
-          in: body
-          required: true
-          schema:
-            $ref: '#/definitions/internal_modules_shipment_estimates.SelectRateRequest'
-      responses:
-        "200":
-          description: Rate selected successfully
-          schema:
-            allOf:
-              - $ref: '#/definitions/gogin_internal_response.Response'
-              - type: object
-                properties:
-                  data:
-                    $ref: '#/definitions/internal_modules_shipment_estimates.SelectRateResponse'
-        "400":
-          description: Invalid request or rate not available
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-        "403":
-          description: Access denied - estimate belongs to different organization
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-        "404":
-          description: Estimate not found
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-        "409":
-          description: Estimate already locked or converted to shipment
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-        "410":
-          description: Estimate or selected rate has expired
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-      security:
-        - BearerAuth: []
-  /shipments/{id}/timeline:
-    get:
-      tags:
-        - Shipments
-      summary: Get shipment event timeline
-      description: |
-        Retrieve chronological event timeline for a shipment.
-        Includes shipment-level, package-level, and pickup events.
-
-        **Internal Notes:**
-        - Queries: shipments, shipment_events, users
-        - Validates: shipment exists, belongs to organization
-        - Orders: by occurred_at DESC
-        - No audit log (read-only)
-      operationId: getShipmentTimeline
-      produces:
-        - application/json
-      parameters:
-        - name: id
-          in: path
-          type: string
-          format: uuid
-          required: true
-          description: Shipment ID (UUID)
-        - name: entity_type
-          in: query
-          type: string
-          enum: [shipment, package, pickup]
-          description: Filter by event entity type
-        - name: limit
-          in: query
-          type: integer
-          default: 50
-          maximum: 100
-          description: Maximum number of events to return
-        - name: offset
-          in: query
-          type: integer
-          default: 0
-          description: Pagination offset
-      responses:
-        "200":
-          description: Timeline retrieved successfully
-          schema:
-            allOf:
-              - $ref: '#/definitions/gogin_internal_response.Response'
-              - type: object
-                properties:
-                  data:
-                    $ref: '#/definitions/internal_modules_shipments.TimelineResponse'
-        "400":
-          description: Invalid entity_type filter
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-        "403":
-          description: Shipment belongs to different organization
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-        "404":
-          description: Shipment not found
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-      security:
-        - BearerAuth: []
-  /pickups/{id}:
-    get:
-      tags:
-        - Pickups
-      summary: Get pickup details by ID
-      description: |
-        Retrieve detailed information about a scheduled pickup.
-        Includes address snapshot, schedule, and carrier details.
-
-        **Internal Notes:**
-        - Queries: pickups, carriers, shipments, users
-        - Validates: pickup exists, not deleted, belongs to organization
-        - No audit log (read-only)
-      operationId: getPickupById
-      produces:
-        - application/json
-      parameters:
-        - name: id
-          in: path
-          type: string
-          format: uuid
-          required: true
-          description: Pickup ID (UUID)
-      responses:
-        "200":
-          description: Pickup details retrieved successfully
-          schema:
-            allOf:
-              - $ref: '#/definitions/gogin_internal_response.Response'
-              - type: object
-                properties:
-                  data:
-                    $ref: '#/definitions/internal_modules_pickups.PickupDetailResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-        "403":
-          description: Pickup belongs to different organization
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-        "404":
-          description: Pickup not found or deleted
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-      security:
-        - BearerAuth: []
-  /wallet/transactions:
-    get:
-      tags:
-        - Wallet
-      summary: List wallet transactions
-      description: |
-        Retrieve paginated list of wallet transactions for the organization.
-        Supports filtering by type, direction, and date range.
-
-        **Internal Notes:**
-        - Queries: wallets, wallet_transactions, users
-        - Validates: wallet exists for organization
-        - Orders: by created_at DESC
-        - All amounts in CAD
-        - No audit log (read-only)
-      operationId: listWalletTransactions
-      produces:
-        - application/json
-      parameters:
-        - name: tx_type
-          in: query
-          type: string
-          enum: [topup, topup_refund, shipment_payment, shipment_refund, hold_capture, hold_release, adjustment_charge, adjustment_refund, commission_credit, promotional_credit, manual_credit, manual_debit, chargeback, chargeback_reversal]
-          description: Filter by transaction type
-        - name: direction
-          in: query
-          type: string
-          enum: [credit, debit]
-          description: Filter by transaction direction
-        - name: start_date
-          in: query
-          type: string
-          format: date
-          description: Filter from date (YYYY-MM-DD)
-        - name: end_date
-          in: query
-          type: string
-          format: date
-          description: Filter to date (YYYY-MM-DD)
-        - name: limit
-          in: query
-          type: integer
-          default: 25
-          maximum: 100
-          description: Maximum transactions per page
-        - name: offset
-          in: query
-          type: integer
-          default: 0
-          description: Pagination offset
-      responses:
-        "200":
-          description: Transactions retrieved successfully
-          schema:
-            allOf:
-              - $ref: '#/definitions/gogin_internal_response.Response'
-              - type: object
-                properties:
-                  data:
-                    $ref: '#/definitions/internal_modules_wallet.TransactionListResponse'
-        "400":
-          description: Invalid filter parameters or date range
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-        "403":
-          description: User not in organization
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-        "404":
-          description: Wallet not found for organization
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-      security:
-        - BearerAuth: []
-  /wallet/holds:
-    get:
-      tags:
-        - Wallet
-      summary: List wallet holds
-      description: |
-        Retrieve paginated list of wallet holds for the organization.
-        Includes pending, captured, released, and expired holds.
-
-        **Internal Notes:**
-        - Queries: wallets, wallet_holds, users
-        - Validates: wallet exists for organization
-        - Orders: by created_at DESC
-        - All amounts in CAD
-        - No audit log (read-only)
-      operationId: listWalletHolds
-      produces:
-        - application/json
-      parameters:
-        - name: status
-          in: query
-          type: string
-          enum: [pending, captured, released, expired]
-          description: Filter by hold status
-        - name: limit
-          in: query
-          type: integer
-          default: 25
-          maximum: 100
-          description: Maximum holds per page
-        - name: offset
-          in: query
-          type: integer
-          default: 0
-          description: Pagination offset
-      responses:
-        "200":
-          description: Holds retrieved successfully
-          schema:
-            allOf:
-              - $ref: '#/definitions/gogin_internal_response.Response'
-              - type: object
-                properties:
-                  data:
-                    $ref: '#/definitions/internal_modules_wallet.HoldListResponse'
-        "400":
-          description: Invalid status filter
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-        "403":
-          description: User not in organization
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-        "404":
-          description: Wallet not found for organization
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/gogin_internal_response.Response'
-      security:
-        - BearerAuth: []
 schemes:
 - http
 - https
@@ -13469,16 +12573,3 @@ tags:
 - description: Referral redemption records - immutable ledger tracking referred users
     and commission eligibility (READ-ONLY FINANCIAL RECORDS)
   name: Referrals
-- description: |
-    Carrier management endpoints.
-    List carriers, get details, check availability.
-    **Note:** Carrier API credentials are resolved from environment variables, never exposed via API.
-  name: Carriers
-- description: |
-    Geographic reference data.
-    Countries and regions for address validation.
-  name: Geography
-- description: |
-    Shipment management and tracking.
-    Create shipments, track packages, view timeline events.
-  name: Shipments

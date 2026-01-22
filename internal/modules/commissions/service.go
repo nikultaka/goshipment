@@ -13,8 +13,9 @@ import (
 
 const (
 	// Number prefixes
-	PayoutRequestNumberPrefix = "PRQ-"
-	PayoutNumberPrefix        = "PAY-"
+	PayoutRequestNumberPrefix   = "PRQ-"
+	PayoutNumberPrefix          = "PAY-"
+	CommissionPlanNumberPrefix  = "COM-"
 )
 
 // CommissionService handles commission business logic
@@ -712,9 +713,579 @@ func (s *CommissionService) generateCommissionTransactionNumber() (string, error
 	return "CTX-" + hex.EncodeToString(bytes), nil
 }
 
+// generateCommissionPlanNumber generates a unique commission plan number
+func (s *CommissionService) generateCommissionPlanNumber() (string, error) {
+	bytes := make([]byte, 4)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return CommissionPlanNumberPrefix + hex.EncodeToString(bytes), nil
+}
+
 // generateUUID generates a new UUID string
 func (s *CommissionService) generateUUID() string {
 	bytes := make([]byte, 16)
 	rand.Read(bytes)
 	return fmt.Sprintf("%x-%x-%x-%x-%x", bytes[0:4], bytes[4:6], bytes[6:8], bytes[8:10], bytes[10:16])
+}
+
+// =====================================================
+// COMMISSION PLANS SERVICE METHODS
+// =====================================================
+
+// ListPlans retrieves commission plans for an organization
+func (s *CommissionService) ListPlans(req ListPlansRequest, organizationID string) (*ListPlansResponse, error) {
+	// Default pagination
+	page := req.Page
+	if page < 1 {
+		page = 1
+	}
+	pageSize := req.PageSize
+	if pageSize < 1 {
+		pageSize = 20
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+
+	offset := (page - 1) * pageSize
+
+	// Build query
+	query := `
+		SELECT id, commission_number, organization_id, created_by_user_id, name, description,
+			commission_base, commission_value_type, value, apply_when,
+			include_refunded_shipments, status, metadata, created_at, updated_at
+		FROM commission_plans
+		WHERE organization_id = $1
+	`
+	args := []interface{}{organizationID}
+	argIndex := 2
+
+	// Add status filter
+	if req.Status != "" {
+		query += fmt.Sprintf(" AND status = $%d", argIndex)
+		args = append(args, req.Status)
+		argIndex++
+	}
+
+	// Count total
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM (%s) AS count_query", query)
+	var totalCount int
+	err := s.db.DB.QueryRow(countQuery, args...).Scan(&totalCount)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count plans: %w", err)
+	}
+
+	// Add ordering and pagination
+	query += " ORDER BY created_at DESC"
+	query += fmt.Sprintf(" LIMIT $%d OFFSET $%d", argIndex, argIndex+1)
+	args = append(args, pageSize, offset)
+
+	// Execute query
+	rows, err := s.db.DB.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch plans: %w", err)
+	}
+	defer rows.Close()
+
+	plans := []*CommissionPlanResponse{}
+	for rows.Next() {
+		var plan models.CommissionPlan
+		err := rows.Scan(
+			&plan.ID, &plan.CommissionNumber, &plan.OrganizationID, &plan.CreatedByUserID,
+			&plan.Name, &plan.Description, &plan.CommissionBase, &plan.CommissionValueType,
+			&plan.Value, &plan.ApplyWhen, &plan.IncludeRefundedShipments, &plan.Status,
+			&plan.Metadata, &plan.CreatedAt, &plan.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan plan: %w", err)
+		}
+		plans = append(plans, ToCommissionPlanResponse(&plan))
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating plans: %w", err)
+	}
+
+	totalPages := (totalCount + pageSize - 1) / pageSize
+
+	return &ListPlansResponse{
+		Plans:      plans,
+		TotalCount: totalCount,
+		Page:       page,
+		PageSize:   pageSize,
+		TotalPages: totalPages,
+	}, nil
+}
+
+// CreatePlan creates a new commission plan
+func (s *CommissionService) CreatePlan(req CreatePlanRequest, organizationID, userID string) (*CommissionPlanResponse, error) {
+	// Validate: per_shipment must use fixed_amount
+	if req.CommissionBase == "per_shipment" && req.CommissionValueType != "fixed_amount" {
+		return nil, fmt.Errorf("per_shipment commission base must use fixed_amount value type")
+	}
+
+	// Validate: percent must be between 0 and 100
+	if req.CommissionValueType == "percent" && (req.Value <= 0 || req.Value > 100) {
+		return nil, fmt.Errorf("percent value must be between 0 and 100")
+	}
+
+	// Generate commission number
+	commissionNumber, err := s.generateCommissionPlanNumber()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate commission number: %w", err)
+	}
+
+	// Set defaults
+	applyWhen := req.ApplyWhen
+	if applyWhen == "" {
+		applyWhen = "shipment_completed"
+	}
+
+	status := req.Status
+	if status == "" {
+		status = "active"
+	}
+
+	now := time.Now()
+
+	// Create plan
+	var planID string
+	err = s.db.DB.QueryRow(`
+		INSERT INTO commission_plans (
+			commission_number, organization_id, created_by_user_id, name, description,
+			commission_base, commission_value_type, value, apply_when,
+			include_refunded_shipments, status, created_at, updated_at
+		) VALUES (
+			$1, $2, $3, $4, $5,
+			$6, $7, $8, $9,
+			$10, $11, $12, $13
+		)
+		RETURNING id
+	`, commissionNumber, organizationID, userID, req.Name, req.Description,
+		req.CommissionBase, req.CommissionValueType, req.Value, applyWhen,
+		req.IncludeRefundedShipments, status, now, now).Scan(&planID)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create plan: %w", err)
+	}
+
+	// Fetch the created plan
+	return s.GetPlan(planID, organizationID)
+}
+
+// GetPlan retrieves a commission plan by ID
+func (s *CommissionService) GetPlan(planID, organizationID string) (*CommissionPlanResponse, error) {
+	var plan models.CommissionPlan
+	err := s.db.DB.QueryRow(`
+		SELECT id, commission_number, organization_id, created_by_user_id, name, description,
+			commission_base, commission_value_type, value, apply_when,
+			include_refunded_shipments, status, metadata, created_at, updated_at
+		FROM commission_plans
+		WHERE id = $1 AND organization_id = $2
+	`, planID, organizationID).Scan(
+		&plan.ID, &plan.CommissionNumber, &plan.OrganizationID, &plan.CreatedByUserID,
+		&plan.Name, &plan.Description, &plan.CommissionBase, &plan.CommissionValueType,
+		&plan.Value, &plan.ApplyWhen, &plan.IncludeRefundedShipments, &plan.Status,
+		&plan.Metadata, &plan.CreatedAt, &plan.UpdatedAt,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("commission plan not found")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get plan: %w", err)
+	}
+
+	return ToCommissionPlanResponse(&plan), nil
+}
+
+// UpdatePlan updates an existing commission plan
+func (s *CommissionService) UpdatePlan(planID string, req UpdatePlanRequest, organizationID string) (*CommissionPlanResponse, error) {
+	// First, verify the plan exists
+	existing, err := s.GetPlan(planID, organizationID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Build update query dynamically
+	updates := []string{}
+	args := []interface{}{}
+	argIndex := 1
+
+	if req.Name != nil {
+		updates = append(updates, fmt.Sprintf("name = $%d", argIndex))
+		args = append(args, *req.Name)
+		argIndex++
+	}
+
+	if req.Description != nil {
+		updates = append(updates, fmt.Sprintf("description = $%d", argIndex))
+		args = append(args, *req.Description)
+		argIndex++
+	}
+
+	if req.CommissionBase != nil {
+		updates = append(updates, fmt.Sprintf("commission_base = $%d", argIndex))
+		args = append(args, *req.CommissionBase)
+		argIndex++
+	}
+
+	if req.CommissionValueType != nil {
+		updates = append(updates, fmt.Sprintf("commission_value_type = $%d", argIndex))
+		args = append(args, *req.CommissionValueType)
+		argIndex++
+	}
+
+	if req.Value != nil {
+		updates = append(updates, fmt.Sprintf("value = $%d", argIndex))
+		args = append(args, *req.Value)
+		argIndex++
+	}
+
+	if req.ApplyWhen != nil {
+		updates = append(updates, fmt.Sprintf("apply_when = $%d", argIndex))
+		args = append(args, *req.ApplyWhen)
+		argIndex++
+	}
+
+	if req.IncludeRefundedShipments != nil {
+		updates = append(updates, fmt.Sprintf("include_refunded_shipments = $%d", argIndex))
+		args = append(args, *req.IncludeRefundedShipments)
+		argIndex++
+	}
+
+	if req.Status != nil {
+		updates = append(updates, fmt.Sprintf("status = $%d", argIndex))
+		args = append(args, *req.Status)
+		argIndex++
+	}
+
+	if len(updates) == 0 {
+		// No updates to apply
+		return existing, nil
+	}
+
+	// Add updated_at
+	updates = append(updates, fmt.Sprintf("updated_at = $%d", argIndex))
+	args = append(args, time.Now())
+	argIndex++
+
+	// Add WHERE clause parameters
+	args = append(args, planID, organizationID)
+
+	query := fmt.Sprintf(`
+		UPDATE commission_plans
+		SET %s
+		WHERE id = $%d AND organization_id = $%d
+	`, joinUpdates(updates), argIndex, argIndex+1)
+
+	// Validate business rules after determining final values
+	finalBase := existing.CommissionBase
+	if req.CommissionBase != nil {
+		finalBase = *req.CommissionBase
+	}
+	finalValueType := existing.CommissionValueType
+	if req.CommissionValueType != nil {
+		finalValueType = *req.CommissionValueType
+	}
+	finalValue := existing.Value
+	if req.Value != nil {
+		finalValue = *req.Value
+	}
+
+	// Validate: per_shipment must use fixed_amount
+	if finalBase == "per_shipment" && finalValueType != "fixed_amount" {
+		return nil, fmt.Errorf("per_shipment commission base must use fixed_amount value type")
+	}
+
+	// Validate: percent must be between 0 and 100
+	if finalValueType == "percent" && (finalValue <= 0 || finalValue > 100) {
+		return nil, fmt.Errorf("percent value must be between 0 and 100")
+	}
+
+	result, err := s.db.DB.Exec(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update plan: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return nil, fmt.Errorf("failed to check update result: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return nil, fmt.Errorf("commission plan not found")
+	}
+
+	// Fetch updated plan
+	return s.GetPlan(planID, organizationID)
+}
+
+// DeletePlan deletes a commission plan (soft delete not used, actual delete)
+func (s *CommissionService) DeletePlan(planID, organizationID string) error {
+	// Check if plan is being used by any active referral redemptions
+	var usageCount int
+	err := s.db.DB.QueryRow(`
+		SELECT COUNT(*) FROM referral_redemptions
+		WHERE commission_plan_id = $1 AND status = 'active'
+	`, planID).Scan(&usageCount)
+
+	if err != nil {
+		return fmt.Errorf("failed to check plan usage: %w", err)
+	}
+
+	if usageCount > 0 {
+		return fmt.Errorf("cannot delete plan: it is being used by %d active referral(s)", usageCount)
+	}
+
+	// Check if plan has any commission transactions
+	err = s.db.DB.QueryRow(`
+		SELECT COUNT(*) FROM commission_transactions
+		WHERE commission_plan_id = $1
+	`, planID).Scan(&usageCount)
+
+	if err != nil {
+		return fmt.Errorf("failed to check plan transactions: %w", err)
+	}
+
+	if usageCount > 0 {
+		return fmt.Errorf("cannot delete plan: it has %d commission transaction(s)", usageCount)
+	}
+
+	// Delete the plan
+	result, err := s.db.DB.Exec(`
+		DELETE FROM commission_plans
+		WHERE id = $1 AND organization_id = $2
+	`, planID, organizationID)
+
+	if err != nil {
+		return fmt.Errorf("failed to delete plan: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to check delete result: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("commission plan not found")
+	}
+
+	return nil
+}
+
+// joinUpdates joins update clauses with commas
+func joinUpdates(updates []string) string {
+	result := ""
+	for i, u := range updates {
+		if i > 0 {
+			result += ", "
+		}
+		result += u
+	}
+	return result
+}
+
+// =====================================================
+// MANUAL COMMISSION TRANSACTION SERVICE METHODS
+// =====================================================
+
+// CreateCommissionTransaction manually creates a commission transaction (Admin only)
+func (s *CommissionService) CreateCommissionTransaction(req CreateCommissionTransactionRequest, organizationID, createdByUserID string) (*CreateCommissionTransactionResponse, error) {
+	// Verify the commission plan exists and belongs to the organization
+	var plan models.CommissionPlan
+	err := s.db.DB.QueryRow(`
+		SELECT id, commission_number, organization_id, commission_base, commission_value_type, value, status
+		FROM commission_plans
+		WHERE id = $1 AND organization_id = $2
+	`, req.CommissionPlanID, organizationID).Scan(
+		&plan.ID, &plan.CommissionNumber, &plan.OrganizationID,
+		&plan.CommissionBase, &plan.CommissionValueType, &plan.Value, &plan.Status,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("commission plan not found")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get commission plan: %w", err)
+	}
+
+	// Verify plan is active
+	if plan.Status != models.CommissionPlanStatusActive {
+		return nil, fmt.Errorf("commission plan is not active (status: %s)", plan.Status)
+	}
+
+	// Verify beneficiary user exists and is in the organization
+	var beneficiaryExists bool
+	err = s.db.DB.QueryRow(`
+		SELECT EXISTS(
+			SELECT 1 FROM organization_members
+			WHERE user_id = $1 AND organization_id = $2 AND is_active = true
+		)
+	`, req.BeneficiaryUserID, organizationID).Scan(&beneficiaryExists)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to verify beneficiary user: %w", err)
+	}
+	if !beneficiaryExists {
+		return nil, fmt.Errorf("beneficiary user not found in organization")
+	}
+
+	// Verify source user if provided
+	if req.SourceUserID != "" {
+		var sourceExists bool
+		err = s.db.DB.QueryRow(`
+			SELECT EXISTS(SELECT 1 FROM users WHERE id = $1)
+		`, req.SourceUserID).Scan(&sourceExists)
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to verify source user: %w", err)
+		}
+		if !sourceExists {
+			return nil, fmt.Errorf("source user not found")
+		}
+	}
+
+	// Calculate commission based on plan
+	profitAmount := req.RevenueAmount - req.CostAmount
+	var commissionAmount float64
+
+	switch plan.CommissionBase {
+	case models.CommissionBaseProfit:
+		if plan.CommissionValueType == models.CommissionValueTypePercent {
+			commissionAmount = profitAmount * (plan.Value / 100.0)
+		} else {
+			commissionAmount = plan.Value
+		}
+	case models.CommissionBaseRevenue:
+		if plan.CommissionValueType == models.CommissionValueTypePercent {
+			commissionAmount = req.RevenueAmount * (plan.Value / 100.0)
+		} else {
+			commissionAmount = plan.Value
+		}
+	case models.CommissionBasePerShipment:
+		commissionAmount = plan.Value
+	default:
+		commissionAmount = profitAmount * (plan.Value / 100.0)
+	}
+
+	// Ensure commission is non-negative
+	if commissionAmount < 0 {
+		commissionAmount = 0
+	}
+
+	// Generate transaction number
+	txNumber, err := s.generateCommissionTransactionNumber()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate transaction number: %w", err)
+	}
+
+	// Set defaults
+	currency := req.Currency
+	if currency == "" {
+		currency = "CAD"
+	}
+
+	status := req.Status
+	if status == "" {
+		status = "eligible"
+	}
+
+	now := time.Now()
+
+	// Handle nullable fields
+	var sourceUserID interface{}
+	if req.SourceUserID != "" {
+		sourceUserID = req.SourceUserID
+	} else {
+		sourceUserID = nil
+	}
+
+	var shipmentID interface{}
+	if req.ShipmentID != "" {
+		shipmentID = req.ShipmentID
+	} else {
+		shipmentID = nil
+	}
+
+	var eligibleAt interface{}
+	if status == "eligible" {
+		eligibleAt = now
+	} else {
+		eligibleAt = nil
+	}
+
+	// Create the commission transaction
+	var transactionID string
+	err = s.db.DB.QueryRow(`
+		INSERT INTO commission_transactions (
+			commission_transaction_number,
+			organization_id,
+			beneficiary_user_id,
+			source_user_id,
+			shipment_id,
+			commission_plan_id,
+			commission_number,
+			commission_base,
+			commission_value_type,
+			commission_value,
+			currency,
+			revenue_amount,
+			cost_amount,
+			profit_amount,
+			commission_amount,
+			status,
+			earned_at,
+			eligible_at,
+			created_at,
+			updated_at
+		) VALUES (
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+			$11, $12, $13, $14, $15, $16, $17, $18, $19, $20
+		)
+		RETURNING id
+	`, txNumber, organizationID, req.BeneficiaryUserID, sourceUserID, shipmentID,
+		plan.ID, plan.CommissionNumber, plan.CommissionBase, plan.CommissionValueType, plan.Value,
+		currency, req.RevenueAmount, req.CostAmount, profitAmount, commissionAmount,
+		status, now, eligibleAt, now, now).Scan(&transactionID)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create commission transaction: %w", err)
+	}
+
+	// Build response
+	response := &CreateCommissionTransactionResponse{
+		ID:                          transactionID,
+		CommissionTransactionNumber: txNumber,
+		BeneficiaryUserID:           req.BeneficiaryUserID,
+		CommissionPlanID:            plan.ID,
+		CommissionNumber:            plan.CommissionNumber,
+		CommissionBase:              string(plan.CommissionBase),
+		CommissionValueType:         string(plan.CommissionValueType),
+		CommissionValue:             plan.Value,
+		Currency:                    currency,
+		RevenueAmount:               req.RevenueAmount,
+		CostAmount:                  req.CostAmount,
+		ProfitAmount:                profitAmount,
+		CommissionAmount:            commissionAmount,
+		Status:                      status,
+		EarnedAt:                    now,
+		CreatedAt:                   now,
+		Message:                     "Commission transaction created successfully",
+	}
+
+	if req.SourceUserID != "" {
+		response.SourceUserID = req.SourceUserID
+	}
+
+	if req.ShipmentID != "" {
+		response.ShipmentID = req.ShipmentID
+	}
+
+	if status == "eligible" {
+		response.EligibleAt = now
+	}
+
+	return response, nil
 }

@@ -9,8 +9,8 @@ import (
 type CommissionBase string
 
 const (
-	CommissionBaseProfit      CommissionBase = "profit"        // (revenue - cost) * %
-	CommissionBaseRevenue     CommissionBase = "revenue"       // revenue * %
+	CommissionBaseProfit      CommissionBase = "profit"       // (revenue - cost) * %
+	CommissionBaseRevenue     CommissionBase = "revenue"      // revenue * %
 	CommissionBasePerShipment CommissionBase = "per_shipment" // fixed amount per completed shipment
 )
 
@@ -18,9 +18,54 @@ const (
 type CommissionValueType string
 
 const (
-	CommissionValueTypePercent    CommissionValueType = "percent"
+	CommissionValueTypePercent     CommissionValueType = "percent"
 	CommissionValueTypeFixedAmount CommissionValueType = "fixed_amount"
 )
+
+// CommissionPlanStatus represents the status of a commission plan
+type CommissionPlanStatus string
+
+const (
+	CommissionPlanStatusActive CommissionPlanStatus = "active"
+	CommissionPlanStatusPaused CommissionPlanStatus = "paused"
+)
+
+// CommissionApplyWhen represents when commission is applied
+type CommissionApplyWhen string
+
+const (
+	CommissionApplyWhenShipmentCompleted        CommissionApplyWhen = "shipment_completed"
+	CommissionApplyWhenIncludeRefundedShipments CommissionApplyWhen = "include_refunded_shipments"
+)
+
+// CommissionPlan represents a commission plan configuration
+type CommissionPlan struct {
+	ID                       string               `json:"id" db:"id"`
+	CommissionNumber         string               `json:"commission_number" db:"commission_number"`
+	OrganizationID           string               `json:"organization_id" db:"organization_id"`
+	CreatedByUserID          sql.NullString       `json:"created_by_user_id,omitempty" db:"created_by_user_id"`
+	Name                     string               `json:"name" db:"name"`
+	Description              sql.NullString       `json:"description,omitempty" db:"description"`
+	CommissionBase           CommissionBase       `json:"commission_base" db:"commission_base"`
+	CommissionValueType      CommissionValueType  `json:"commission_value_type" db:"commission_value_type"`
+	Value                    float64              `json:"value" db:"value"`
+	ApplyWhen                CommissionApplyWhen  `json:"apply_when" db:"apply_when"`
+	IncludeRefundedShipments bool                 `json:"include_refunded_shipments" db:"include_refunded_shipments"`
+	Status                   CommissionPlanStatus `json:"status" db:"status"`
+	Metadata                 sql.NullString       `json:"metadata,omitempty" db:"metadata"`
+	CreatedAt                time.Time            `json:"created_at" db:"created_at"`
+	UpdatedAt                time.Time            `json:"updated_at" db:"updated_at"`
+}
+
+// IsActive returns true if the commission plan is active
+func (c *CommissionPlan) IsActive() bool {
+	return c.Status == CommissionPlanStatusActive
+}
+
+// IsPaused returns true if the commission plan is paused
+func (c *CommissionPlan) IsPaused() bool {
+	return c.Status == CommissionPlanStatusPaused
+}
 
 // CommissionTxStatus represents the status of a commission transaction
 type CommissionTxStatus string
@@ -71,7 +116,7 @@ type CommissionTransaction struct {
 	OrganizationID               string              `json:"organization_id" db:"organization_id"`
 	BeneficiaryUserID            string              `json:"beneficiary_user_id" db:"beneficiary_user_id"`
 	SourceUserID                 sql.NullString      `json:"source_user_id,omitempty" db:"source_user_id"`
-	ShipmentID                   string              `json:"shipment_id" db:"shipment_id"`
+	ShipmentID                   sql.NullString      `json:"shipment_id,omitempty" db:"shipment_id"`
 	InvoiceID                    sql.NullString      `json:"invoice_id,omitempty" db:"invoice_id"`
 	CommissionPlanID             string              `json:"commission_plan_id" db:"commission_plan_id"`
 	CommissionNumber             string              `json:"commission_number" db:"commission_number"`
