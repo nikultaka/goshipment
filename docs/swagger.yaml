@@ -1,5 +1,183 @@
 basePath: /api/v1
 definitions:
+  addresses.AddressListResponse:
+    properties:
+      addresses:
+        items:
+          $ref: '#/definitions/addresses.AddressResponse'
+        type: array
+      limit:
+        type: integer
+      page:
+        type: integer
+      total:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
+  addresses.AddressResponse:
+    properties:
+      address_line_1:
+        type: string
+      address_line_2:
+        type: string
+      address_number:
+        type: string
+      address_type:
+        type: string
+      city:
+        type: string
+      company:
+        type: string
+      contact_name:
+        type: string
+      country_code:
+        type: string
+      created_at:
+        type: string
+      email:
+        type: string
+      formatted_address:
+        type: string
+      id:
+        type: string
+      is_default_recipient:
+        type: boolean
+      is_default_sender:
+        type: boolean
+      is_residential:
+        type: boolean
+      is_verified:
+        type: boolean
+      nickname:
+        type: string
+      phone:
+        type: string
+      postal_code:
+        type: string
+      province_code:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  addresses.CreateAddressRequest:
+    properties:
+      address_line_1:
+        maxLength: 255
+        minLength: 1
+        type: string
+      address_line_2:
+        maxLength: 255
+        type: string
+      address_type:
+        enum:
+        - sender
+        - recipient
+        - both
+        type: string
+      city:
+        maxLength: 100
+        minLength: 1
+        type: string
+      company:
+        maxLength: 255
+        type: string
+      contact_name:
+        maxLength: 255
+        minLength: 1
+        type: string
+      country_code:
+        type: string
+      email:
+        maxLength: 255
+        type: string
+      is_default_recipient:
+        type: boolean
+      is_default_sender:
+        type: boolean
+      is_residential:
+        type: boolean
+      nickname:
+        maxLength: 100
+        minLength: 1
+        type: string
+      phone:
+        maxLength: 20
+        type: string
+      postal_code:
+        maxLength: 20
+        minLength: 1
+        type: string
+      province_code:
+        maxLength: 10
+        type: string
+    required:
+    - address_line_1
+    - address_type
+    - city
+    - contact_name
+    - country_code
+    - nickname
+    - postal_code
+    type: object
+  addresses.SetDefaultRequest:
+    properties:
+      default_type:
+        enum:
+        - sender
+        - recipient
+        type: string
+    required:
+    - default_type
+    type: object
+  addresses.UpdateAddressRequest:
+    properties:
+      address_line_1:
+        maxLength: 255
+        minLength: 1
+        type: string
+      address_line_2:
+        maxLength: 255
+        type: string
+      address_type:
+        enum:
+        - sender
+        - recipient
+        - both
+        type: string
+      city:
+        maxLength: 100
+        minLength: 1
+        type: string
+      company:
+        maxLength: 255
+        type: string
+      contact_name:
+        maxLength: 255
+        minLength: 1
+        type: string
+      country_code:
+        type: string
+      email:
+        maxLength: 255
+        type: string
+      is_residential:
+        type: boolean
+      nickname:
+        maxLength: 100
+        minLength: 1
+        type: string
+      phone:
+        maxLength: 20
+        type: string
+      postal_code:
+        maxLength: 20
+        minLength: 1
+        type: string
+      province_code:
+        maxLength: 10
+        type: string
+    type: object
   apiclient.ClientResponse:
     properties:
       access_token_lifetime:
@@ -162,6 +340,24 @@ definitions:
       total_pages:
         type: integer
     type: object
+  commissions.CommissionAllTimeSummary:
+    properties:
+      earned:
+        example: 3150
+        type: number
+      paid:
+        example: 2500
+        type: number
+    type: object
+  commissions.CommissionMonthSummary:
+    properties:
+      earned:
+        example: 500
+        type: number
+      pending:
+        example: 150
+        type: number
+    type: object
   commissions.CommissionPlanResponse:
     properties:
       apply_when:
@@ -190,6 +386,16 @@ definitions:
         type: string
       value:
         type: number
+    type: object
+  commissions.CommissionSummaryResponse:
+    properties:
+      all_time:
+        $ref: '#/definitions/commissions.CommissionAllTimeSummary'
+      currency:
+        example: CAD
+        type: string
+      this_month:
+        $ref: '#/definitions/commissions.CommissionMonthSummary'
     type: object
   commissions.CommissionTransactionResponse:
     properties:
@@ -4344,6 +4550,58 @@ definitions:
     required:
     - code
     type: object
+  wallet.ExportTransactionRow:
+    properties:
+      amount:
+        type: number
+      balance_after:
+        type: number
+      balance_before:
+        type: number
+      currency:
+        type: string
+      date:
+        type: string
+      description:
+        type: string
+      direction:
+        type: string
+      reference_id:
+        type: string
+      reference_type:
+        type: string
+      time:
+        type: string
+      transaction_number:
+        type: string
+      type:
+        type: string
+    type: object
+  wallet.ExportTransactionsResponse:
+    properties:
+      exported_at:
+        example: "2026-01-23T10:30:00Z"
+        type: string
+      from_date:
+        example: "2026-01-01"
+        type: string
+      organization_id:
+        example: 550e8400-e29b-41d4-a716-446655440001
+        type: string
+      to_date:
+        example: "2026-01-31"
+        type: string
+      total_records:
+        example: 150
+        type: integer
+      transactions:
+        items:
+          $ref: '#/definitions/wallet.ExportTransactionRow'
+        type: array
+      wallet_number:
+        example: WAL-ABC12345
+        type: string
+    type: object
   wallet.RefundRequest:
     properties:
       amount:
@@ -4502,6 +4760,9 @@ definitions:
       balance:
         example: 1250.75
         type: number
+      carrier_refund_in_progress:
+        example: 75
+        type: number
       created_at:
         example: "2026-01-01T10:00:00Z"
         type: string
@@ -4585,6 +4846,414 @@ paths:
       summary: OIDC Discovery Document
       tags:
       - OAuth2.1 / OIDC
+  /addresses:
+    get:
+      description: Get a paginated list of addresses in the organization's address
+        book
+      parameters:
+      - description: 'Page number (default: 1)'
+        in: query
+        name: page
+        type: integer
+      - description: 'Items per page (default: 20, max: 100)'
+        in: query
+        name: limit
+        type: integer
+      - description: Filter by address type
+        enum:
+        - sender
+        - recipient
+        - both
+        in: query
+        name: address_type
+        type: string
+      - description: Search by nickname, contact name, company, or city
+        in: query
+        name: search
+        type: string
+      - description: Filter to show only default addresses
+        in: query
+        name: is_default
+        type: boolean
+      - description: Organization ID (admin only)
+        in: query
+        name: organization_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/addresses.AddressListResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: List addresses
+      tags:
+      - Address Book
+    post:
+      consumes:
+      - application/json
+      description: Create a new address in the organization's address book
+      parameters:
+      - description: Organization ID (admin only)
+        in: query
+        name: organization_id
+        type: string
+      - description: Address details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/addresses.CreateAddressRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/addresses.AddressResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Create address
+      tags:
+      - Address Book
+  /addresses/{id}:
+    delete:
+      description: Delete an address from the organization's address book
+      parameters:
+      - description: Address ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Organization ID (admin only)
+        in: query
+        name: organization_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete address
+      tags:
+      - Address Book
+    get:
+      description: Get a specific address from the organization's address book
+      parameters:
+      - description: Address ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Organization ID (admin only)
+        in: query
+        name: organization_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/addresses.AddressResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Get address
+      tags:
+      - Address Book
+    patch:
+      consumes:
+      - application/json
+      description: Update an existing address in the organization's address book
+      parameters:
+      - description: Address ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Organization ID (admin only)
+        in: query
+        name: organization_id
+        type: string
+      - description: Address updates
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/addresses.UpdateAddressRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/addresses.AddressResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Update address
+      tags:
+      - Address Book
+  /addresses/{id}/clear-default:
+    post:
+      consumes:
+      - application/json
+      description: Remove the default sender or recipient status from an address
+      parameters:
+      - description: Address ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Organization ID (admin only)
+        in: query
+        name: organization_id
+        type: string
+      - description: Default type to clear (sender or recipient)
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/addresses.SetDefaultRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Clear default address
+      tags:
+      - Address Book
+  /addresses/{id}/set-default:
+    post:
+      consumes:
+      - application/json
+      description: Set an address as the default sender or recipient for the organization
+      parameters:
+      - description: Address ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Organization ID (admin only)
+        in: query
+        name: organization_id
+        type: string
+      - description: Default type (sender or recipient)
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/addresses.SetDefaultRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/addresses.AddressResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Set default address
+      tags:
+      - Address Book
+  /addresses/default/recipient:
+    get:
+      description: Get the default recipient address for the organization
+      parameters:
+      - description: Organization ID (admin only)
+        in: query
+        name: organization_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/addresses.AddressResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Get default recipient
+      tags:
+      - Address Book
+  /addresses/default/sender:
+    get:
+      description: Get the default sender address for the organization
+      parameters:
+      - description: Organization ID (admin only)
+        in: query
+        name: organization_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/addresses.AddressResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Get default sender
+      tags:
+      - Address Book
   /admin/audit-logs:
     get:
       consumes:
@@ -7466,6 +8135,40 @@ paths:
       security:
       - BearerAuth: []
       summary: Update a commission plan
+      tags:
+      - Commissions
+  /commissions/summary:
+    get:
+      description: Retrieve commission summary including this month's pending/earned
+        and all-time paid/earned amounts. Sales Reps see only their own summary, Admins
+        see organization-wide summary.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Commission summary retrieved successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/commissions.CommissionSummaryResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden - user not in organization
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Get commission summary
       tags:
       - Commissions
   /commissions/transactions:
@@ -13215,6 +13918,74 @@ paths:
       security:
       - BearerAuth: []
       summary: Top up wallet via Stripe
+      tags:
+      - Wallet
+  /wallet/transactions/export:
+    get:
+      description: Export wallet transactions to CSV or JSON format with optional
+        date and type filters
+      parameters:
+      - default: csv
+        description: Export format (csv or json)
+        enum:
+        - csv
+        - json
+        in: query
+        name: format
+        type: string
+      - description: Filter from date (YYYY-MM-DD)
+        example: "2026-01-01"
+        in: query
+        name: from_date
+        type: string
+      - description: Filter to date (YYYY-MM-DD)
+        example: "2026-01-31"
+        in: query
+        name: to_date
+        type: string
+      - description: Filter by direction
+        enum:
+        - credit
+        - debit
+        in: query
+        name: direction
+        type: string
+      - description: Filter by transaction type (topup, shipment_payment, shipment_refund,
+          adjustment)
+        in: query
+        name: tx_type
+        type: string
+      produces:
+      - application/json
+      - text/csv
+      responses:
+        "200":
+          description: CSV file download
+          schema:
+            type: string
+        "400":
+          description: Invalid request parameters
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden - user not in organization
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Wallet not found
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Export wallet transactions
       tags:
       - Wallet
   /wallet/unlock:

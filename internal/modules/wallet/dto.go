@@ -27,19 +27,20 @@ type RefundRequest struct {
 
 // WalletResponse represents the wallet status
 type WalletResponse struct {
-	ID               string                  `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
-	WalletNumber     string                  `json:"wallet_number" example:"WAL-ABC12345"`
-	OrganizationID   string                  `json:"organization_id" example:"550e8400-e29b-41d4-a716-446655440001"`
-	Balance          float64                 `json:"balance" example:"1250.75"`
-	HeldBalance      float64                 `json:"held_balance" example:"50.00"`
-	TotalBalance     float64                 `json:"total_balance" example:"1300.75"`
-	Status           string                  `json:"status" example:"active"`
-	MinTopUpAmount   float64                 `json:"min_topup_amount" example:"10.00"`
-	MaxTopUpAmount   *float64                `json:"max_topup_amount,omitempty" example:"10000.00"`
-	MaxBalance       *float64                `json:"max_balance,omitempty" example:"50000.00"`
-	CreatedAt        time.Time               `json:"created_at" example:"2026-01-01T10:00:00Z"`
-	UpdatedAt        time.Time               `json:"updated_at" example:"2026-01-11T14:30:00Z"`
-	RecentTransactions []TransactionResponse `json:"recent_transactions,omitempty"`
+	ID                      string                  `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	WalletNumber            string                  `json:"wallet_number" example:"WAL-ABC12345"`
+	OrganizationID          string                  `json:"organization_id" example:"550e8400-e29b-41d4-a716-446655440001"`
+	Balance                 float64                 `json:"balance" example:"1250.75"`
+	HeldBalance             float64                 `json:"held_balance" example:"50.00"`
+	CarrierRefundInProgress float64                 `json:"carrier_refund_in_progress" example:"75.00"`
+	TotalBalance            float64                 `json:"total_balance" example:"1300.75"`
+	Status                  string                  `json:"status" example:"active"`
+	MinTopUpAmount          float64                 `json:"min_topup_amount" example:"10.00"`
+	MaxTopUpAmount          *float64                `json:"max_topup_amount,omitempty" example:"10000.00"`
+	MaxBalance              *float64                `json:"max_balance,omitempty" example:"50000.00"`
+	CreatedAt               time.Time               `json:"created_at" example:"2026-01-01T10:00:00Z"`
+	UpdatedAt               time.Time               `json:"updated_at" example:"2026-01-11T14:30:00Z"`
+	RecentTransactions      []TransactionResponse   `json:"recent_transactions,omitempty"`
 }
 
 // TransactionResponse represents a single wallet transaction
@@ -104,4 +105,40 @@ type TransactionsListResponse struct {
 	Page         int                   `json:"page" example:"1"`
 	PageSize     int                   `json:"page_size" example:"20"`
 	TotalPages   int                   `json:"total_pages" example:"8"`
+}
+
+// ExportTransactionsRequest represents filter options for exporting transactions
+type ExportTransactionsRequest struct {
+	Format    string `form:"format" binding:"omitempty,oneof=csv json" example:"csv"`
+	FromDate  string `form:"from_date" binding:"omitempty" example:"2026-01-01"`
+	ToDate    string `form:"to_date" binding:"omitempty" example:"2026-01-31"`
+	Direction string `form:"direction" binding:"omitempty,oneof=credit debit" example:"credit"`
+	TxType    string `form:"tx_type" binding:"omitempty" example:"topup"`
+}
+
+// ExportTransactionRow represents a single transaction row for export
+type ExportTransactionRow struct {
+	TransactionNumber string  `json:"transaction_number"`
+	Date              string  `json:"date"`
+	Time              string  `json:"time"`
+	Direction         string  `json:"direction"`
+	Type              string  `json:"type"`
+	Amount            float64 `json:"amount"`
+	Currency          string  `json:"currency"`
+	BalanceBefore     float64 `json:"balance_before"`
+	BalanceAfter      float64 `json:"balance_after"`
+	Description       string  `json:"description"`
+	ReferenceType     string  `json:"reference_type"`
+	ReferenceID       string  `json:"reference_id"`
+}
+
+// ExportTransactionsResponse represents the export result for JSON format
+type ExportTransactionsResponse struct {
+	WalletNumber   string                 `json:"wallet_number" example:"WAL-ABC12345"`
+	OrganizationID string                 `json:"organization_id" example:"550e8400-e29b-41d4-a716-446655440001"`
+	ExportedAt     string                 `json:"exported_at" example:"2026-01-23T10:30:00Z"`
+	FromDate       string                 `json:"from_date,omitempty" example:"2026-01-01"`
+	ToDate         string                 `json:"to_date,omitempty" example:"2026-01-31"`
+	TotalRecords   int                    `json:"total_records" example:"150"`
+	Transactions   []ExportTransactionRow `json:"transactions"`
 }

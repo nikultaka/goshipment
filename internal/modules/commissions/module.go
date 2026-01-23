@@ -44,6 +44,11 @@ func (m *CommissionModule) RegisterRoutes(router *gin.RouterGroup) {
 		// Admins/Managers see all organization commissions
 		commissions.GET("", m.handlers.ListCommissions)
 
+		// GET /commissions/summary - Get commission summary
+		// Scope: commissions.read
+		// Returns this month's pending/earned and all-time paid/earned
+		commissions.GET("/summary", m.handlers.GetCommissionSummary)
+
 		// GET /commissions/payouts - List payout records
 		// Scope: commissions.read
 		// Sales Reps see only their own payouts

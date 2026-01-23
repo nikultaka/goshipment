@@ -12,6 +12,7 @@ import (
 	"gogin/internal/clients"
 	"gogin/internal/config"
 	"gogin/internal/middleware"
+	"gogin/internal/modules/addresses"
 	"gogin/internal/modules/apiclient"
 	"gogin/internal/modules/audit"
 	"gogin/internal/modules/commissions"
@@ -298,6 +299,11 @@ func main() {
 	shipmentsModule := shipments.NewShipmentsModule(db, redis, cfg)
 	shipmentsModule.RegisterRoutes(v1)
 	log.Println("✓ Shipments module registered")
+
+	// Address Book module (manage sender and recipient addresses)
+	addressModule := addresses.NewAddressModule(db, redis, cfg)
+	addressModule.RegisterRoutes(v1)
+	log.Println("✓ Address Book module registered")
 
 	// Labels module (shipping label purchase and tracking)
 	labelsModule := labels.NewLabelsModule(db, redis, cfg)

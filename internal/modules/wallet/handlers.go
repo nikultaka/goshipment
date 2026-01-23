@@ -316,6 +316,87 @@ func (h *WalletHandlers) UnlockWallet(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Wallet unlocked successfully", result)
 }
 
+// ExportTransactions godoc
+// @Summary Export wallet transactions
+// @Description Export wallet transactions to CSV or JSON format with optional date and type filters
+// @Tags Wallet
+// @Produce json,text/csv
+// @Security BearerAuth
+// @Param format query string false "Export format (csv or json)" Enums(csv, json) default(csv)
+// @Param from_date query string false "Filter from date (YYYY-MM-DD)" example(2026-01-01)
+// @Param to_date query string false "Filter to date (YYYY-MM-DD)" example(2026-01-31)
+// @Param direction query string false "Filter by direction" Enums(credit, debit)
+// @Param tx_type query string false "Filter by transaction type (topup, shipment_payment, shipment_refund, adjustment)"
+// @Success 200 {object} ExportTransactionsResponse "JSON export"
+// @Success 200 {string} string "CSV file download"
+// @Failure 400 {object} response.Response "Invalid request parameters"
+// @Failure 401 {object} response.Response "Unauthorized"
+// @Failure 403 {object} response.Response "Forbidden - user not in organization"
+// @Failure 404 {object} response.Response "Wallet not found"
+// @Failure 500 {object} response.Response "Internal server error"
+// @Router /wallet/transactions/export [get]
+func (h *WalletHandlers) ExportTransactions(c *gin.Context) {
+	// Get user ID from context
+	userID, exists := c.Get("user_id")
+	if !exists || userID == nil {
+		response.Unauthorized(c, "User context required")
+		return
+	}
+
+	// Get organization ID from user membership (admin users can access via query param)
+	organizationID, isAdminUser := middleware.GetOrganizationContext(c)
+	if isAdminUser && organizationID == "" {
+		response.BadRequest(c, "organization_id query parameter is required for admin users")
+		return
+	} else if !isAdminUser {
+		var err error
+		organizationID, err = h.service.GetOrganizationIDFromUser(userID.(string))
+		if err != nil {
+			response.Forbidden(c, "User is not a member of any organization")
+			return
+		}
+	}
+
+	// Parse query parameters
+	var req ExportTransactionsRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		response.BadRequest(c, "Invalid request parameters: "+err.Error())
+		return
+	}
+
+	// Default to CSV format
+	if req.Format == "" {
+		req.Format = "csv"
+	}
+
+	// Get export data
+	data, err := h.service.ExportTransactions(organizationID, &req)
+	if err != nil {
+		if contains(err.Error(), "not found") {
+			response.NotFound(c, "Wallet not found for organization")
+			return
+		}
+		response.InternalError(c, "Failed to export transactions: "+err.Error())
+		return
+	}
+
+	// Return based on format
+	if req.Format == "csv" {
+		csv := h.service.GenerateCSV(data)
+
+		// Set headers for file download
+		filename := "wallet_transactions_" + data.WalletNumber + "_" + data.ExportedAt[:10] + ".csv"
+		c.Header("Content-Description", "File Transfer")
+		c.Header("Content-Disposition", "attachment; filename="+filename)
+		c.Header("Content-Type", "text/csv; charset=utf-8")
+		c.String(http.StatusOK, csv)
+		return
+	}
+
+	// JSON format
+	response.Success(c, http.StatusOK, "Transactions exported successfully", data)
+}
+
 // =====================================================
 // UTILITY FUNCTIONS
 // =====================================================

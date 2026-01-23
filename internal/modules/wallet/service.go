@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	"gogin/internal/clients"
@@ -88,18 +89,26 @@ func (s *WalletService) GetWallet(organizationID string) (*WalletResponse, error
 		return nil, err
 	}
 
+	// Get carrier refund in progress amount
+	carrierRefundInProgress, err := s.getCarrierRefundInProgress(wallet.ID)
+	if err != nil {
+		// Log error but don't fail - just set to 0
+		carrierRefundInProgress = 0
+	}
+
 	// Build response
 	resp := &WalletResponse{
-		ID:             wallet.ID,
-		WalletNumber:   wallet.WalletNumber,
-		OrganizationID: wallet.OrganizationID,
-		Balance:        wallet.Balance,
-		HeldBalance:    wallet.HeldBalance,
-		TotalBalance:   wallet.Balance + wallet.HeldBalance,
-		Status:         wallet.Status,
-		MinTopUpAmount: wallet.MinTopUpAmount,
-		CreatedAt:      wallet.CreatedAt,
-		UpdatedAt:      wallet.UpdatedAt,
+		ID:                      wallet.ID,
+		WalletNumber:            wallet.WalletNumber,
+		OrganizationID:          wallet.OrganizationID,
+		Balance:                 wallet.Balance,
+		HeldBalance:             wallet.HeldBalance,
+		CarrierRefundInProgress: carrierRefundInProgress,
+		TotalBalance:            wallet.Balance + wallet.HeldBalance,
+		Status:                  wallet.Status,
+		MinTopUpAmount:          wallet.MinTopUpAmount,
+		CreatedAt:               wallet.CreatedAt,
+		UpdatedAt:               wallet.UpdatedAt,
 	}
 
 	if wallet.MaxTopUpAmount.Valid {
@@ -273,6 +282,24 @@ func (s *WalletService) getWallet(organizationID string) (*walletInfo, error) {
 	}
 
 	return &wallet, nil
+}
+
+// getCarrierRefundInProgress calculates total amount of carrier refunds in progress
+func (s *WalletService) getCarrierRefundInProgress(walletID string) (float64, error) {
+	query := `
+		SELECT COALESCE(SUM(requested_amount), 0)
+		FROM carrier_refunds
+		WHERE wallet_id = $1
+		  AND status IN ('requested', 'processing')
+	`
+
+	var amount float64
+	err := s.db.DB.QueryRow(query, walletID).Scan(&amount)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get carrier refund in progress: %w", err)
+	}
+
+	return amount, nil
 }
 
 func (s *WalletService) getTransactions(walletID string, page, pageSize int) ([]TransactionResponse, error) {
@@ -686,4 +713,135 @@ func generateRandomID(length int) string {
 
 func isVersionMismatchError(err error) bool {
 	return err != nil && (err.Error() == "wallet version mismatch (concurrent update detected)")
+}
+
+// ExportTransactions retrieves all transactions for export with optional filters
+func (s *WalletService) ExportTransactions(organizationID string, req *ExportTransactionsRequest) (*ExportTransactionsResponse, error) {
+	// Get wallet
+	wallet, err := s.getWallet(organizationID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Build query with filters
+	query := `
+		SELECT
+			transaction_number, direction, tx_type,
+			amount, currency, balance_before, balance_after,
+			description, reference_type, reference_id, created_at
+		FROM wallet_transactions
+		WHERE wallet_id = $1
+	`
+	args := []interface{}{wallet.ID}
+	argIndex := 2
+
+	// Add date filters
+	if req.FromDate != "" {
+		query += fmt.Sprintf(" AND created_at >= $%d", argIndex)
+		args = append(args, req.FromDate+" 00:00:00")
+		argIndex++
+	}
+	if req.ToDate != "" {
+		query += fmt.Sprintf(" AND created_at <= $%d", argIndex)
+		args = append(args, req.ToDate+" 23:59:59")
+		argIndex++
+	}
+
+	// Add direction filter
+	if req.Direction != "" {
+		query += fmt.Sprintf(" AND direction = $%d", argIndex)
+		args = append(args, req.Direction)
+		argIndex++
+	}
+
+	// Add tx_type filter
+	if req.TxType != "" {
+		query += fmt.Sprintf(" AND tx_type = $%d", argIndex)
+		args = append(args, req.TxType)
+		argIndex++
+	}
+
+	query += " ORDER BY created_at DESC"
+
+	rows, err := s.db.DB.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query transactions: %w", err)
+	}
+	defer rows.Close()
+
+	transactions := make([]ExportTransactionRow, 0)
+	for rows.Next() {
+		var t ExportTransactionRow
+		var description, refType, refID sql.NullString
+		var createdAt time.Time
+
+		if err := rows.Scan(
+			&t.TransactionNumber, &t.Direction, &t.Type,
+			&t.Amount, &t.Currency, &t.BalanceBefore, &t.BalanceAfter,
+			&description, &refType, &refID, &createdAt,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan transaction: %w", err)
+		}
+
+		t.Date = createdAt.Format("2006-01-02")
+		t.Time = createdAt.Format("15:04:05")
+
+		if description.Valid {
+			t.Description = description.String
+		}
+		if refType.Valid {
+			t.ReferenceType = refType.String
+		}
+		if refID.Valid {
+			t.ReferenceID = refID.String
+		}
+
+		transactions = append(transactions, t)
+	}
+
+	resp := &ExportTransactionsResponse{
+		WalletNumber:   wallet.WalletNumber,
+		OrganizationID: wallet.OrganizationID,
+		ExportedAt:     time.Now().Format(time.RFC3339),
+		FromDate:       req.FromDate,
+		ToDate:         req.ToDate,
+		TotalRecords:   len(transactions),
+		Transactions:   transactions,
+	}
+
+	return resp, nil
+}
+
+// GenerateCSV generates CSV content from export data
+func (s *WalletService) GenerateCSV(data *ExportTransactionsResponse) string {
+	var sb strings.Builder
+
+	// CSV Header
+	sb.WriteString("Transaction Number,Date,Time,Direction,Type,Amount,Currency,Balance Before,Balance After,Description,Reference Type,Reference ID\n")
+
+	// CSV Rows
+	for _, t := range data.Transactions {
+		sb.WriteString(fmt.Sprintf("%s,%s,%s,%s,%s,%.2f,%s,%.2f,%.2f,\"%s\",%s,%s\n",
+			t.TransactionNumber,
+			t.Date,
+			t.Time,
+			t.Direction,
+			t.Type,
+			t.Amount,
+			t.Currency,
+			t.BalanceBefore,
+			t.BalanceAfter,
+			escapeCSV(t.Description),
+			t.ReferenceType,
+			t.ReferenceID,
+		))
+	}
+
+	return sb.String()
+}
+
+// escapeCSV escapes special characters in CSV fields
+func escapeCSV(s string) string {
+	// Replace double quotes with two double quotes
+	return strings.ReplaceAll(s, "\"", "\"\"")
 }

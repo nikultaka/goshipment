@@ -21,6 +21,51 @@ func NewCommissionHandlers(service *CommissionService) *CommissionHandlers {
 	}
 }
 
+// GetCommissionSummary godoc
+// @Summary Get commission summary
+// @Description Retrieve commission summary including this month's pending/earned and all-time paid/earned amounts. Sales Reps see only their own summary, Admins see organization-wide summary.
+// @Tags Commissions
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} response.Response{data=CommissionSummaryResponse} "Commission summary retrieved successfully"
+// @Failure 401 {object} response.Response "Unauthorized"
+// @Failure 403 {object} response.Response "Forbidden - user not in organization"
+// @Failure 500 {object} response.Response "Internal server error"
+// @Router /commissions/summary [get]
+func (h *CommissionHandlers) GetCommissionSummary(c *gin.Context) {
+	// Get user ID from context
+	userID, exists := c.Get("user_id")
+	if !exists || userID == nil {
+		response.Unauthorized(c, "User context required")
+		return
+	}
+
+	// Get organization ID from user membership
+	organizationID, err := h.service.GetOrganizationIDFromUser(userID.(string))
+	if err != nil {
+		response.Forbidden(c, "User is not a member of any organization")
+		return
+	}
+
+	// Get user role
+	role, err := h.service.GetUserRole(userID.(string))
+	if err != nil {
+		response.InternalError(c, "Failed to get user role: "+err.Error())
+		return
+	}
+
+	isAdmin := role == "owner" || role == "administrator" || role == "manager"
+
+	// Get commission summary
+	result, err := h.service.GetCommissionSummary(organizationID, userID.(string), isAdmin)
+	if err != nil {
+		response.InternalError(c, "Failed to get commission summary: "+err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Commission summary retrieved successfully", result)
+}
+
 // ListCommissions godoc
 // @Summary List commission transactions
 // @Description Retrieve a list of commission transactions. Sales Reps see only their own commissions, Admins see all commissions for the organization. Includes balance summaries (total earnings, eligible balance, paid balance).

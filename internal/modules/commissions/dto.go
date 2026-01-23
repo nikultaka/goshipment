@@ -301,3 +301,26 @@ type CreateCommissionTransactionResponse struct {
 	CreatedAt                   time.Time `json:"created_at"`
 	Message                     string    `json:"message" example:"Commission transaction created successfully"`
 }
+
+// =====================================================
+// COMMISSION SUMMARY DTOs
+// =====================================================
+
+// CommissionSummaryResponse represents the commission summary for a user
+type CommissionSummaryResponse struct {
+	ThisMonth  CommissionMonthSummary  `json:"this_month"`
+	AllTime    CommissionAllTimeSummary `json:"all_time"`
+	Currency   string                  `json:"currency" example:"CAD"`
+}
+
+// CommissionMonthSummary represents this month's commission summary
+type CommissionMonthSummary struct {
+	Pending float64 `json:"pending" example:"150.00"`
+	Earned  float64 `json:"earned" example:"500.00"`
+}
+
+// CommissionAllTimeSummary represents all-time commission summary
+type CommissionAllTimeSummary struct {
+	Paid   float64 `json:"paid" example:"2500.00"`
+	Earned float64 `json:"earned" example:"3150.00"`
+}

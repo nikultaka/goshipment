@@ -88,6 +88,93 @@ func (s *CommissionService) generatePayoutNumber() (string, error) {
 	return PayoutNumberPrefix + hex.EncodeToString(bytes), nil
 }
 
+// GetCommissionSummary retrieves commission summary for a user
+func (s *CommissionService) GetCommissionSummary(organizationID, userID string, isAdmin bool) (*CommissionSummaryResponse, error) {
+	// Get start of current month
+	now := time.Now()
+	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+
+	// Build base query condition
+	baseCondition := "organization_id = $1"
+	args := []interface{}{organizationID}
+	argIndex := 2
+
+	// Non-admins can only see their own commissions
+	if !isAdmin {
+		baseCondition += fmt.Sprintf(" AND beneficiary_user_id = $%d", argIndex)
+		args = append(args, userID)
+		argIndex++
+	}
+
+	// Query for this month's pending (pending + eligible status = not yet paid)
+	var thisMonthPending float64
+	pendingQuery := fmt.Sprintf(`
+		SELECT COALESCE(SUM(commission_amount), 0)
+		FROM commission_transactions
+		WHERE %s
+		  AND earned_at >= $%d
+		  AND status IN ('pending', 'eligible')
+	`, baseCondition, argIndex)
+	pendingArgs := append(args, monthStart)
+	err := s.db.DB.QueryRow(pendingQuery, pendingArgs...).Scan(&thisMonthPending)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get this month pending: %w", err)
+	}
+
+	// Query for this month's earned (all statuses except voided)
+	var thisMonthEarned float64
+	earnedQuery := fmt.Sprintf(`
+		SELECT COALESCE(SUM(commission_amount), 0)
+		FROM commission_transactions
+		WHERE %s
+		  AND earned_at >= $%d
+		  AND status != 'voided'
+	`, baseCondition, argIndex)
+	earnedArgs := append(args, monthStart)
+	err = s.db.DB.QueryRow(earnedQuery, earnedArgs...).Scan(&thisMonthEarned)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get this month earned: %w", err)
+	}
+
+	// Query for all time paid
+	var allTimePaid float64
+	paidQuery := fmt.Sprintf(`
+		SELECT COALESCE(SUM(commission_amount), 0)
+		FROM commission_transactions
+		WHERE %s
+		  AND status = 'paid'
+	`, baseCondition)
+	err = s.db.DB.QueryRow(paidQuery, args...).Scan(&allTimePaid)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get all time paid: %w", err)
+	}
+
+	// Query for all time earned (all statuses except voided)
+	var allTimeEarned float64
+	allEarnedQuery := fmt.Sprintf(`
+		SELECT COALESCE(SUM(commission_amount), 0)
+		FROM commission_transactions
+		WHERE %s
+		  AND status != 'voided'
+	`, baseCondition)
+	err = s.db.DB.QueryRow(allEarnedQuery, args...).Scan(&allTimeEarned)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get all time earned: %w", err)
+	}
+
+	return &CommissionSummaryResponse{
+		ThisMonth: CommissionMonthSummary{
+			Pending: thisMonthPending,
+			Earned:  thisMonthEarned,
+		},
+		AllTime: CommissionAllTimeSummary{
+			Paid:   allTimePaid,
+			Earned: allTimeEarned,
+		},
+		Currency: "CAD", // Default currency
+	}, nil
+}
+
 // ListCommissions retrieves commission transactions
 func (s *CommissionService) ListCommissions(req ListCommissionsRequest, organizationID, userID string, isAdmin bool) (*ListCommissionsResponse, error) {
 	// Default pagination

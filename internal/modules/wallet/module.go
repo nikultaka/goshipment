@@ -42,6 +42,10 @@ func (m *WalletModule) RegisterRoutes(router *gin.RouterGroup) {
 		// Scope: wallet.read
 		wallet.GET("", m.handlers.GetWallet)
 
+		// GET /wallet/transactions/export - Export transactions to CSV or JSON
+		// Scope: wallet.read
+		wallet.GET("/transactions/export", m.handlers.ExportTransactions)
+
 		// POST /wallet/topup - Add funds via Stripe (all authenticated users)
 		// Scope: wallet.topup
 		wallet.POST("/topup", m.handlers.TopUp)
