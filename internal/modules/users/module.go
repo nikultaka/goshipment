@@ -19,6 +19,7 @@ type UsersModule struct {
 	storageService *storage.StorageService
 	redisHelper    *redishelper.RedisHelper
 	authMiddleware *middleware.AuthMiddleware
+	smsClient      *clients.SMSClient
 	config         *config.Config
 }
 
@@ -30,8 +31,9 @@ func NewUsersModule(db *clients.Database, redis *clients.RedisClient, cfg *confi
 
 	service := NewUserService(db, jwtUtil, redisHelper, cfg)
 	sessionService := NewSessionService(db)
-	twofaService := NewTwoFAService(db.DB, service)
 	storageService := storage.NewStorageService(db, cfg)
+	smsClient := clients.NewSMSClient(&cfg.Twilio)
+	twofaService := NewTwoFAService(db.DB, service, smsClient)
 
 	return &UsersModule{
 		service:        service,
@@ -40,6 +42,7 @@ func NewUsersModule(db *clients.Database, redis *clients.RedisClient, cfg *confi
 		storageService: storageService,
 		redisHelper:    redisHelper,
 		authMiddleware: authMiddleware,
+		smsClient:      smsClient,
 		config:         cfg,
 	}
 }

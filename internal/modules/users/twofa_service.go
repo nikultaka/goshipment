@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"gogin/internal/clients"
 	"gogin/internal/utils"
 
 	"github.com/pquerna/otp/totp"
@@ -29,12 +30,14 @@ type TwoFAMetadata struct {
 type TwoFAService struct {
 	db          *sql.DB
 	userService *UserService
+	smsClient   *clients.SMSClient
 }
 
-func NewTwoFAService(db *sql.DB, userService *UserService) *TwoFAService {
+func NewTwoFAService(db *sql.DB, userService *UserService, smsClient *clients.SMSClient) *TwoFAService {
 	return &TwoFAService{
 		db:          db,
 		userService: userService,
+		smsClient:   smsClient,
 	}
 }
 
@@ -226,23 +229,32 @@ func (s *TwoFAService) SendSMSOTP(userID, phone, ipAddress string) error {
 		return fmt.Errorf("failed to create OTP challenge: %w", err)
 	}
 
-	// SMS sending has been removed (Twilio wrapper deleted)
-	// In development mode, show OTP in console
+	// Try to send SMS via Twilio
+	if s.smsClient != nil && s.smsClient.IsEnabled() {
+		err = s.smsClient.SendOTP(phone, otp)
+		if err != nil {
+			fmt.Printf("❌ Failed to send 2FA OTP via Twilio: %v\n", err)
+			// In development, continue and show OTP in logs
+			if !s.userService.config.IsDevelopment() {
+				return fmt.Errorf("failed to send SMS: %w", err)
+			}
+		} else {
+			fmt.Printf("✅ 2FA OTP sent via Twilio to %s\n", phone)
+			return nil
+		}
+	}
+
+	// Fallback: In development mode, log OTP to console
 	if s.userService.config.IsDevelopment() {
 		fmt.Printf("📱 [DEV MODE] 2FA OTP for %s: %s\n", phone, otp)
 		fmt.Printf("   (This OTP expires in 5 minutes)\n")
-		fmt.Printf("   Note: SMS sending disabled - external SMS service required for production\n")
-	} else {
-		// Production mode - log warning
-		fmt.Printf("⚠️  SMS sending not configured for %s - 2FA OTP: %s\n", phone, otp)
+		fmt.Printf("   Note: SMS sending disabled or failed - check Twilio configuration\n")
+		return nil
 	}
 
-	// Also log in dev mode for debugging
-	if s.userService.config.IsDevelopment() {
-		fmt.Printf("📱 [DEV MODE] 2FA OTP sent to %s: %s\n", phone, otp)
-	}
-
-	return nil
+	// Production mode without SMS configured
+	fmt.Printf("⚠️  SMS sending not configured for %s - 2FA OTP: %s\n", phone, otp)
+	return fmt.Errorf("SMS service not configured")
 }
 
 // Verify SMS OTP

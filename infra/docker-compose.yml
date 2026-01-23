@@ -128,6 +128,7 @@ services:
       TWILIO_FROM_NUMBER: "+12362427447"              # Twilio phone number
       TWILIO_API_KEY: "SK55f39e881cde3bb71314facbe744a1a9"
       TWILIO_API_SECRET: "fg6yOotSzgmZkelFrTjwXiCBXun0VvP8"
+      TWILIO_ENABLED: "true"                          # Enable SMS sending
 
       # ============================================
       # STORAGE CONFIGURATION

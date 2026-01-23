@@ -77,11 +77,31 @@ func (m *UsersModule) sendPhoneOTP(c *gin.Context) {
 		return
 	}
 
-	// SMS sending has been removed (Twilio wrapper deleted)
-	// In development mode, always log OTP for testing
+	// Try to send SMS via Twilio
+	if m.smsClient != nil && m.smsClient.IsEnabled() {
+		err = m.smsClient.SendOTP(req.Phone, otp)
+		if err != nil {
+			fmt.Printf("❌ Failed to send OTP via Twilio: %v\n", err)
+			// In development, continue and show OTP in logs
+			if !m.service.config.IsDevelopment() {
+				response.InternalError(c, "Failed to send OTP. Please try again later.")
+				return
+			}
+		} else {
+			fmt.Printf("✅ OTP sent via Twilio to %s\n", req.Phone)
+			response.Success(c, http.StatusOK, "OTP sent successfully", PhoneOTPResponse{
+				Phone:     req.Phone,
+				ExpiresAt: expiresAt.Format(time.RFC3339),
+				Message:   fmt.Sprintf("OTP sent to %s. Valid for 5 minutes.", req.Phone),
+			})
+			return
+		}
+	}
+
+	// Fallback: In development mode, log OTP to console
 	if m.service.config.IsDevelopment() {
 		fmt.Printf("📱 OTP for %s: %s (expires at %s)\n", req.Phone, otp, expiresAt.Format(time.RFC3339))
-		fmt.Printf("   Note: SMS sending disabled - external SMS service required for production\n")
+		fmt.Printf("   Note: SMS sending disabled or failed - check Twilio configuration\n")
 		response.Success(c, http.StatusOK, "OTP sent successfully", PhoneOTPResponse{
 			Phone:     req.Phone,
 			ExpiresAt: expiresAt.Format(time.RFC3339),
@@ -90,18 +110,9 @@ func (m *UsersModule) sendPhoneOTP(c *gin.Context) {
 		return
 	}
 
-	// Production mode - SMS not configured
+	// Production mode without SMS configured
 	fmt.Printf("⚠️  SMS sending not configured for %s - OTP: %s\n", req.Phone, otp)
-	if m.service.config.IsProduction() {
-		response.InternalError(c, "SMS service not configured. Please contact administrator.")
-		return
-	}
-
-	response.Success(c, http.StatusOK, "OTP sent successfully", PhoneOTPResponse{
-		Phone:     req.Phone,
-		ExpiresAt: expiresAt.Format(time.RFC3339),
-		Message:   fmt.Sprintf("OTP sent to %s. Valid for 5 minutes.", req.Phone),
-	})
+	response.InternalError(c, "SMS service not configured. Please contact administrator.")
 }
 
 // verifyPhoneOTP verifies OTP and logs in user
@@ -322,7 +333,17 @@ func (s *UserService) FindOrCreateUserByPhone(phone string) (*models.User, *mode
 		return nil, nil, err
 	}
 
-	// Get existing user
+	// Mark phone as verified since OTP verification succeeded
+	_, err = s.db.DB.Exec(`
+		UPDATE user_phones
+		SET is_verified = true, verified_at = $1, updated_at = $1
+		WHERE (phone = $2 OR phone_e164 = $2) AND user_id = $3
+	`, time.Now().UTC(), phone, userID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Get existing user (now with updated phone verification status)
 	user, _, userPhone, _, err := s.GetUserByID(userID)
 	if err != nil {
 		return nil, nil, err

@@ -19,6 +19,7 @@ type Config struct {
 	Storage  StorageConfig
 	GA4      GA4Config
 	SendGrid SendGridConfig
+	Twilio   TwilioConfig
 	Carriers CarrierConfig
 }
 
@@ -162,6 +163,14 @@ type SendGridConfig struct {
 	Enabled      bool
 }
 
+// TwilioConfig holds Twilio SMS configuration
+type TwilioConfig struct {
+	AccountSID string
+	AuthToken  string
+	FromNumber string
+	Enabled    bool
+}
+
 // Load reads configuration from environment variables
 func Load() (*Config, error) {
 	// Load .env file if exists (not in production)
@@ -233,6 +242,12 @@ func Load() (*Config, error) {
 			FromName:     getEnv("SENDGRID_FROM_NAME", "GoShipment"),
 			ReplyToEmail: getEnv("SENDGRID_REPLY_TO_EMAIL", "support@goshipment.com"),
 			Enabled:      getEnvBool("SENDGRID_ENABLED", false),
+		},
+		Twilio: TwilioConfig{
+			AccountSID: getEnv("TWILIO_ACCOUNT_SID", ""),
+			AuthToken:  getEnv("TWILIO_AUTH_TOKEN", ""),
+			FromNumber: getEnv("TWILIO_FROM_NUMBER", ""),
+			Enabled:    getEnvBool("TWILIO_ENABLED", false),
 		},
 		Carriers: CarrierConfig{
 			FedEx: FedExConfig{
