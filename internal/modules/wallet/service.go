@@ -845,3 +845,101 @@ func escapeCSV(s string) string {
 	// Replace double quotes with two double quotes
 	return strings.ReplaceAll(s, "\"", "\"\"")
 }
+
+// GetWalletOverview retrieves wallet overview with financial summary
+func (s *WalletService) GetWalletOverview(organizationID string, period string) (*WalletOverviewResponse, error) {
+	// Get wallet info
+	wallet, err := s.getWallet(organizationID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Determine date range based on period
+	now := time.Now()
+	var startDate, endDate time.Time
+	var periodLabel string
+
+	switch period {
+	case "this_week":
+		// Start of this week (Monday)
+		weekday := int(now.Weekday())
+		if weekday == 0 {
+			weekday = 7 // Sunday is 7
+		}
+		startDate = time.Date(now.Year(), now.Month(), now.Day()-weekday+1, 0, 0, 0, 0, now.Location())
+		endDate = now
+		periodLabel = "This Week"
+	case "this_year":
+		// Start of this year
+		startDate = time.Date(now.Year(), 1, 1, 0, 0, 0, 0, now.Location())
+		endDate = now
+		periodLabel = "This Year"
+	default:
+		// Default to this_month
+		period = "this_month"
+		startDate = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+		endDate = now
+		periodLabel = "This Month"
+	}
+
+	// Get total in-transit (pending wallet holds)
+	var totalInTransit float64
+	err = s.db.DB.QueryRow(`
+		SELECT COALESCE(SUM(amount), 0)
+		FROM wallet_holds
+		WHERE wallet_id = $1 AND status IN ('pending', 'active')
+	`, wallet.ID).Scan(&totalInTransit)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, fmt.Errorf("failed to get in-transit amount: %w", err)
+	}
+
+	// Get total deposits (credits) in period
+	var totalDeposits float64
+	err = s.db.DB.QueryRow(`
+		SELECT COALESCE(SUM(amount), 0)
+		FROM wallet_transactions
+		WHERE wallet_id = $1
+		  AND direction = 'credit'
+		  AND created_at >= $2
+		  AND created_at <= $3
+	`, wallet.ID, startDate, endDate).Scan(&totalDeposits)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, fmt.Errorf("failed to get total deposits: %w", err)
+	}
+
+	// Get total outflow (debits) in period
+	var totalOutflow float64
+	err = s.db.DB.QueryRow(`
+		SELECT COALESCE(SUM(amount), 0)
+		FROM wallet_transactions
+		WHERE wallet_id = $1
+		  AND direction = 'debit'
+		  AND created_at >= $2
+		  AND created_at <= $3
+	`, wallet.ID, startDate, endDate).Scan(&totalOutflow)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, fmt.Errorf("failed to get total outflow: %w", err)
+	}
+
+	// Calculate net movement
+	netMovement := totalDeposits - totalOutflow
+
+	resp := &WalletOverviewResponse{
+		AvailableBalance: wallet.Balance,
+		TotalInTransit:   totalInTransit,
+		Reserved:         wallet.HeldBalance,
+		TotalDeposits:    totalDeposits,
+		TotalOutflow:     totalOutflow,
+		NetMovement:      netMovement,
+		Period: WalletOverviewPeriod{
+			Type:      period,
+			StartDate: startDate.Format("2006-01-02"),
+			EndDate:   endDate.Format("2006-01-02"),
+			Label:     periodLabel,
+		},
+		Currency:    "CAD",
+		GeneratedAt: now,
+	}
+
+	return resp, nil
+}

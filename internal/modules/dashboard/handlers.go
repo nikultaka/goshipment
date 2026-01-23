@@ -188,3 +188,79 @@ func (h *DashboardHandlers) GetUserOverview(c *gin.Context) {
 
 	response.Success(c, http.StatusOK, "User overview retrieved successfully", result)
 }
+
+// GetTopSpendingBusinesses godoc
+// @Summary Get top spending businesses (Last 7 Days)
+// @Description Retrieve the top spending businesses/organizations based on shipment spending in the last 7 days. Shows organization name, total spent, shipment count, and average order value.
+// @Tags Admin - Dashboard
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param limit query int false "Number of businesses to return" default(10) minimum(1) maximum(50)
+// @Success 200 {object} response.Response{data=TopSpendingBusinessesResponse} "Top spending businesses retrieved successfully"
+// @Failure 400 {object} response.Response "Invalid request parameters"
+// @Failure 401 {object} response.Response "Unauthorized"
+// @Failure 403 {object} response.Response "Forbidden - requires admin role"
+// @Failure 500 {object} response.Response "Internal server error"
+// @Router /admin/dashboard/top-spending-businesses [get]
+func (h *DashboardHandlers) GetTopSpendingBusinesses(c *gin.Context) {
+	var req TopSpendingBusinessRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		response.BadRequest(c, "Invalid request parameters: "+err.Error())
+		return
+	}
+
+	limit := req.Limit
+	if limit == 0 {
+		limit = 10
+	}
+
+	result, err := h.service.GetTopSpendingBusinesses(limit)
+	if err != nil {
+		response.InternalError(c, "Failed to get top spending businesses: "+err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Top spending businesses retrieved successfully", result)
+}
+
+// GetPickupsAndExceptions godoc
+// @Summary Get pickups and exceptions list
+// @Description Retrieve today's scheduled pickups and any pickup exceptions (failed or cancelled) within the specified period. Useful for operations monitoring.
+// @Tags Admin - Dashboard
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param days query int false "Number of days to look back for exceptions" default(7) minimum(1) maximum(30)
+// @Param limit query int false "Maximum number of items to return per list" default(20) minimum(1) maximum(100)
+// @Success 200 {object} response.Response{data=PickupsExceptionsResponse} "Pickups and exceptions retrieved successfully"
+// @Failure 400 {object} response.Response "Invalid request parameters"
+// @Failure 401 {object} response.Response "Unauthorized"
+// @Failure 403 {object} response.Response "Forbidden - requires admin role"
+// @Failure 500 {object} response.Response "Internal server error"
+// @Router /admin/dashboard/pickups-exceptions [get]
+func (h *DashboardHandlers) GetPickupsAndExceptions(c *gin.Context) {
+	var req PickupsExceptionsRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		response.BadRequest(c, "Invalid request parameters: "+err.Error())
+		return
+	}
+
+	days := req.Days
+	if days == 0 {
+		days = 7
+	}
+
+	limit := req.Limit
+	if limit == 0 {
+		limit = 20
+	}
+
+	result, err := h.service.GetPickupsAndExceptions(days, limit)
+	if err != nil {
+		response.InternalError(c, "Failed to get pickups and exceptions: "+err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Pickups and exceptions retrieved successfully", result)
+}

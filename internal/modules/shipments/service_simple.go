@@ -447,6 +447,35 @@ func (s *SimpleShipmentService) ListShipments(
 		args = append(args, *query.IsArchived)
 		argIndex++
 	}
+	// Email filter - searches both from_email and to_email
+	if query.Email != nil && *query.Email != "" {
+		countQuery += fmt.Sprintf(" AND (from_email ILIKE $%d OR to_email ILIKE $%d)", argIndex, argIndex)
+		args = append(args, "%"+*query.Email+"%")
+		argIndex++
+	}
+	// Phone filter - searches both from_phone and to_phone
+	if query.Phone != nil && *query.Phone != "" {
+		countQuery += fmt.Sprintf(" AND (from_phone ILIKE $%d OR to_phone ILIKE $%d)", argIndex, argIndex)
+		args = append(args, "%"+*query.Phone+"%")
+		argIndex++
+	}
+	// Address filter - searches city, postal code, and address lines
+	if query.Address != nil && *query.Address != "" {
+		countQuery += fmt.Sprintf(" AND (from_city ILIKE $%d OR to_city ILIKE $%d OR from_postal_code ILIKE $%d OR to_postal_code ILIKE $%d OR from_address_line1 ILIKE $%d OR to_address_line1 ILIKE $%d)", argIndex, argIndex, argIndex, argIndex, argIndex, argIndex)
+		args = append(args, "%"+*query.Address+"%")
+		argIndex++
+	}
+	// Date range filters
+	if query.FromDate != nil && *query.FromDate != "" {
+		countQuery += fmt.Sprintf(" AND created_at >= $%d::date", argIndex)
+		args = append(args, *query.FromDate)
+		argIndex++
+	}
+	if query.ToDate != nil && *query.ToDate != "" {
+		countQuery += fmt.Sprintf(" AND created_at < ($%d::date + INTERVAL '1 day')", argIndex)
+		args = append(args, *query.ToDate)
+		argIndex++
+	}
 
 	err := s.db.QueryRow(countQuery, args...).Scan(&total)
 	if err != nil {
@@ -496,6 +525,35 @@ func (s *SimpleShipmentService) ListShipments(
 	if query.IsArchived != nil {
 		selectQuery += fmt.Sprintf(" AND s.is_archived = $%d", argIndex)
 		args = append(args, *query.IsArchived)
+		argIndex++
+	}
+	// Email filter - searches both from_email and to_email
+	if query.Email != nil && *query.Email != "" {
+		selectQuery += fmt.Sprintf(" AND (s.from_email ILIKE $%d OR s.to_email ILIKE $%d)", argIndex, argIndex)
+		args = append(args, "%"+*query.Email+"%")
+		argIndex++
+	}
+	// Phone filter - searches both from_phone and to_phone
+	if query.Phone != nil && *query.Phone != "" {
+		selectQuery += fmt.Sprintf(" AND (s.from_phone ILIKE $%d OR s.to_phone ILIKE $%d)", argIndex, argIndex)
+		args = append(args, "%"+*query.Phone+"%")
+		argIndex++
+	}
+	// Address filter - searches city, postal code, and address lines
+	if query.Address != nil && *query.Address != "" {
+		selectQuery += fmt.Sprintf(" AND (s.from_city ILIKE $%d OR s.to_city ILIKE $%d OR s.from_postal_code ILIKE $%d OR s.to_postal_code ILIKE $%d OR s.from_address_line1 ILIKE $%d OR s.to_address_line1 ILIKE $%d)", argIndex, argIndex, argIndex, argIndex, argIndex, argIndex)
+		args = append(args, "%"+*query.Address+"%")
+		argIndex++
+	}
+	// Date range filters
+	if query.FromDate != nil && *query.FromDate != "" {
+		selectQuery += fmt.Sprintf(" AND s.created_at >= $%d::date", argIndex)
+		args = append(args, *query.FromDate)
+		argIndex++
+	}
+	if query.ToDate != nil && *query.ToDate != "" {
+		selectQuery += fmt.Sprintf(" AND s.created_at < ($%d::date + INTERVAL '1 day')", argIndex)
+		args = append(args, *query.ToDate)
 		argIndex++
 	}
 

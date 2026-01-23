@@ -487,9 +487,12 @@ func (s *DashboardService) getStatusBreakdown(dateRange *DateRange, organization
 		case "delivery_failed", "returned":
 			breakdown.Failed.Count += count
 			breakdown.Failed.Revenue += revenue
-		case "cancelled", "voided":
+		case "cancelled":
 			breakdown.Cancelled.Count += count
 			breakdown.Cancelled.Revenue += revenue
+		case "voided":
+			breakdown.Voided.Count += count
+			breakdown.Voided.Revenue += revenue
 		case "refunded":
 			breakdown.Refunded.Count += count
 			breakdown.Refunded.Revenue += revenue
@@ -497,6 +500,45 @@ func (s *DashboardService) getStatusBreakdown(dateRange *DateRange, organization
 	}
 
 	breakdown.TotalCreated = totalCreated
+
+	// Query archived shipments separately (is_archived is a boolean field, not a status)
+	var archivedQuery string
+	if organizationID == "" {
+		archivedQuery = `
+			SELECT
+				COUNT(*) as count,
+				COALESCE(SUM(COALESCE(retail_rate, base_amount)), 0) as revenue
+			FROM shipments
+			WHERE created_at >= $1
+			  AND created_at <= $2
+			  AND is_deleted = FALSE
+			  AND is_archived = TRUE
+		`
+		args = []interface{}{dateRange.StartDate, dateRange.EndDate}
+	} else {
+		archivedQuery = `
+			SELECT
+				COUNT(*) as count,
+				COALESCE(SUM(COALESCE(retail_rate, base_amount)), 0) as revenue
+			FROM shipments
+			WHERE created_at >= $1
+			  AND created_at <= $2
+			  AND organization_id = $3
+			  AND is_deleted = FALSE
+			  AND is_archived = TRUE
+		`
+		args = []interface{}{dateRange.StartDate, dateRange.EndDate, organizationID}
+	}
+
+	var archivedCount int
+	var archivedRevenue float64
+	err = s.db.DB.QueryRow(archivedQuery, args...).Scan(&archivedCount, &archivedRevenue)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, fmt.Errorf("failed to query archived count: %w", err)
+	}
+	breakdown.Archived.Count = archivedCount
+	breakdown.Archived.Revenue = archivedRevenue
+
 	return breakdown, nil
 }
 
@@ -842,4 +884,276 @@ func getTrend(change int) string {
 		return "down"
 	}
 	return "neutral"
+}
+
+// ============================================================================
+// Top Spending Businesses Methods
+// ============================================================================
+
+// GetTopSpendingBusinesses retrieves top spending businesses for the last 7 days
+func (s *DashboardService) GetTopSpendingBusinesses(limit int) (*TopSpendingBusinessesResponse, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	if limit > 50 {
+		limit = 50
+	}
+
+	// Get last 7 days date range
+	dateRange, err := s.GetDateRange("last_7_days", "", "")
+	if err != nil {
+		return nil, err
+	}
+
+	query := `
+		SELECT
+			o.id as organization_id,
+			o.name as organization_name,
+			COALESCE(b.business_name, '') as business_name,
+			COALESCE(SUM(COALESCE(s.retail_rate, s.base_amount)), 0) as total_spent,
+			COUNT(s.id) as shipment_count
+		FROM shipments s
+		INNER JOIN organizations o ON s.organization_id = o.id
+		LEFT JOIN businesses b ON o.id = b.organization_id AND b.is_active = true
+		WHERE s.created_at >= $1
+		  AND s.created_at <= $2
+		  AND s.shipment_status NOT IN ('cancelled', 'voided', 'draft')
+		  AND s.is_deleted = FALSE
+		GROUP BY o.id, o.name, b.business_name
+		ORDER BY total_spent DESC
+		LIMIT $3
+	`
+
+	rows, err := s.db.DB.Query(query, dateRange.StartDate, dateRange.EndDate, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query top spending businesses: %w", err)
+	}
+	defer rows.Close()
+
+	var businesses []TopSpendingBusiness
+	rank := 1
+	for rows.Next() {
+		var b TopSpendingBusiness
+
+		err := rows.Scan(
+			&b.OrganizationID,
+			&b.OrganizationName,
+			&b.BusinessName,
+			&b.TotalSpent,
+			&b.ShipmentCount,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan top spending business: %w", err)
+		}
+
+		b.Rank = rank
+		b.Currency = "CAD"
+
+		// Calculate average per order
+		if b.ShipmentCount > 0 {
+			b.AveragePerOrder = roundTo2(b.TotalSpent / float64(b.ShipmentCount))
+		}
+		b.TotalSpent = roundTo2(b.TotalSpent)
+
+		businesses = append(businesses, b)
+		rank++
+	}
+
+	return &TopSpendingBusinessesResponse{
+		Period: PeriodInfo{
+			Type:         dateRange.Type,
+			StartDate:    dateRange.StartDate.Format("2006-01-02"),
+			EndDate:      dateRange.EndDate.Format("2006-01-02"),
+			DisplayLabel: dateRange.Label,
+		},
+		Businesses:  businesses,
+		TotalCount:  len(businesses),
+		GeneratedAt: time.Now(),
+	}, nil
+}
+
+// ============================================================================
+// Pickups & Exceptions Methods
+// ============================================================================
+
+// GetPickupsAndExceptions retrieves pickups for today and recent exceptions
+func (s *DashboardService) GetPickupsAndExceptions(days, limit int) (*PickupsExceptionsResponse, error) {
+	if days <= 0 {
+		days = 7
+	}
+	if limit <= 0 {
+		limit = 20
+	}
+
+	// Get date range
+	loc, err := time.LoadLocation("America/Toronto")
+	if err != nil {
+		loc = time.UTC
+	}
+	now := time.Now().In(loc)
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+	todayEnd := today.Add(24*time.Hour - time.Second)
+	startDate := today.AddDate(0, 0, -days+1)
+
+	// Get status counts for the period
+	statusQuery := `
+		SELECT
+			pickup_status,
+			COUNT(*) as count
+		FROM pickups
+		WHERE pickup_date >= $1
+		  AND pickup_date <= $2
+		  AND is_deleted = FALSE
+		GROUP BY pickup_status
+	`
+	statusRows, err := s.db.DB.Query(statusQuery, startDate, todayEnd)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query pickup status counts: %w", err)
+	}
+	defer statusRows.Close()
+
+	summary := PickupStatusCount{}
+	totalPickups := 0
+	for statusRows.Next() {
+		var status string
+		var count int
+		if err := statusRows.Scan(&status, &count); err != nil {
+			return nil, fmt.Errorf("failed to scan status count: %w", err)
+		}
+		totalPickups += count
+		switch status {
+		case "scheduled":
+			summary.Scheduled = count
+		case "rescheduled":
+			summary.Rescheduled = count
+		case "completed":
+			summary.Completed = count
+		case "cancelled":
+			summary.Cancelled = count
+		case "failed":
+			summary.Failed = count
+		}
+	}
+
+	// Get today's pickups
+	todaysPickupsQuery := `
+		SELECT
+			p.id, p.pickup_number, p.organization_id, o.name as organization_name,
+			p.shipment_id, s.shipment_number, COALESCE(c.name, '') as carrier_name,
+			p.pickup_date, p.pickup_window_start, p.pickup_window_end,
+			p.pickup_city, p.pickup_status, p.failure_reason, p.created_at
+		FROM pickups p
+		INNER JOIN organizations o ON p.organization_id = o.id
+		INNER JOIN shipments s ON p.shipment_id = s.id
+		LEFT JOIN carriers c ON p.carrier_id = c.id
+		WHERE p.pickup_date >= $1
+		  AND p.pickup_date <= $2
+		  AND p.is_deleted = FALSE
+		ORDER BY p.pickup_window_start ASC
+		LIMIT $3
+	`
+	todaysRows, err := s.db.DB.Query(todaysPickupsQuery, today, todayEnd, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query today's pickups: %w", err)
+	}
+	defer todaysRows.Close()
+
+	todaysPickups := []PickupSummary{}
+	for todaysRows.Next() {
+		var p PickupSummary
+		var pickupDate time.Time
+		var windowStart, windowEnd time.Time
+		var failureReason sql.NullString
+		var createdAt time.Time
+
+		if err := todaysRows.Scan(
+			&p.ID, &p.PickupNumber, &p.OrganizationID, &p.OrganizationName,
+			&p.ShipmentID, &p.ShipmentNumber, &p.CarrierName,
+			&pickupDate, &windowStart, &windowEnd,
+			&p.PickupCity, &p.PickupStatus, &failureReason, &createdAt,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan today's pickup: %w", err)
+		}
+
+		p.PickupDate = pickupDate.Format("2006-01-02")
+		p.PickupWindow = windowStart.Format("15:04") + " - " + windowEnd.Format("15:04")
+		p.CreatedAt = createdAt.Format(time.RFC3339)
+		p.IsException = p.PickupStatus == "failed" || p.PickupStatus == "cancelled"
+
+		if failureReason.Valid {
+			p.FailureReason = failureReason.String
+		}
+
+		todaysPickups = append(todaysPickups, p)
+	}
+
+	// Get exceptions (failed or cancelled in the period)
+	exceptionsQuery := `
+		SELECT
+			p.id, p.pickup_number, p.organization_id, o.name as organization_name,
+			p.shipment_id, s.shipment_number, COALESCE(c.name, '') as carrier_name,
+			p.pickup_date, p.pickup_window_start, p.pickup_window_end,
+			p.pickup_city, p.pickup_status, p.failure_reason, p.created_at
+		FROM pickups p
+		INNER JOIN organizations o ON p.organization_id = o.id
+		INNER JOIN shipments s ON p.shipment_id = s.id
+		LEFT JOIN carriers c ON p.carrier_id = c.id
+		WHERE p.pickup_date >= $1
+		  AND p.pickup_date <= $2
+		  AND p.pickup_status IN ('failed', 'cancelled')
+		  AND p.is_deleted = FALSE
+		ORDER BY p.updated_at DESC
+		LIMIT $3
+	`
+	exceptionsRows, err := s.db.DB.Query(exceptionsQuery, startDate, todayEnd, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query exceptions: %w", err)
+	}
+	defer exceptionsRows.Close()
+
+	exceptions := []PickupSummary{}
+	for exceptionsRows.Next() {
+		var p PickupSummary
+		var pickupDate time.Time
+		var windowStart, windowEnd time.Time
+		var failureReason sql.NullString
+		var createdAt time.Time
+
+		if err := exceptionsRows.Scan(
+			&p.ID, &p.PickupNumber, &p.OrganizationID, &p.OrganizationName,
+			&p.ShipmentID, &p.ShipmentNumber, &p.CarrierName,
+			&pickupDate, &windowStart, &windowEnd,
+			&p.PickupCity, &p.PickupStatus, &failureReason, &createdAt,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan exception: %w", err)
+		}
+
+		p.PickupDate = pickupDate.Format("2006-01-02")
+		p.PickupWindow = windowStart.Format("15:04") + " - " + windowEnd.Format("15:04")
+		p.CreatedAt = createdAt.Format(time.RFC3339)
+		p.IsException = true
+
+		if failureReason.Valid {
+			p.FailureReason = failureReason.String
+		}
+
+		exceptions = append(exceptions, p)
+	}
+
+	totalExceptions := summary.Failed + summary.Cancelled
+
+	return &PickupsExceptionsResponse{
+		Period: PeriodInfo{
+			Type:         "last_" + fmt.Sprintf("%d", days) + "_days",
+			StartDate:    startDate.Format("2006-01-02"),
+			EndDate:      today.Format("2006-01-02"),
+			DisplayLabel: fmt.Sprintf("Last %d Days", days),
+		},
+		Summary:         summary,
+		TodaysPickups:   todaysPickups,
+		Exceptions:      exceptions,
+		TotalPickups:    totalPickups,
+		TotalExceptions: totalExceptions,
+		GeneratedAt:     time.Now(),
+	}, nil
 }

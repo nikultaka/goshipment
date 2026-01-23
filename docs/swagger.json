@@ -1196,6 +1196,90 @@
                 }
             }
         },
+        "/admin/dashboard/pickups-exceptions": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve today's scheduled pickups and any pickup exceptions (failed or cancelled) within the specified period. Useful for operations monitoring.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin - Dashboard"
+                ],
+                "summary": "Get pickups and exceptions list",
+                "parameters": [
+                    {
+                        "maximum": 30,
+                        "minimum": 1,
+                        "type": "integer",
+                        "default": 7,
+                        "description": "Number of days to look back for exceptions",
+                        "name": "days",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Maximum number of items to return per list",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Pickups and exceptions retrieved successfully",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/dashboard.PickupsExceptionsResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request parameters",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - requires admin role",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/dashboard/revenue-chart": {
             "get": {
                 "security": [
@@ -1439,6 +1523,81 @@
                                             "items": {
                                                 "$ref": "#/definitions/dashboard.CarrierBreakdown"
                                             }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request parameters",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - requires admin role",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/dashboard/top-spending-businesses": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve the top spending businesses/organizations based on shipment spending in the last 7 days. Shows organization name, total spent, shipment count, and average order value.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin - Dashboard"
+                ],
+                "summary": "Get top spending businesses (Last 7 Days)",
+                "parameters": [
+                    {
+                        "maximum": 50,
+                        "minimum": 1,
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Number of businesses to return",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Top spending businesses retrieved successfully",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/dashboard.TopSpendingBusinessesResponse"
                                         }
                                     }
                                 }
@@ -9310,7 +9469,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get a paginated list of shipments for the current organization",
+                "description": "Get a paginated list of shipments for the current organization. Supports filtering by status, email, phone, address, and date range.",
                 "produces": [
                     "application/json"
                 ],
@@ -9327,23 +9486,71 @@
                         "in": "query"
                     },
                     {
+                        "maximum": 100,
                         "type": "integer",
                         "default": 20,
                         "description": "Items per page",
-                        "name": "per_page",
+                        "name": "limit",
                         "in": "query"
                     },
                     {
+                        "enum": [
+                            "draft",
+                            "awaiting_payment",
+                            "payment_failed",
+                            "label_purchased",
+                            "ready_for_pickup",
+                            "pickup_scheduled",
+                            "in_transit",
+                            "out_for_delivery",
+                            "delivered",
+                            "delivery_failed",
+                            "returned",
+                            "cancelled",
+                            "refunded",
+                            "voided"
+                        ],
                         "type": "string",
-                        "description": "Filter by status (pending, pre_label, label_purchased, in_transit, delivered, cancelled, failed)",
+                        "description": "Filter by shipment status",
                         "name": "status",
                         "in": "query"
                     },
                     {
                         "type": "boolean",
-                        "default": false,
-                        "description": "Include archived shipments",
-                        "name": "include_archived",
+                        "description": "Filter by archived status",
+                        "name": "is_archived",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by sender or recipient email (partial match)",
+                        "name": "email",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by sender or recipient phone (partial match)",
+                        "name": "phone",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by address - searches city, postal code, address line (partial match)",
+                        "name": "address",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "format": "date",
+                        "description": "Filter shipments created on or after this date (YYYY-MM-DD)",
+                        "name": "from_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "format": "date",
+                        "description": "Filter shipments created on or before this date (YYYY-MM-DD)",
+                        "name": "to_date",
                         "in": "query"
                     }
                 ],
@@ -14521,6 +14728,81 @@
                 }
             }
         },
+        "/wallet/overview": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve wallet overview including available balance, in-transit amount, reserved amount, total deposits, total outflow, and net movement for a specified period",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Wallet"
+                ],
+                "summary": "Get wallet overview with financial summary",
+                "parameters": [
+                    {
+                        "enum": [
+                            "this_week",
+                            "this_month",
+                            "this_year"
+                        ],
+                        "type": "string",
+                        "default": "this_month",
+                        "description": "Time period filter",
+                        "name": "period",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Wallet overview retrieved successfully",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/wallet.WalletOverviewResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - user not in organization",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Wallet not found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/wallet/refund": {
             "post": {
                 "security": [
@@ -16118,6 +16400,126 @@
                 }
             }
         },
+        "dashboard.PickupStatusCount": {
+            "type": "object",
+            "properties": {
+                "cancelled": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "completed": {
+                    "type": "integer",
+                    "example": 45
+                },
+                "failed": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "rescheduled": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "scheduled": {
+                    "type": "integer",
+                    "example": 15
+                }
+            }
+        },
+        "dashboard.PickupSummary": {
+            "type": "object",
+            "properties": {
+                "carrier_name": {
+                    "type": "string",
+                    "example": "Canada Post"
+                },
+                "created_at": {
+                    "type": "string",
+                    "example": "2026-01-23T10:30:00Z"
+                },
+                "failure_reason": {
+                    "type": "string",
+                    "example": "Address not accessible"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                },
+                "is_exception": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "organization_id": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440001"
+                },
+                "organization_name": {
+                    "type": "string",
+                    "example": "Acme Shipping Co."
+                },
+                "pickup_city": {
+                    "type": "string",
+                    "example": "Toronto"
+                },
+                "pickup_date": {
+                    "type": "string",
+                    "example": "2026-01-24"
+                },
+                "pickup_number": {
+                    "type": "string",
+                    "example": "PKU-a1b2c3d4"
+                },
+                "pickup_status": {
+                    "type": "string",
+                    "example": "scheduled"
+                },
+                "pickup_window": {
+                    "type": "string",
+                    "example": "09:00 - 17:00"
+                },
+                "shipment_id": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440002"
+                },
+                "shipment_number": {
+                    "type": "string",
+                    "example": "SHP-xyz98765"
+                }
+            }
+        },
+        "dashboard.PickupsExceptionsResponse": {
+            "type": "object",
+            "properties": {
+                "exceptions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dashboard.PickupSummary"
+                    }
+                },
+                "generated_at": {
+                    "type": "string"
+                },
+                "period": {
+                    "$ref": "#/definitions/dashboard.PeriodInfo"
+                },
+                "summary": {
+                    "$ref": "#/definitions/dashboard.PickupStatusCount"
+                },
+                "todays_pickups": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dashboard.PickupSummary"
+                    }
+                },
+                "total_exceptions": {
+                    "type": "integer",
+                    "example": 4
+                },
+                "total_pickups": {
+                    "type": "integer",
+                    "example": 66
+                }
+            }
+        },
         "dashboard.ProfitField": {
             "type": "object",
             "properties": {
@@ -16152,8 +16554,16 @@
         "dashboard.StatusBreakdown": {
             "type": "object",
             "properties": {
+                "archived": {
+                    "description": "is_archived = true",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/dashboard.StatusCount"
+                        }
+                    ]
+                },
                 "cancelled": {
-                    "description": "cancelled, voided",
+                    "description": "cancelled",
                     "allOf": [
                         {
                             "$ref": "#/definitions/dashboard.StatusCount"
@@ -16210,6 +16620,14 @@
                 },
                 "total_created": {
                     "type": "integer"
+                },
+                "voided": {
+                    "description": "voided",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/dashboard.StatusCount"
+                        }
+                    ]
                 }
             }
         },
@@ -16221,6 +16639,64 @@
                 },
                 "revenue": {
                     "type": "number"
+                }
+            }
+        },
+        "dashboard.TopSpendingBusiness": {
+            "type": "object",
+            "properties": {
+                "average_per_order": {
+                    "type": "number",
+                    "example": 107.4
+                },
+                "business_name": {
+                    "type": "string",
+                    "example": "Acme Inc."
+                },
+                "currency": {
+                    "type": "string",
+                    "example": "CAD"
+                },
+                "organization_id": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                },
+                "organization_name": {
+                    "type": "string",
+                    "example": "Acme Shipping Co."
+                },
+                "rank": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "shipment_count": {
+                    "type": "integer",
+                    "example": 142
+                },
+                "total_spent": {
+                    "type": "number",
+                    "example": 15250.75
+                }
+            }
+        },
+        "dashboard.TopSpendingBusinessesResponse": {
+            "type": "object",
+            "properties": {
+                "businesses": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dashboard.TopSpendingBusiness"
+                    }
+                },
+                "generated_at": {
+                    "type": "string"
+                },
+                "period": {
+                    "$ref": "#/definitions/dashboard.PeriodInfo"
+                },
+                "total_count": {
+                    "type": "integer",
+                    "example": 10
                 }
             }
         },
@@ -21741,6 +22217,73 @@
                 "tx_type": {
                     "type": "string",
                     "example": "topup"
+                }
+            }
+        },
+        "wallet.WalletOverviewPeriod": {
+            "type": "object",
+            "properties": {
+                "end_date": {
+                    "type": "string",
+                    "example": "2026-01-31"
+                },
+                "label": {
+                    "type": "string",
+                    "example": "This Month"
+                },
+                "start_date": {
+                    "type": "string",
+                    "example": "2026-01-01"
+                },
+                "type": {
+                    "type": "string",
+                    "example": "this_month"
+                }
+            }
+        },
+        "wallet.WalletOverviewResponse": {
+            "type": "object",
+            "properties": {
+                "available_balance": {
+                    "description": "Current balances",
+                    "type": "number",
+                    "example": 1250.75
+                },
+                "currency": {
+                    "type": "string",
+                    "example": "CAD"
+                },
+                "generated_at": {
+                    "type": "string"
+                },
+                "net_movement": {
+                    "type": "number",
+                    "example": 179.5
+                },
+                "period": {
+                    "description": "Period info",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wallet.WalletOverviewPeriod"
+                        }
+                    ]
+                },
+                "reserved": {
+                    "type": "number",
+                    "example": 50
+                },
+                "total_deposits": {
+                    "description": "Period-based metrics",
+                    "type": "number",
+                    "example": 500
+                },
+                "total_in_transit": {
+                    "type": "number",
+                    "example": 150
+                },
+                "total_outflow": {
+                    "type": "number",
+                    "example": 320.5
                 }
             }
         },

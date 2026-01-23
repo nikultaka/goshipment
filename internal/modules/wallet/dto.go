@@ -142,3 +142,38 @@ type ExportTransactionsResponse struct {
 	TotalRecords   int                    `json:"total_records" example:"150"`
 	Transactions   []ExportTransactionRow `json:"transactions"`
 }
+
+// =====================================================
+// WALLET OVERVIEW DTOs
+// =====================================================
+
+// WalletOverviewRequest represents the request parameters for wallet overview
+type WalletOverviewRequest struct {
+	Period string `form:"period" binding:"omitempty,oneof=this_week this_month this_year" example:"this_month"`
+}
+
+// WalletOverviewResponse represents the wallet overview with financial summary
+type WalletOverviewResponse struct {
+	// Current balances
+	AvailableBalance float64 `json:"available_balance" example:"1250.75"`
+	TotalInTransit   float64 `json:"total_in_transit" example:"150.00"`
+	Reserved         float64 `json:"reserved" example:"50.00"`
+
+	// Period-based metrics
+	TotalDeposits float64 `json:"total_deposits" example:"500.00"`
+	TotalOutflow  float64 `json:"total_outflow" example:"320.50"`
+	NetMovement   float64 `json:"net_movement" example:"179.50"`
+
+	// Period info
+	Period      WalletOverviewPeriod `json:"period"`
+	Currency    string               `json:"currency" example:"CAD"`
+	GeneratedAt time.Time            `json:"generated_at"`
+}
+
+// WalletOverviewPeriod represents the period information
+type WalletOverviewPeriod struct {
+	Type      string `json:"type" example:"this_month"`
+	StartDate string `json:"start_date" example:"2026-01-01"`
+	EndDate   string `json:"end_date" example:"2026-01-31"`
+	Label     string `json:"label" example:"This Month"`
+}

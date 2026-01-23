@@ -272,6 +272,12 @@ type ListShipmentsQuery struct {
 	IsArchived    *bool   `form:"is_archived" binding:"omitempty"`
 	SortBy        *string `form:"sort_by" binding:"omitempty,oneof=created_at updated_at shipment_number"`
 	SortOrder     *string `form:"sort_order" binding:"omitempty,oneof=asc desc"`
+	// Additional filters
+	Email     *string `form:"email" binding:"omitempty"`      // Filter by sender or recipient email
+	Phone     *string `form:"phone" binding:"omitempty"`      // Filter by sender or recipient phone
+	Address   *string `form:"address" binding:"omitempty"`    // Filter by address (city, postal code, address line)
+	FromDate  *string `form:"from_date" binding:"omitempty"`  // Filter by created_at >= from_date (YYYY-MM-DD)
+	ToDate    *string `form:"to_date" binding:"omitempty"`    // Filter by created_at <= to_date (YYYY-MM-DD)
 }
 
 // PaginationMeta represents pagination metadata

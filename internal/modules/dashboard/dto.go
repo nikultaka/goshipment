@@ -96,8 +96,10 @@ type StatusBreakdown struct {
 	InTransit      StatusCount `json:"in_transit"`       // in_transit, out_for_delivery
 	Delivered      StatusCount `json:"delivered"`        // delivered
 	Failed         StatusCount `json:"failed"`           // delivery_failed, returned
-	Cancelled      StatusCount `json:"cancelled"`        // cancelled, voided
+	Cancelled      StatusCount `json:"cancelled"`        // cancelled
+	Voided         StatusCount `json:"voided"`           // voided
 	Refunded       StatusCount `json:"refunded"`         // refunded
+	Archived       StatusCount `json:"archived"`         // is_archived = true
 }
 
 // MetricsBreakdown represents detailed breakdown of metrics
@@ -191,4 +193,81 @@ type UserOverviewResponse struct {
 	Metrics     UserMetrics   `json:"metrics"`
 	Breakdown   UserBreakdown `json:"breakdown"`
 	GeneratedAt time.Time     `json:"generated_at"`
+}
+
+// ============================================================================
+// Top Spending Businesses DTOs
+// ============================================================================
+
+// TopSpendingBusinessRequest represents the request parameters
+type TopSpendingBusinessRequest struct {
+	Limit int `form:"limit" binding:"omitempty,min=1,max=50"`
+}
+
+// TopSpendingBusiness represents a single business in the top spending list
+type TopSpendingBusiness struct {
+	Rank             int     `json:"rank" example:"1"`
+	OrganizationID   string  `json:"organization_id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	OrganizationName string  `json:"organization_name" example:"Acme Shipping Co."`
+	BusinessName     string  `json:"business_name,omitempty" example:"Acme Inc."`
+	TotalSpent       float64 `json:"total_spent" example:"15250.75"`
+	ShipmentCount    int     `json:"shipment_count" example:"142"`
+	AveragePerOrder  float64 `json:"average_per_order" example:"107.40"`
+	Currency         string  `json:"currency" example:"CAD"`
+}
+
+// TopSpendingBusinessesResponse represents the response for top spending businesses
+type TopSpendingBusinessesResponse struct {
+	Period      PeriodInfo            `json:"period"`
+	Businesses  []TopSpendingBusiness `json:"businesses"`
+	TotalCount  int                   `json:"total_count" example:"10"`
+	GeneratedAt time.Time             `json:"generated_at"`
+}
+
+// ============================================================================
+// Pickups & Exceptions DTOs
+// ============================================================================
+
+// PickupsExceptionsRequest represents the request parameters
+type PickupsExceptionsRequest struct {
+	Days  int `form:"days" binding:"omitempty,min=1,max=30"`
+	Limit int `form:"limit" binding:"omitempty,min=1,max=100"`
+}
+
+// PickupSummary represents a pickup in the summary list
+type PickupSummary struct {
+	ID               string  `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	PickupNumber     string  `json:"pickup_number" example:"PKU-a1b2c3d4"`
+	OrganizationID   string  `json:"organization_id" example:"550e8400-e29b-41d4-a716-446655440001"`
+	OrganizationName string  `json:"organization_name" example:"Acme Shipping Co."`
+	ShipmentID       string  `json:"shipment_id" example:"550e8400-e29b-41d4-a716-446655440002"`
+	ShipmentNumber   string  `json:"shipment_number" example:"SHP-xyz98765"`
+	CarrierName      string  `json:"carrier_name" example:"Canada Post"`
+	PickupDate       string  `json:"pickup_date" example:"2026-01-24"`
+	PickupWindow     string  `json:"pickup_window" example:"09:00 - 17:00"`
+	PickupCity       string  `json:"pickup_city" example:"Toronto"`
+	PickupStatus     string  `json:"pickup_status" example:"scheduled"`
+	FailureReason    string  `json:"failure_reason,omitempty" example:"Address not accessible"`
+	IsException      bool    `json:"is_exception" example:"false"`
+	CreatedAt        string  `json:"created_at" example:"2026-01-23T10:30:00Z"`
+}
+
+// PickupStatusCount represents count by status
+type PickupStatusCount struct {
+	Scheduled   int `json:"scheduled" example:"15"`
+	Rescheduled int `json:"rescheduled" example:"2"`
+	Completed   int `json:"completed" example:"45"`
+	Cancelled   int `json:"cancelled" example:"3"`
+	Failed      int `json:"failed" example:"1"`
+}
+
+// PickupsExceptionsResponse represents the response for pickups and exceptions
+type PickupsExceptionsResponse struct {
+	Period         PeriodInfo        `json:"period"`
+	Summary        PickupStatusCount `json:"summary"`
+	TodaysPickups  []PickupSummary   `json:"todays_pickups"`
+	Exceptions     []PickupSummary   `json:"exceptions"`
+	TotalPickups   int               `json:"total_pickups" example:"66"`
+	TotalExceptions int              `json:"total_exceptions" example:"4"`
+	GeneratedAt    time.Time         `json:"generated_at"`
 }

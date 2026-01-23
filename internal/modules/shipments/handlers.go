@@ -101,14 +101,19 @@ func (h *ShipmentHandlers) CreateShipment(c *gin.Context) {
 
 // ListShipments godoc
 // @Summary List shipments for organization
-// @Description Get a paginated list of shipments for the current organization
+// @Description Get a paginated list of shipments for the current organization. Supports filtering by status, email, phone, address, and date range.
 // @Tags Shipments
 // @Produce json
 // @Security BearerAuth
 // @Param page query int false "Page number" default(1)
-// @Param per_page query int false "Items per page" default(20)
-// @Param status query string false "Filter by status (pending, pre_label, label_purchased, in_transit, delivered, cancelled, failed)"
-// @Param include_archived query bool false "Include archived shipments" default(false)
+// @Param limit query int false "Items per page" default(20) maximum(100)
+// @Param status query string false "Filter by shipment status" Enums(draft, awaiting_payment, payment_failed, label_purchased, ready_for_pickup, pickup_scheduled, in_transit, out_for_delivery, delivered, delivery_failed, returned, cancelled, refunded, voided)
+// @Param is_archived query bool false "Filter by archived status"
+// @Param email query string false "Filter by sender or recipient email (partial match)"
+// @Param phone query string false "Filter by sender or recipient phone (partial match)"
+// @Param address query string false "Filter by address - searches city, postal code, address line (partial match)"
+// @Param from_date query string false "Filter shipments created on or after this date (YYYY-MM-DD)" format(date)
+// @Param to_date query string false "Filter shipments created on or before this date (YYYY-MM-DD)" format(date)
 // @Success 200 {object} response.Response{data=[]ShipmentListItem} "Shipments retrieved successfully"
 // @Failure 401 {object} response.Response "Unauthorized"
 // @Failure 403 {object} response.Response "Forbidden"

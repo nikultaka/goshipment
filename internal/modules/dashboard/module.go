@@ -61,5 +61,11 @@ func (m *DashboardModule) RegisterRoutes(router *gin.RouterGroup) {
 
 		// GET /admin/dashboard/user-overview - Get user overview metrics
 		admin.GET("/user-overview", m.handlers.GetUserOverview)
+
+		// GET /admin/dashboard/top-spending-businesses - Get top spending businesses (last 7 days)
+		admin.GET("/top-spending-businesses", m.handlers.GetTopSpendingBusinesses)
+
+		// GET /admin/dashboard/pickups-exceptions - Get pickups and exceptions list
+		admin.GET("/pickups-exceptions", m.handlers.GetPickupsAndExceptions)
 	}
 }

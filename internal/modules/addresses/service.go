@@ -145,12 +145,12 @@ func (s *AddressService) GetAddressByID(addressID, organizationID string) (*mode
 	`
 
 	address := &models.Address{}
-	var createdByUserID sql.NullString
+	var createdByUserID, company, phone, email, addressLine2, provinceCode sql.NullString
 
 	err := s.db.DB.QueryRow(query, addressID, organizationID).Scan(
 		&address.ID, &address.AddressNumber, &address.OrganizationID, &createdByUserID,
-		&address.Nickname, &address.Company, &address.ContactName, &address.Phone, &address.Email,
-		&address.AddressLine1, &address.AddressLine2, &address.City, &address.ProvinceCode, &address.PostalCode, &address.CountryCode,
+		&address.Nickname, &company, &address.ContactName, &phone, &email,
+		&address.AddressLine1, &addressLine2, &address.City, &provinceCode, &address.PostalCode, &address.CountryCode,
 		&address.AddressType, &address.IsResidential, &address.IsDefaultSender, &address.IsDefaultRecipient,
 		&address.IsVerified, &address.IsActive, &address.CreatedAt, &address.UpdatedAt,
 	)
@@ -163,6 +163,11 @@ func (s *AddressService) GetAddressByID(addressID, organizationID string) (*mode
 	}
 
 	address.CreatedByUserID = createdByUserID
+	address.Company = company.String
+	address.Phone = phone.String
+	address.Email = email.String
+	address.AddressLine2 = addressLine2.String
+	address.ProvinceCode = provinceCode.String
 	return address, nil
 }
 
@@ -250,12 +255,12 @@ func (s *AddressService) ListAddresses(organizationID string, req *ListAddresses
 	addresses := make([]*models.Address, 0)
 	for rows.Next() {
 		address := &models.Address{}
-		var createdByUserID sql.NullString
+		var createdByUserID, company, phone, email, addressLine2, provinceCode sql.NullString
 
 		err := rows.Scan(
 			&address.ID, &address.AddressNumber, &address.OrganizationID, &createdByUserID,
-			&address.Nickname, &address.Company, &address.ContactName, &address.Phone, &address.Email,
-			&address.AddressLine1, &address.AddressLine2, &address.City, &address.ProvinceCode, &address.PostalCode, &address.CountryCode,
+			&address.Nickname, &company, &address.ContactName, &phone, &email,
+			&address.AddressLine1, &addressLine2, &address.City, &provinceCode, &address.PostalCode, &address.CountryCode,
 			&address.AddressType, &address.IsResidential, &address.IsDefaultSender, &address.IsDefaultRecipient,
 			&address.IsVerified, &address.IsActive, &address.CreatedAt, &address.UpdatedAt,
 		)
@@ -264,6 +269,11 @@ func (s *AddressService) ListAddresses(organizationID string, req *ListAddresses
 		}
 
 		address.CreatedByUserID = createdByUserID
+		address.Company = company.String
+		address.Phone = phone.String
+		address.Email = email.String
+		address.AddressLine2 = addressLine2.String
+		address.ProvinceCode = provinceCode.String
 		addresses = append(addresses, address)
 	}
 
@@ -487,12 +497,12 @@ func (s *AddressService) GetDefaultAddress(organizationID, defaultType string) (
 	}
 
 	address := &models.Address{}
-	var createdByUserID sql.NullString
+	var createdByUserID, company, phone, email, addressLine2, provinceCode sql.NullString
 
 	err := s.db.DB.QueryRow(query, organizationID).Scan(
 		&address.ID, &address.AddressNumber, &address.OrganizationID, &createdByUserID,
-		&address.Nickname, &address.Company, &address.ContactName, &address.Phone, &address.Email,
-		&address.AddressLine1, &address.AddressLine2, &address.City, &address.ProvinceCode, &address.PostalCode, &address.CountryCode,
+		&address.Nickname, &company, &address.ContactName, &phone, &email,
+		&address.AddressLine1, &addressLine2, &address.City, &provinceCode, &address.PostalCode, &address.CountryCode,
 		&address.AddressType, &address.IsResidential, &address.IsDefaultSender, &address.IsDefaultRecipient,
 		&address.IsVerified, &address.IsActive, &address.CreatedAt, &address.UpdatedAt,
 	)
@@ -505,6 +515,11 @@ func (s *AddressService) GetDefaultAddress(organizationID, defaultType string) (
 	}
 
 	address.CreatedByUserID = createdByUserID
+	address.Company = company.String
+	address.Phone = phone.String
+	address.Email = email.String
+	address.AddressLine2 = addressLine2.String
+	address.ProvinceCode = provinceCode.String
 	return address, nil
 }
 

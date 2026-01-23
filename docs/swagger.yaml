@@ -866,6 +866,92 @@ definitions:
       type:
         type: string
     type: object
+  dashboard.PickupStatusCount:
+    properties:
+      cancelled:
+        example: 3
+        type: integer
+      completed:
+        example: 45
+        type: integer
+      failed:
+        example: 1
+        type: integer
+      rescheduled:
+        example: 2
+        type: integer
+      scheduled:
+        example: 15
+        type: integer
+    type: object
+  dashboard.PickupSummary:
+    properties:
+      carrier_name:
+        example: Canada Post
+        type: string
+      created_at:
+        example: "2026-01-23T10:30:00Z"
+        type: string
+      failure_reason:
+        example: Address not accessible
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      is_exception:
+        example: false
+        type: boolean
+      organization_id:
+        example: 550e8400-e29b-41d4-a716-446655440001
+        type: string
+      organization_name:
+        example: Acme Shipping Co.
+        type: string
+      pickup_city:
+        example: Toronto
+        type: string
+      pickup_date:
+        example: "2026-01-24"
+        type: string
+      pickup_number:
+        example: PKU-a1b2c3d4
+        type: string
+      pickup_status:
+        example: scheduled
+        type: string
+      pickup_window:
+        example: 09:00 - 17:00
+        type: string
+      shipment_id:
+        example: 550e8400-e29b-41d4-a716-446655440002
+        type: string
+      shipment_number:
+        example: SHP-xyz98765
+        type: string
+    type: object
+  dashboard.PickupsExceptionsResponse:
+    properties:
+      exceptions:
+        items:
+          $ref: '#/definitions/dashboard.PickupSummary'
+        type: array
+      generated_at:
+        type: string
+      period:
+        $ref: '#/definitions/dashboard.PeriodInfo'
+      summary:
+        $ref: '#/definitions/dashboard.PickupStatusCount'
+      todays_pickups:
+        items:
+          $ref: '#/definitions/dashboard.PickupSummary'
+        type: array
+      total_exceptions:
+        example: 4
+        type: integer
+      total_pickups:
+        example: 66
+        type: integer
+    type: object
   dashboard.ProfitField:
     properties:
       amount:
@@ -888,10 +974,14 @@ definitions:
     type: object
   dashboard.StatusBreakdown:
     properties:
+      archived:
+        allOf:
+        - $ref: '#/definitions/dashboard.StatusCount'
+        description: is_archived = true
       cancelled:
         allOf:
         - $ref: '#/definitions/dashboard.StatusCount'
-        description: cancelled, voided
+        description: cancelled
       delivered:
         allOf:
         - $ref: '#/definitions/dashboard.StatusCount'
@@ -918,6 +1008,10 @@ definitions:
         description: refunded
       total_created:
         type: integer
+      voided:
+        allOf:
+        - $ref: '#/definitions/dashboard.StatusCount'
+        description: voided
     type: object
   dashboard.StatusCount:
     properties:
@@ -925,6 +1019,47 @@ definitions:
         type: integer
       revenue:
         type: number
+    type: object
+  dashboard.TopSpendingBusiness:
+    properties:
+      average_per_order:
+        example: 107.4
+        type: number
+      business_name:
+        example: Acme Inc.
+        type: string
+      currency:
+        example: CAD
+        type: string
+      organization_id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      organization_name:
+        example: Acme Shipping Co.
+        type: string
+      rank:
+        example: 1
+        type: integer
+      shipment_count:
+        example: 142
+        type: integer
+      total_spent:
+        example: 15250.75
+        type: number
+    type: object
+  dashboard.TopSpendingBusinessesResponse:
+    properties:
+      businesses:
+        items:
+          $ref: '#/definitions/dashboard.TopSpendingBusiness'
+        type: array
+      generated_at:
+        type: string
+      period:
+        $ref: '#/definitions/dashboard.PeriodInfo'
+      total_count:
+        example: 10
+        type: integer
     type: object
   dashboard.UserBreakdown:
     properties:
@@ -4755,6 +4890,53 @@ definitions:
         example: topup
         type: string
     type: object
+  wallet.WalletOverviewPeriod:
+    properties:
+      end_date:
+        example: "2026-01-31"
+        type: string
+      label:
+        example: This Month
+        type: string
+      start_date:
+        example: "2026-01-01"
+        type: string
+      type:
+        example: this_month
+        type: string
+    type: object
+  wallet.WalletOverviewResponse:
+    properties:
+      available_balance:
+        description: Current balances
+        example: 1250.75
+        type: number
+      currency:
+        example: CAD
+        type: string
+      generated_at:
+        type: string
+      net_movement:
+        example: 179.5
+        type: number
+      period:
+        allOf:
+        - $ref: '#/definitions/wallet.WalletOverviewPeriod'
+        description: Period info
+      reserved:
+        example: 50
+        type: number
+      total_deposits:
+        description: Period-based metrics
+        example: 500
+        type: number
+      total_in_transit:
+        example: 150
+        type: number
+      total_outflow:
+        example: 320.5
+        type: number
+    type: object
   wallet.WalletResponse:
     properties:
       balance:
@@ -5574,6 +5756,60 @@ paths:
       summary: Get financial metrics for dashboard
       tags:
       - Admin - Dashboard
+  /admin/dashboard/pickups-exceptions:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve today's scheduled pickups and any pickup exceptions (failed
+        or cancelled) within the specified period. Useful for operations monitoring.
+      parameters:
+      - default: 7
+        description: Number of days to look back for exceptions
+        in: query
+        maximum: 30
+        minimum: 1
+        name: days
+        type: integer
+      - default: 20
+        description: Maximum number of items to return per list
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Pickups and exceptions retrieved successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dashboard.PickupsExceptionsResponse'
+              type: object
+        "400":
+          description: Invalid request parameters
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden - requires admin role
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Get pickups and exceptions list
+      tags:
+      - Admin - Dashboard
   /admin/dashboard/revenue-chart:
     get:
       consumes:
@@ -5753,6 +5989,54 @@ paths:
       security:
       - BearerAuth: []
       summary: Get top carriers by revenue
+      tags:
+      - Admin - Dashboard
+  /admin/dashboard/top-spending-businesses:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve the top spending businesses/organizations based on shipment
+        spending in the last 7 days. Shows organization name, total spent, shipment
+        count, and average order value.
+      parameters:
+      - default: 10
+        description: Number of businesses to return
+        in: query
+        maximum: 50
+        minimum: 1
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Top spending businesses retrieved successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dashboard.TopSpendingBusinessesResponse'
+              type: object
+        "400":
+          description: Invalid request parameters
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden - requires admin role
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Get top spending businesses (Last 7 Days)
       tags:
       - Admin - Dashboard
   /admin/dashboard/user-overview:
@@ -10605,7 +10889,8 @@ paths:
       - Shipment Estimates
   /shipments:
     get:
-      description: Get a paginated list of shipments for the current organization
+      description: Get a paginated list of shipments for the current organization.
+        Supports filtering by status, email, phone, address, and date range.
       parameters:
       - default: 1
         description: Page number
@@ -10615,18 +10900,55 @@ paths:
       - default: 20
         description: Items per page
         in: query
-        name: per_page
+        maximum: 100
+        name: limit
         type: integer
-      - description: Filter by status (pending, pre_label, label_purchased, in_transit,
-          delivered, cancelled, failed)
+      - description: Filter by shipment status
+        enum:
+        - draft
+        - awaiting_payment
+        - payment_failed
+        - label_purchased
+        - ready_for_pickup
+        - pickup_scheduled
+        - in_transit
+        - out_for_delivery
+        - delivered
+        - delivery_failed
+        - returned
+        - cancelled
+        - refunded
+        - voided
         in: query
         name: status
         type: string
-      - default: false
-        description: Include archived shipments
+      - description: Filter by archived status
         in: query
-        name: include_archived
+        name: is_archived
         type: boolean
+      - description: Filter by sender or recipient email (partial match)
+        in: query
+        name: email
+        type: string
+      - description: Filter by sender or recipient phone (partial match)
+        in: query
+        name: phone
+        type: string
+      - description: Filter by address - searches city, postal code, address line
+          (partial match)
+        in: query
+        name: address
+        type: string
+      - description: Filter shipments created on or after this date (YYYY-MM-DD)
+        format: date
+        in: query
+        name: from_date
+        type: string
+      - description: Filter shipments created on or before this date (YYYY-MM-DD)
+        format: date
+        in: query
+        name: to_date
+        type: string
       produces:
       - application/json
       responses:
@@ -13811,6 +14133,54 @@ paths:
       security:
       - BearerAuth: []
       summary: Lock organization wallet
+      tags:
+      - Wallet
+  /wallet/overview:
+    get:
+      description: Retrieve wallet overview including available balance, in-transit
+        amount, reserved amount, total deposits, total outflow, and net movement for
+        a specified period
+      parameters:
+      - default: this_month
+        description: Time period filter
+        enum:
+        - this_week
+        - this_month
+        - this_year
+        in: query
+        name: period
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Wallet overview retrieved successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/wallet.WalletOverviewResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden - user not in organization
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Wallet not found
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Get wallet overview with financial summary
       tags:
       - Wallet
   /wallet/refund:
