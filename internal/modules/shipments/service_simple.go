@@ -421,9 +421,20 @@ func (s *SimpleShipmentService) ListShipments(
 
 	// Count total records
 	var total int
-	countQuery := `SELECT COUNT(*) FROM shipments WHERE organization_id = $1 AND is_deleted = FALSE`
-	args := []interface{}{organizationID}
-	argIndex := 2
+	var countQuery string
+	var args []interface{}
+	var argIndex int
+
+	// If organizationID is empty, list all shipments (admin access)
+	if organizationID == "" {
+		countQuery = `SELECT COUNT(*) FROM shipments WHERE is_deleted = FALSE`
+		args = []interface{}{}
+		argIndex = 1
+	} else {
+		countQuery = `SELECT COUNT(*) FROM shipments WHERE organization_id = $1 AND is_deleted = FALSE`
+		args = []interface{}{organizationID}
+		argIndex = 2
+	}
 
 	// Add optional filters to count query
 	if query.Status != nil && *query.Status != "" {
@@ -443,18 +454,34 @@ func (s *SimpleShipmentService) ListShipments(
 	}
 
 	// Build the main query
-	selectQuery := `
-		SELECT id, shipment_number, organization_id, created_by_user_id, shipment_estimate_id,
-		       carrier_id, servicelevel_code, servicelevel_name,
-		       from_country, from_region_code, from_city, from_postal_code,
-		       to_country, to_region_code, to_city, to_postal_code,
-		       total_packages, currency, shipment_status, payment_status,
-		       is_archived, master_tracking_number, created_at, updated_at
-		FROM shipments
-		WHERE organization_id = $1 AND is_deleted = FALSE
-	`
-	args = []interface{}{organizationID}
-	argIndex = 2
+	var selectQuery string
+	if organizationID == "" {
+		selectQuery = `
+			SELECT id, shipment_number, organization_id, created_by_user_id, shipment_estimate_id,
+			       carrier_id, servicelevel_code, servicelevel_name,
+			       from_country, from_region_code, from_city, from_postal_code,
+			       to_country, to_region_code, to_city, to_postal_code,
+			       total_packages, currency, shipment_status, payment_status,
+			       is_archived, master_tracking_number, created_at, updated_at
+			FROM shipments
+			WHERE is_deleted = FALSE
+		`
+		args = []interface{}{}
+		argIndex = 1
+	} else {
+		selectQuery = `
+			SELECT id, shipment_number, organization_id, created_by_user_id, shipment_estimate_id,
+			       carrier_id, servicelevel_code, servicelevel_name,
+			       from_country, from_region_code, from_city, from_postal_code,
+			       to_country, to_region_code, to_city, to_postal_code,
+			       total_packages, currency, shipment_status, payment_status,
+			       is_archived, master_tracking_number, created_at, updated_at
+			FROM shipments
+			WHERE organization_id = $1 AND is_deleted = FALSE
+		`
+		args = []interface{}{organizationID}
+		argIndex = 2
+	}
 
 	// Add optional filters
 	if query.Status != nil && *query.Status != "" {

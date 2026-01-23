@@ -15,6 +15,7 @@ import (
 	"gogin/internal/modules/apiclient"
 	"gogin/internal/modules/audit"
 	"gogin/internal/modules/commissions"
+	"gogin/internal/modules/dashboard"
 	"gogin/internal/modules/core"
 	"gogin/internal/modules/invoices"
 	"gogin/internal/modules/labels"
@@ -100,6 +101,9 @@ import (
 
 // @tag.name Admin - Audit Logs
 // @tag.description Admin audit log query and export (requires admin role)
+
+// @tag.name Admin - Dashboard
+// @tag.description Admin dashboard financial metrics and analytics (requires admin role)
 
 // @tag.name Admin - Notification Templates
 // @tag.description Admin notification template management (requires admin role)
@@ -274,6 +278,11 @@ func main() {
 	auditModule := audit.NewAuditModule(db, redis, cfg)
 	auditModule.RegisterRoutes(v1)
 	log.Println("✓ Audit module registered")
+
+	// Dashboard module (admin only - financial metrics and analytics)
+	dashboardModule := dashboard.NewDashboardModule(db, redis, cfg)
+	dashboardModule.RegisterRoutes(v1)
+	log.Println("✓ Dashboard module registered")
 
 	// Organizations module
 	organizationsModule := organizations.NewOrganizationsModule(db, redis, cfg)

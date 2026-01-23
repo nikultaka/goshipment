@@ -58,7 +58,7 @@ build/
 tmp/
 temp/
 *.tmp
-
+.claude/
 # Python virtual environment (from earlier setup)
 venv/
 __pycache__/
@@ -81,5 +81,5 @@ package-lock.json
 package.json
 test_auth.sh0
 
-.claude/
+
 goshipment

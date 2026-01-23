@@ -391,23 +391,46 @@ func (s *PickupService) ListPickups(req ListPickupsRequest, organizationID, user
 
 	offset := (page - 1) * pageSize
 
-	// Build query
-	query := `
-		SELECT id, pickup_number, organization_id, created_by_user_id, shipment_id, carrier_id,
-			pickup_address_book_id,
-			pickup_name, pickup_company, pickup_phone, pickup_email,
-			pickup_country, pickup_region_code, pickup_city, pickup_postal_code,
-			pickup_address_line1, pickup_address_line2, pickup_is_residential,
-			building_type, pickup_location, pickup_instructions,
-			pickup_date, pickup_window_start, pickup_window_end, timezone,
-			provider_pickup_id, provider_reference,
-			pickup_status, scheduled_at, cancelled_at, failure_reason,
-			created_at, updated_at
-		FROM pickups
-		WHERE organization_id = $1 AND is_deleted = FALSE
-	`
-	args := []interface{}{organizationID}
-	argIndex := 2
+	// Build query - if organizationID is empty, list all pickups (admin access)
+	var query string
+	var args []interface{}
+	var argIndex int
+
+	if organizationID == "" {
+		query = `
+			SELECT id, pickup_number, organization_id, created_by_user_id, shipment_id, carrier_id,
+				pickup_address_book_id,
+				pickup_name, pickup_company, pickup_phone, pickup_email,
+				pickup_country, pickup_region_code, pickup_city, pickup_postal_code,
+				pickup_address_line1, pickup_address_line2, pickup_is_residential,
+				building_type, pickup_location, pickup_instructions,
+				pickup_date, pickup_window_start, pickup_window_end, timezone,
+				provider_pickup_id, provider_reference,
+				pickup_status, scheduled_at, cancelled_at, failure_reason,
+				created_at, updated_at
+			FROM pickups
+			WHERE is_deleted = FALSE
+		`
+		args = []interface{}{}
+		argIndex = 1
+	} else {
+		query = `
+			SELECT id, pickup_number, organization_id, created_by_user_id, shipment_id, carrier_id,
+				pickup_address_book_id,
+				pickup_name, pickup_company, pickup_phone, pickup_email,
+				pickup_country, pickup_region_code, pickup_city, pickup_postal_code,
+				pickup_address_line1, pickup_address_line2, pickup_is_residential,
+				building_type, pickup_location, pickup_instructions,
+				pickup_date, pickup_window_start, pickup_window_end, timezone,
+				provider_pickup_id, provider_reference,
+				pickup_status, scheduled_at, cancelled_at, failure_reason,
+				created_at, updated_at
+			FROM pickups
+			WHERE organization_id = $1 AND is_deleted = FALSE
+		`
+		args = []interface{}{organizationID}
+		argIndex = 2
+	}
 
 	// Add filters
 	if req.Status != "" {

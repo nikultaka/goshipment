@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"gogin/internal/middleware"
 	"gogin/internal/response"
 
 	"github.com/gin-gonic/gin"
@@ -43,11 +44,19 @@ func (h *WalletHandlers) GetWallet(c *gin.Context) {
 		return
 	}
 
-	// Get organization ID from user membership
-	organizationID, err := h.service.GetOrganizationIDFromUser(userID.(string))
-	if err != nil {
-		response.Forbidden(c, "User is not a member of any organization")
+	// Get organization ID from user membership (admin users can access via query param)
+	organizationID, isAdminUser := middleware.GetOrganizationContext(c)
+	if isAdminUser && organizationID == "" {
+		// Admin users must provide organization_id for wallet operations
+		response.BadRequest(c, "organization_id query parameter is required for admin users")
 		return
+	} else if !isAdminUser {
+		var err error
+		organizationID, err = h.service.GetOrganizationIDFromUser(userID.(string))
+		if err != nil {
+			response.Forbidden(c, "User is not a member of any organization")
+			return
+		}
 	}
 
 	// Get pagination parameters
@@ -99,11 +108,19 @@ func (h *WalletHandlers) TopUp(c *gin.Context) {
 		return
 	}
 
-	// Get organization ID from user membership
-	organizationID, err := h.service.GetOrganizationIDFromUser(userID.(string))
-	if err != nil {
-		response.Forbidden(c, "User is not a member of any organization")
+	// Get organization ID from user membership (admin users can access via query param)
+	organizationID, isAdminUser := middleware.GetOrganizationContext(c)
+	if isAdminUser && organizationID == "" {
+		// Admin users must provide organization_id for wallet operations
+		response.BadRequest(c, "organization_id query parameter is required for admin users")
 		return
+	} else if !isAdminUser {
+		var err error
+		organizationID, err = h.service.GetOrganizationIDFromUser(userID.(string))
+		if err != nil {
+			response.Forbidden(c, "User is not a member of any organization")
+			return
+		}
 	}
 
 	// Parse request
@@ -159,11 +176,19 @@ func (h *WalletHandlers) Refund(c *gin.Context) {
 		return
 	}
 
-	// Get organization ID from user membership
-	organizationID, err := h.service.GetOrganizationIDFromUser(userID.(string))
-	if err != nil {
-		response.Forbidden(c, "User is not a member of any organization")
+	// Get organization ID from user membership (admin users can access via query param)
+	organizationID, isAdminUser := middleware.GetOrganizationContext(c)
+	if isAdminUser && organizationID == "" {
+		// Admin users must provide organization_id for wallet operations
+		response.BadRequest(c, "organization_id query parameter is required for admin users")
 		return
+	} else if !isAdminUser {
+		var err error
+		organizationID, err = h.service.GetOrganizationIDFromUser(userID.(string))
+		if err != nil {
+			response.Forbidden(c, "User is not a member of any organization")
+			return
+		}
 	}
 
 	// Parse request
@@ -213,11 +238,19 @@ func (h *WalletHandlers) LockWallet(c *gin.Context) {
 		return
 	}
 
-	// Get organization ID from user membership
-	organizationID, err := h.service.GetOrganizationIDFromUser(userID.(string))
-	if err != nil {
-		response.Forbidden(c, "User is not a member of any organization")
+	// Get organization ID from user membership (admin users can access via query param)
+	organizationID, isAdminUser := middleware.GetOrganizationContext(c)
+	if isAdminUser && organizationID == "" {
+		// Admin users must provide organization_id for wallet operations
+		response.BadRequest(c, "organization_id query parameter is required for admin users")
 		return
+	} else if !isAdminUser {
+		var err error
+		organizationID, err = h.service.GetOrganizationIDFromUser(userID.(string))
+		if err != nil {
+			response.Forbidden(c, "User is not a member of any organization")
+			return
+		}
 	}
 
 	// Lock wallet
@@ -254,11 +287,19 @@ func (h *WalletHandlers) UnlockWallet(c *gin.Context) {
 		return
 	}
 
-	// Get organization ID from user membership
-	organizationID, err := h.service.GetOrganizationIDFromUser(userID.(string))
-	if err != nil {
-		response.Forbidden(c, "User is not a member of any organization")
+	// Get organization ID from user membership (admin users can access via query param)
+	organizationID, isAdminUser := middleware.GetOrganizationContext(c)
+	if isAdminUser && organizationID == "" {
+		// Admin users must provide organization_id for wallet operations
+		response.BadRequest(c, "organization_id query parameter is required for admin users")
 		return
+	} else if !isAdminUser {
+		var err error
+		organizationID, err = h.service.GetOrganizationIDFromUser(userID.(string))
+		if err != nil {
+			response.Forbidden(c, "User is not a member of any organization")
+			return
+		}
 	}
 
 	// Unlock wallet

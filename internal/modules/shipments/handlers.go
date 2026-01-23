@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 
+	"gogin/internal/middleware"
 	"gogin/internal/models"
 	"gogin/internal/response"
 
@@ -59,11 +60,15 @@ func (h *ShipmentHandlers) CreateShipment(c *gin.Context) {
 		return
 	}
 
-	// Get organization ID from user membership
-	organizationID, err := h.service.GetOrganizationIDFromUser(userID.(string))
-	if err != nil {
-		response.Forbidden(c, "User is not a member of any organization")
-		return
+	// Get organization ID from user membership (admin users can access all)
+	organizationID, isAdminUser := middleware.GetOrganizationContext(c)
+	if !isAdminUser {
+		var err error
+		organizationID, err = h.service.GetOrganizationIDFromUser(userID.(string))
+		if err != nil {
+			response.Forbidden(c, "User is not a member of any organization")
+			return
+		}
 	}
 
 	// Parse request
@@ -117,11 +122,15 @@ func (h *ShipmentHandlers) ListShipments(c *gin.Context) {
 		return
 	}
 
-	// Get organization ID from user membership
-	organizationID, err := h.service.GetOrganizationIDFromUser(userID.(string))
-	if err != nil {
-		response.Forbidden(c, "User is not a member of any organization")
-		return
+	// Get organization ID from user membership (admin users can access all)
+	organizationID, isAdminUser := middleware.GetOrganizationContext(c)
+	if !isAdminUser {
+		var err error
+		organizationID, err = h.service.GetOrganizationIDFromUser(userID.(string))
+		if err != nil {
+			response.Forbidden(c, "User is not a member of any organization")
+			return
+		}
 	}
 
 	// Parse query parameters
@@ -186,11 +195,15 @@ func (h *ShipmentHandlers) GetShipment(c *gin.Context) {
 		return
 	}
 
-	// Get organization ID from user membership
-	organizationID, err := h.service.GetOrganizationIDFromUser(userID.(string))
-	if err != nil {
-		response.Forbidden(c, "User is not a member of any organization")
-		return
+	// Get organization ID from user membership (admin users can access all)
+	organizationID, isAdminUser := middleware.GetOrganizationContext(c)
+	if !isAdminUser {
+		var err error
+		organizationID, err = h.service.GetOrganizationIDFromUser(userID.(string))
+		if err != nil {
+			response.Forbidden(c, "User is not a member of any organization")
+			return
+		}
 	}
 
 	// Get shipment ID from path
@@ -242,11 +255,15 @@ func (h *ShipmentHandlers) CancelShipment(c *gin.Context) {
 		return
 	}
 
-	// Get organization ID from user membership
-	organizationID, err := h.service.GetOrganizationIDFromUser(userID.(string))
-	if err != nil {
-		response.Forbidden(c, "User is not a member of any organization")
-		return
+	// Get organization ID from user membership (admin users can access all)
+	organizationID, isAdminUser := middleware.GetOrganizationContext(c)
+	if !isAdminUser {
+		var err error
+		organizationID, err = h.service.GetOrganizationIDFromUser(userID.(string))
+		if err != nil {
+			response.Forbidden(c, "User is not a member of any organization")
+			return
+		}
 	}
 
 	// Get shipment ID from path
@@ -264,7 +281,7 @@ func (h *ShipmentHandlers) CancelShipment(c *gin.Context) {
 	}
 
 	// Cancel shipment
-	err = h.service.CancelShipment(shipmentID, organizationID, userID.(string), req.Reason)
+	err := h.service.CancelShipment(shipmentID, organizationID, userID.(string), req.Reason)
 	if err != nil {
 		errMsg := err.Error()
 		switch {
@@ -316,11 +333,15 @@ func (h *ShipmentHandlers) VoidShipment(c *gin.Context) {
 		return
 	}
 
-	// Get organization ID from user membership
-	organizationID, err := h.service.GetOrganizationIDFromUser(userID.(string))
-	if err != nil {
-		response.Forbidden(c, "User is not a member of any organization")
-		return
+	// Get organization ID from user membership (admin users can access all)
+	organizationID, isAdminUser := middleware.GetOrganizationContext(c)
+	if !isAdminUser {
+		var err error
+		organizationID, err = h.service.GetOrganizationIDFromUser(userID.(string))
+		if err != nil {
+			response.Forbidden(c, "User is not a member of any organization")
+			return
+		}
 	}
 
 	// Get shipment ID from path
@@ -338,7 +359,7 @@ func (h *ShipmentHandlers) VoidShipment(c *gin.Context) {
 	}
 
 	// Void shipment
-	err = h.service.VoidShipment(shipmentID, organizationID, userID.(string), req.Reason)
+	err := h.service.VoidShipment(shipmentID, organizationID, userID.(string), req.Reason)
 	if err != nil {
 		errMsg := err.Error()
 		switch {
@@ -387,11 +408,15 @@ func (h *ShipmentHandlers) ArchiveShipment(c *gin.Context) {
 		return
 	}
 
-	// Get organization ID from user membership
-	organizationID, err := h.service.GetOrganizationIDFromUser(userID.(string))
-	if err != nil {
-		response.Forbidden(c, "User is not a member of any organization")
-		return
+	// Get organization ID from user membership (admin users can access all)
+	organizationID, isAdminUser := middleware.GetOrganizationContext(c)
+	if !isAdminUser {
+		var err error
+		organizationID, err = h.service.GetOrganizationIDFromUser(userID.(string))
+		if err != nil {
+			response.Forbidden(c, "User is not a member of any organization")
+			return
+		}
 	}
 
 	// Get shipment ID from path
@@ -402,7 +427,7 @@ func (h *ShipmentHandlers) ArchiveShipment(c *gin.Context) {
 	}
 
 	// Archive shipment
-	err = h.service.ArchiveShipment(shipmentID, organizationID, userID.(string))
+	err := h.service.ArchiveShipment(shipmentID, organizationID, userID.(string))
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "access denied") {
 			response.NotFound(c, "Shipment not found or access denied")
@@ -455,11 +480,15 @@ func (h *ShipmentHandlers) UpdateStatus(c *gin.Context) {
 		return
 	}
 
-	// Get organization ID from user membership
-	organizationID, err := h.service.GetOrganizationIDFromUser(userID.(string))
-	if err != nil {
-		response.Forbidden(c, "User is not a member of any organization")
-		return
+	// Get organization ID from user membership (admin users can access all)
+	organizationID, isAdminUser := middleware.GetOrganizationContext(c)
+	if !isAdminUser {
+		var err error
+		organizationID, err = h.service.GetOrganizationIDFromUser(userID.(string))
+		if err != nil {
+			response.Forbidden(c, "User is not a member of any organization")
+			return
+		}
 	}
 
 	// Get shipment ID from path
@@ -557,11 +586,15 @@ func (h *ShipmentHandlers) GetShipmentTimeline(c *gin.Context) {
 		return
 	}
 
-	// Get organization ID from user membership
-	organizationID, err := h.service.GetOrganizationIDFromUser(userID.(string))
-	if err != nil {
-		response.Forbidden(c, "User is not a member of any organization")
-		return
+	// Get organization ID from user membership (admin users can access all)
+	organizationID, isAdminUser := middleware.GetOrganizationContext(c)
+	if !isAdminUser {
+		var err error
+		organizationID, err = h.service.GetOrganizationIDFromUser(userID.(string))
+		if err != nil {
+			response.Forbidden(c, "User is not a member of any organization")
+			return
+		}
 	}
 
 	// Get shipment ID from path

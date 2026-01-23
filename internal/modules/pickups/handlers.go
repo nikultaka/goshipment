@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 
+	"gogin/internal/middleware"
 	"gogin/internal/response"
 
 	"github.com/gin-gonic/gin"
@@ -45,11 +46,15 @@ func (h *PickupHandlers) SchedulePickup(c *gin.Context) {
 		return
 	}
 
-	// Get organization ID from user membership
-	organizationID, err := h.service.GetOrganizationIDFromUser(userID.(string))
-	if err != nil {
-		response.Forbidden(c, "User is not a member of any organization")
-		return
+	// Get organization ID from user membership (admin users can access all)
+	organizationID, isAdminUser := middleware.GetOrganizationContext(c)
+	if !isAdminUser {
+		var err error
+		organizationID, err = h.service.GetOrganizationIDFromUser(userID.(string))
+		if err != nil {
+			response.Forbidden(c, "User is not a member of any organization")
+			return
+		}
 	}
 
 	// Parse request
@@ -104,11 +109,15 @@ func (h *PickupHandlers) CancelPickup(c *gin.Context) {
 		return
 	}
 
-	// Get organization ID from user membership
-	organizationID, err := h.service.GetOrganizationIDFromUser(userID.(string))
-	if err != nil {
-		response.Forbidden(c, "User is not a member of any organization")
-		return
+	// Get organization ID from user membership (admin users can access all)
+	organizationID, isAdminUser := middleware.GetOrganizationContext(c)
+	if !isAdminUser {
+		var err error
+		organizationID, err = h.service.GetOrganizationIDFromUser(userID.(string))
+		if err != nil {
+			response.Forbidden(c, "User is not a member of any organization")
+			return
+		}
 	}
 
 	// Get pickup ID from path
@@ -163,11 +172,15 @@ func (h *PickupHandlers) ListPickups(c *gin.Context) {
 		return
 	}
 
-	// Get organization ID from user membership
-	organizationID, err := h.service.GetOrganizationIDFromUser(userID.(string))
-	if err != nil {
-		response.Forbidden(c, "User is not a member of any organization")
-		return
+	// Get organization ID from user membership (admin users can access all)
+	organizationID, isAdminUser := middleware.GetOrganizationContext(c)
+	if !isAdminUser {
+		var err error
+		organizationID, err = h.service.GetOrganizationIDFromUser(userID.(string))
+		if err != nil {
+			response.Forbidden(c, "User is not a member of any organization")
+			return
+		}
 	}
 
 	// Parse query parameters

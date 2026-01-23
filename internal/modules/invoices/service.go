@@ -71,12 +71,6 @@ func (s *InvoiceService) GetUserRole(userID string) (string, error) {
 
 // GetInvoices retrieves invoices with filtering and pagination
 func (s *InvoiceService) GetInvoices(req ListInvoicesRequest, organizationID, userID string) (*InvoiceListResponse, error) {
-	// Get user role to determine access level
-	role, err := s.GetUserRole(userID)
-	if err != nil {
-		return nil, err
-	}
-
 	// Set defaults
 	if req.Page < 1 {
 		req.Page = 1
@@ -85,16 +79,17 @@ func (s *InvoiceService) GetInvoices(req ListInvoicesRequest, organizationID, us
 		req.PageSize = 20
 	}
 
-	// Build query based on role
+	// Build query based on role and organizationID
+	// If organizationID is empty, this is system admin access - list all invoices
 	// Users see only invoices for their shipments
 	// Managers and admins see all organization invoices
 	var query string
 	var countQuery string
-	args := []interface{}{organizationID}
-	argIndex := 2
+	var args []interface{}
+	var argIndex int
 
-	if role == "user" {
-		// Users see only their own shipments' invoices
+	if organizationID == "" {
+		// System admin access - see all invoices across all organizations
 		query = `
 			SELECT
 				i.id, i.invoice_number, i.organization_id, o.name as organization_name,
@@ -108,41 +103,76 @@ func (s *InvoiceService) GetInvoices(req ListInvoicesRequest, organizationID, us
 			FROM invoices i
 			JOIN organizations o ON i.organization_id = o.id
 			LEFT JOIN shipments s ON i.shipment_id = s.id
-			WHERE i.organization_id = $1
-			AND (i.shipment_id IN (SELECT id FROM shipments WHERE created_by_user_id = $` + fmt.Sprint(argIndex) + `)
-			     OR i.invoice_type = 'credit_note')
+			WHERE 1=1
 		`
 		countQuery = `
 			SELECT COUNT(*)
 			FROM invoices i
-			WHERE i.organization_id = $1
-			AND (i.shipment_id IN (SELECT id FROM shipments WHERE created_by_user_id = $` + fmt.Sprint(argIndex) + `)
-			     OR i.invoice_type = 'credit_note')
+			WHERE 1=1
 		`
-		args = append(args, userID)
-		argIndex++
+		args = []interface{}{}
+		argIndex = 1
 	} else {
-		// Managers and admins see all organization invoices
-		query = `
-			SELECT
-				i.id, i.invoice_number, i.organization_id, o.name as organization_name,
-				i.shipment_id, s.shipment_number,
-				i.invoice_type, i.status, i.payment_status, i.currency,
-				i.subtotal_amount, i.taxes_amount, i.discount_amount, i.total_amount,
-				i.amount_paid, i.balance_due,
-				i.issued_at, i.due_at, i.voided_at,
-				i.parent_invoice_id, i.credit_note_reason, i.notes AS credit_note_reason_notes,
-				i.created_at, i.updated_at
-			FROM invoices i
-			JOIN organizations o ON i.organization_id = o.id
-			LEFT JOIN shipments s ON i.shipment_id = s.id
-			WHERE i.organization_id = $1
-		`
-		countQuery = `
-			SELECT COUNT(*)
-			FROM invoices i
-			WHERE i.organization_id = $1
-		`
+		// Get user role to determine access level within organization
+		role, err := s.GetUserRole(userID)
+		if err != nil {
+			return nil, err
+		}
+
+		args = []interface{}{organizationID}
+		argIndex = 2
+
+		if role == "user" {
+			// Users see only their own shipments' invoices
+			query = `
+				SELECT
+					i.id, i.invoice_number, i.organization_id, o.name as organization_name,
+					i.shipment_id, s.shipment_number,
+					i.invoice_type, i.status, i.payment_status, i.currency,
+					i.subtotal_amount, i.taxes_amount, i.discount_amount, i.total_amount,
+					i.amount_paid, i.balance_due,
+					i.issued_at, i.due_at, i.voided_at,
+					i.parent_invoice_id, i.credit_note_reason, i.notes AS credit_note_reason_notes,
+					i.created_at, i.updated_at
+				FROM invoices i
+				JOIN organizations o ON i.organization_id = o.id
+				LEFT JOIN shipments s ON i.shipment_id = s.id
+				WHERE i.organization_id = $1
+				AND (i.shipment_id IN (SELECT id FROM shipments WHERE created_by_user_id = $` + fmt.Sprint(argIndex) + `)
+				     OR i.invoice_type = 'credit_note')
+			`
+			countQuery = `
+				SELECT COUNT(*)
+				FROM invoices i
+				WHERE i.organization_id = $1
+				AND (i.shipment_id IN (SELECT id FROM shipments WHERE created_by_user_id = $` + fmt.Sprint(argIndex) + `)
+				     OR i.invoice_type = 'credit_note')
+			`
+			args = append(args, userID)
+			argIndex++
+		} else {
+			// Managers and admins see all organization invoices
+			query = `
+				SELECT
+					i.id, i.invoice_number, i.organization_id, o.name as organization_name,
+					i.shipment_id, s.shipment_number,
+					i.invoice_type, i.status, i.payment_status, i.currency,
+					i.subtotal_amount, i.taxes_amount, i.discount_amount, i.total_amount,
+					i.amount_paid, i.balance_due,
+					i.issued_at, i.due_at, i.voided_at,
+					i.parent_invoice_id, i.credit_note_reason, i.notes AS credit_note_reason_notes,
+					i.created_at, i.updated_at
+				FROM invoices i
+				JOIN organizations o ON i.organization_id = o.id
+				LEFT JOIN shipments s ON i.shipment_id = s.id
+				WHERE i.organization_id = $1
+			`
+			countQuery = `
+				SELECT COUNT(*)
+				FROM invoices i
+				WHERE i.organization_id = $1
+			`
+		}
 	}
 
 	// Add filters
@@ -179,7 +209,7 @@ func (s *InvoiceService) GetInvoices(req ListInvoicesRequest, organizationID, us
 
 	// Get total count
 	var totalCount int
-	err = s.db.DB.QueryRow(countQuery, args...).Scan(&totalCount)
+	err := s.db.DB.QueryRow(countQuery, args...).Scan(&totalCount)
 	if err != nil {
 		return nil, fmt.Errorf("failed to count invoices: %w", err)
 	}

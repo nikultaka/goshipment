@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"gogin/internal/middleware"
 	"gogin/internal/response"
 
 	"github.com/gin-gonic/gin"
@@ -48,11 +49,15 @@ func (h *InvoiceHandlers) ListInvoices(c *gin.Context) {
 		return
 	}
 
-	// Get organization ID from user membership
-	organizationID, err := h.service.GetOrganizationIDFromUser(userID.(string))
-	if err != nil {
-		response.Forbidden(c, "User is not a member of any organization")
-		return
+	// Get organization ID from user membership (admin users can access all)
+	organizationID, isAdminUser := middleware.GetOrganizationContext(c)
+	if !isAdminUser {
+		var err error
+		organizationID, err = h.service.GetOrganizationIDFromUser(userID.(string))
+		if err != nil {
+			response.Forbidden(c, "User is not a member of any organization")
+			return
+		}
 	}
 
 	// Parse query parameters
@@ -94,11 +99,15 @@ func (h *InvoiceHandlers) GetInvoice(c *gin.Context) {
 		return
 	}
 
-	// Get organization ID from user membership
-	organizationID, err := h.service.GetOrganizationIDFromUser(userID.(string))
-	if err != nil {
-		response.Forbidden(c, "User is not a member of any organization")
-		return
+	// Get organization ID from user membership (admin users can access all)
+	organizationID, isAdminUser := middleware.GetOrganizationContext(c)
+	if !isAdminUser {
+		var err error
+		organizationID, err = h.service.GetOrganizationIDFromUser(userID.(string))
+		if err != nil {
+			response.Forbidden(c, "User is not a member of any organization")
+			return
+		}
 	}
 
 	// Get invoice ID from path
@@ -144,11 +153,15 @@ func (h *InvoiceHandlers) DownloadInvoice(c *gin.Context) {
 		return
 	}
 
-	// Get organization ID from user membership
-	organizationID, err := h.service.GetOrganizationIDFromUser(userID.(string))
-	if err != nil {
-		response.Forbidden(c, "User is not a member of any organization")
-		return
+	// Get organization ID from user membership (admin users can access all)
+	organizationID, isAdminUser := middleware.GetOrganizationContext(c)
+	if !isAdminUser {
+		var err error
+		organizationID, err = h.service.GetOrganizationIDFromUser(userID.(string))
+		if err != nil {
+			response.Forbidden(c, "User is not a member of any organization")
+			return
+		}
 	}
 
 	// Get invoice ID from path
@@ -211,11 +224,15 @@ func (h *InvoiceHandlers) RefundInvoice(c *gin.Context) {
 		return
 	}
 
-	// Get organization ID from user membership
-	organizationID, err := h.service.GetOrganizationIDFromUser(userID.(string))
-	if err != nil {
-		response.Forbidden(c, "User is not a member of any organization")
-		return
+	// Get organization ID from user membership (admin users can access all)
+	organizationID, isAdminUser := middleware.GetOrganizationContext(c)
+	if !isAdminUser {
+		var err error
+		organizationID, err = h.service.GetOrganizationIDFromUser(userID.(string))
+		if err != nil {
+			response.Forbidden(c, "User is not a member of any organization")
+			return
+		}
 	}
 
 	// Get invoice ID from path
@@ -277,11 +294,15 @@ func (h *InvoiceHandlers) VoidInvoice(c *gin.Context) {
 		return
 	}
 
-	// Get organization ID from user membership
-	organizationID, err := h.service.GetOrganizationIDFromUser(userID.(string))
-	if err != nil {
-		response.Forbidden(c, "User is not a member of any organization")
-		return
+	// Get organization ID from user membership (admin users can access all)
+	organizationID, isAdminUser := middleware.GetOrganizationContext(c)
+	if !isAdminUser {
+		var err error
+		organizationID, err = h.service.GetOrganizationIDFromUser(userID.(string))
+		if err != nil {
+			response.Forbidden(c, "User is not a member of any organization")
+			return
+		}
 	}
 
 	// Get invoice ID from path

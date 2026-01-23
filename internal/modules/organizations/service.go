@@ -53,6 +53,33 @@ func (s *OrganizationService) GetOrganizationByUserID(userID string) (*models.Or
 	return &org, &member, nil
 }
 
+// GetOrganizationByID retrieves an organization by its ID
+func (s *OrganizationService) GetOrganizationByID(organizationID string) (*models.Organization, error) {
+	query := `
+		SELECT
+			id, external_id, name, owner_user_id, status, plan,
+			is_deleted, deleted_at, deleted_by_user_id, created_at, updated_at
+		FROM organizations
+		WHERE id = $1
+	`
+
+	var org models.Organization
+
+	err := s.db.DB.QueryRow(query, organizationID).Scan(
+		&org.ID, &org.ExternalID, &org.Name, &org.OwnerUserID, &org.Status, &org.Plan,
+		&org.IsDeleted, &org.DeletedAt, &org.DeletedByUserID, &org.CreatedAt, &org.UpdatedAt,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("organization not found")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get organization: %w", err)
+	}
+
+	return &org, nil
+}
+
 // GetOrganizationMembers retrieves all members of an organization
 func (s *OrganizationService) GetOrganizationMembers(organizationID string) ([]models.OrganizationMember, error) {
 	query := `

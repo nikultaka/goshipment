@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"gogin/internal/middleware"
+	"gogin/internal/models"
 	"gogin/internal/response"
 
 	"github.com/gin-gonic/gin"
@@ -45,10 +47,28 @@ func (h *OrganizationInviteHandlers) CreateInvite(c *gin.Context) {
 		return
 	}
 
-	// Get organization from database
-	org, _, err := h.orgService.GetOrganizationByUserID(userID.(string))
-	if err != nil {
-		response.Forbidden(c, "User is not a member of any organization")
+	// Get organization from database (admin users can access any org via query param)
+	var org *models.Organization
+	orgID, isAdminUser := middleware.GetOrganizationContext(c)
+	if isAdminUser && orgID != "" {
+		// Admin user with specific org ID - get that org
+		var err error
+		org, err = h.orgService.GetOrganizationByID(orgID)
+		if err != nil {
+			response.NotFound(c, "Organization not found")
+			return
+		}
+	} else if !isAdminUser {
+		// Non-admin user - must be member of org
+		var err error
+		org, _, err = h.orgService.GetOrganizationByUserID(userID.(string))
+		if err != nil {
+			response.Forbidden(c, "User is not a member of any organization")
+			return
+		}
+	} else {
+		// Admin user without org ID - require org ID
+		response.BadRequest(c, "organization_id query parameter is required for admin users")
 		return
 	}
 
@@ -202,10 +222,28 @@ func (h *OrganizationInviteHandlers) ListInvites(c *gin.Context) {
 		return
 	}
 
-	// Get organization from database
-	org, _, err := h.orgService.GetOrganizationByUserID(userID.(string))
-	if err != nil {
-		response.Forbidden(c, "User is not a member of any organization")
+	// Get organization from database (admin users can access any org via query param)
+	var org *models.Organization
+	orgID, isAdminUser := middleware.GetOrganizationContext(c)
+	if isAdminUser && orgID != "" {
+		// Admin user with specific org ID - get that org
+		var err error
+		org, err = h.orgService.GetOrganizationByID(orgID)
+		if err != nil {
+			response.NotFound(c, "Organization not found")
+			return
+		}
+	} else if !isAdminUser {
+		// Non-admin user - must be member of org
+		var err error
+		org, _, err = h.orgService.GetOrganizationByUserID(userID.(string))
+		if err != nil {
+			response.Forbidden(c, "User is not a member of any organization")
+			return
+		}
+	} else {
+		// Admin user without org ID - require org ID
+		response.BadRequest(c, "organization_id query parameter is required for admin users")
 		return
 	}
 
@@ -311,10 +349,28 @@ func (h *OrganizationInviteHandlers) RevokeInvite(c *gin.Context) {
 		return
 	}
 
-	// Get organization from database
-	org, _, err := h.orgService.GetOrganizationByUserID(userID.(string))
-	if err != nil {
-		response.Forbidden(c, "User is not a member of any organization")
+	// Get organization from database (admin users can access any org via query param)
+	var org *models.Organization
+	orgID, isAdminUser := middleware.GetOrganizationContext(c)
+	if isAdminUser && orgID != "" {
+		// Admin user with specific org ID - get that org
+		var err error
+		org, err = h.orgService.GetOrganizationByID(orgID)
+		if err != nil {
+			response.NotFound(c, "Organization not found")
+			return
+		}
+	} else if !isAdminUser {
+		// Non-admin user - must be member of org
+		var err error
+		org, _, err = h.orgService.GetOrganizationByUserID(userID.(string))
+		if err != nil {
+			response.Forbidden(c, "User is not a member of any organization")
+			return
+		}
+	} else {
+		// Admin user without org ID - require org ID
+		response.BadRequest(c, "organization_id query parameter is required for admin users")
 		return
 	}
 
@@ -326,7 +382,7 @@ func (h *OrganizationInviteHandlers) RevokeInvite(c *gin.Context) {
 	}
 
 	// Revoke invitation
-	err = h.service.RevokeInvite(inviteID, org.ID)
+	err := h.service.RevokeInvite(inviteID, org.ID)
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return
