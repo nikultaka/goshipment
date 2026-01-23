@@ -139,9 +139,17 @@ type ShipmentListItem struct {
 	Currency        string             `json:"currency"`
 	Status          ShipmentStatusInfo `json:"status"`
 	PaymentStatus   string             `json:"payment_status"`
+	Pickup          *PickupListInfo    `json:"pickup,omitempty"`
 	TrackingNumber  *string            `json:"tracking_number,omitempty"`
 	IsArchived      bool               `json:"is_archived"`
 	CreatedAt       string             `json:"created_at"`
+}
+
+// PickupListInfo represents pickup info in list responses
+type PickupListInfo struct {
+	Required bool    `json:"required"`
+	PickupID *string `json:"pickup_id,omitempty"`
+	Status   *string `json:"status,omitempty"` // draft, scheduled, rescheduled, cancelled, completed, failed
 }
 
 // CarrierInfo represents carrier details
@@ -394,7 +402,7 @@ func ToShipmentResponse(
 
 // ToShipmentListItem converts a Shipment model to ShipmentListItem DTO
 func ToShipmentListItem(shipment *models.Shipment) ShipmentListItem {
-	return ShipmentListItem{
+	item := ShipmentListItem{
 		ID:             shipment.ID,
 		ShipmentNumber: shipment.ShipmentNumber,
 		Carrier: CarrierInfo{
@@ -424,6 +432,18 @@ func ToShipmentListItem(shipment *models.Shipment) ShipmentListItem {
 		IsArchived:     shipment.IsArchived,
 		CreatedAt:      shipment.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
+
+	// Add pickup info
+	pickup := &PickupListInfo{
+		Required: shipment.PickupRequired,
+		PickupID: nullStringToPtr(shipment.PickupID),
+	}
+	if shipment.PickupStatus != "" {
+		pickup.Status = &shipment.PickupStatus
+	}
+	item.Pickup = pickup
+
+	return item
 }
 
 func toPackageResponse(pkg *models.ShipmentPackage) PackageResponse {

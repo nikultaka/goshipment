@@ -32,6 +32,7 @@ type User struct {
 	// Account Status
 	IsActive          bool `json:"is_active" db:"is_active"`
 	IsVerified        bool `json:"is_verified" db:"is_verified"` // KYC verified
+	IsSalesRep        bool `json:"is_sales_rep" db:"is_sales_rep"` // Sales representative flag
 	VerificationLevel int  `json:"verification_level" db:"verification_level"`
 
 	// Login Security

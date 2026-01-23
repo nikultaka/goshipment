@@ -2050,6 +2050,83 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/users/{id}/emails/{email_id}/verify": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Manually verify a user's email address (admin only)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Verify user email (Admin)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Email ID",
+                        "name": "email_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/users.UserEmailResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/users/{id}/phones": {
             "get": {
                 "security": [
@@ -13029,7 +13106,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Update a user's profile information (admin only)",
+                "description": "Update a user's profile information including role, status, and sales rep flag (admin only)",
                 "consumes": [
                     "application/json"
                 ],
@@ -13049,12 +13126,12 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Profile update details",
+                        "description": "User update details",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/users.UpdateProfileRequest"
+                            "$ref": "#/definitions/users.AdminUpdateUserRequest"
                         }
                     }
                 ],
@@ -18473,6 +18550,21 @@ const docTemplate = `{
                 }
             }
         },
+        "shipments.PickupListInfo": {
+            "type": "object",
+            "properties": {
+                "pickup_id": {
+                    "type": "string"
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "status": {
+                    "description": "draft, scheduled, rescheduled, cancelled, completed, failed",
+                    "type": "string"
+                }
+            }
+        },
         "shipments.PricingInfo": {
             "type": "object",
             "properties": {
@@ -18537,6 +18629,9 @@ const docTemplate = `{
                 },
                 "payment_status": {
                     "type": "string"
+                },
+                "pickup": {
+                    "$ref": "#/definitions/shipments.PickupListInfo"
                 },
                 "shipment_number": {
                     "type": "string"
@@ -19499,6 +19594,10 @@ const docTemplate = `{
                 "is_active": {
                     "type": "boolean"
                 },
+                "is_sales_rep": {
+                    "description": "Sales representative flag",
+                    "type": "boolean"
+                },
                 "last_name": {
                     "type": "string"
                 },
@@ -19512,6 +19611,39 @@ const docTemplate = `{
                 "role": {
                     "description": "admin, manager, user (defaults to user)",
                     "type": "string"
+                }
+            }
+        },
+        "users.AdminUpdateUserRequest": {
+            "type": "object",
+            "properties": {
+                "first_name": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "is_active": {
+                    "type": "boolean"
+                },
+                "is_sales_rep": {
+                    "description": "Sales representative flag",
+                    "type": "boolean"
+                },
+                "last_name": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "role": {
+                    "description": "admin, superadmin, manager, user",
+                    "type": "string",
+                    "enum": [
+                        "admin",
+                        "superadmin",
+                        "manager",
+                        "user"
+                    ]
                 }
             }
         },
@@ -19529,6 +19661,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "avatar_url": {
+                    "type": "string"
+                },
+                "business_type": {
+                    "description": "Business entity type: individual, business, nonprofit, government, corporation, llc, sole_proprietor",
                     "type": "string"
                 },
                 "city": {
@@ -19549,6 +19685,10 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "legal_name": {
+                    "description": "Legal business name",
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 },
@@ -19562,6 +19702,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "updated_at": {
+                    "type": "string"
+                },
+                "vat_number": {
+                    "description": "VAT registration number",
                     "type": "string"
                 }
             }
@@ -19596,6 +19740,19 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 255
                 },
+                "business_type": {
+                    "description": "Business entity type",
+                    "type": "string",
+                    "enum": [
+                        "individual",
+                        "business",
+                        "nonprofit",
+                        "government",
+                        "corporation",
+                        "llc",
+                        "sole_proprietor"
+                    ]
+                },
                 "city": {
                     "type": "string",
                     "maxLength": 100
@@ -19609,6 +19766,11 @@ const docTemplate = `{
                     "maxLength": 1000
                 },
                 "email": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "legal_name": {
+                    "description": "Legal business name",
                     "type": "string",
                     "maxLength": 255
                 },
@@ -19628,6 +19790,11 @@ const docTemplate = `{
                 "province": {
                     "type": "string",
                     "maxLength": 100
+                },
+                "vat_number": {
+                    "description": "VAT registration number",
+                    "type": "string",
+                    "maxLength": 50
                 }
             }
         },
@@ -19906,6 +20073,19 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 255
                 },
+                "business_type": {
+                    "description": "Business entity type",
+                    "type": "string",
+                    "enum": [
+                        "individual",
+                        "business",
+                        "nonprofit",
+                        "government",
+                        "corporation",
+                        "llc",
+                        "sole_proprietor"
+                    ]
+                },
                 "city": {
                     "type": "string",
                     "maxLength": 100
@@ -19918,6 +20098,11 @@ const docTemplate = `{
                     "maxLength": 1000
                 },
                 "email": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "legal_name": {
+                    "description": "Legal business name",
                     "type": "string",
                     "maxLength": 255
                 },
@@ -19937,6 +20122,11 @@ const docTemplate = `{
                 "province": {
                     "type": "string",
                     "maxLength": 100
+                },
+                "vat_number": {
+                    "description": "VAT registration number",
+                    "type": "string",
+                    "maxLength": 50
                 }
             }
         },
@@ -20067,6 +20257,9 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "string"
+                },
+                "is_sales_rep": {
+                    "type": "boolean"
                 },
                 "last_name": {
                     "type": "string"

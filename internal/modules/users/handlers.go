@@ -1109,13 +1109,13 @@ func (m *UsersModule) getUserByID(c *gin.Context) {
 
 // updateUser updates a user (admin only)
 // @Summary Update user
-// @Description Update a user's profile information (admin only)
+// @Description Update a user's profile information including role, status, and sales rep flag (admin only)
 // @Tags Admin
 // @Accept json
 // @Produce json
 // @Security BearerAuth
 // @Param id path string true "User ID"
-// @Param request body UpdateProfileRequest true "Profile update details"
+// @Param request body AdminUpdateUserRequest true "User update details"
 // @Success 200 {object} response.Response{data=object{user=UserResponse}}
 // @Failure 401 {object} response.Response
 // @Failure 403 {object} response.Response
@@ -1125,7 +1125,7 @@ func (m *UsersModule) getUserByID(c *gin.Context) {
 func (m *UsersModule) updateUser(c *gin.Context) {
 	userID := c.Param("id")
 
-	var req UpdateProfileRequest
+	var req AdminUpdateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		errors := []response.ResponseError{
 			response.NewError("VALIDATION_ERROR", err.Error(), ""),
@@ -1134,7 +1134,7 @@ func (m *UsersModule) updateUser(c *gin.Context) {
 		return
 	}
 
-	user, userEmail, _, roleName, err := m.service.UpdateUser(userID, &req)
+	user, userEmail, roleName, err := m.service.AdminUpdateUser(userID, &req)
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -1656,6 +1656,55 @@ func (m *UsersModule) adminAddUserEmail(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusCreated, "Email added successfully", nil)
+}
+
+// adminVerifyUserEmail verifies a user's email (admin only)
+// @Summary Verify user email (Admin)
+// @Description Manually verify a user's email address (admin only)
+// @Tags Admin
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "User ID"
+// @Param email_id path string true "Email ID"
+// @Success 200 {object} response.Response{data=UserEmailResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Router /admin/users/{id}/emails/{email_id}/verify [post]
+func (m *UsersModule) adminVerifyUserEmail(c *gin.Context) {
+	userID := c.Param("id")
+	emailID := c.Param("email_id")
+
+	if userID == "" || emailID == "" {
+		response.BadRequest(c, "User ID and Email ID are required")
+		return
+	}
+
+	email, err := m.service.AdminVerifyEmail(userID, emailID)
+	if err != nil {
+		if err.Error() == "email not found" {
+			response.NotFound(c, "Email not found")
+			return
+		}
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	emailResponse := &UserEmailResponse{
+		ID:         email.ID,
+		Email:      email.Email,
+		IsPrimary:  email.IsPrimary,
+		IsRecovery: email.IsRecovery,
+		IsVerified: email.IsVerified,
+		CreatedAt:  email.CreatedAt,
+		UpdatedAt:  email.UpdatedAt,
+	}
+	if email.VerifiedAt.Valid {
+		emailResponse.VerifiedAt = email.VerifiedAt.Time
+	}
+
+	response.Success(c, http.StatusOK, "Email verified successfully", gin.H{"email": emailResponse})
 }
 
 // adminGetUserPhones gets all phones for a user (admin only)

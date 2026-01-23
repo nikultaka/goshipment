@@ -13,7 +13,7 @@ func (s *UserService) GetBusiness(userID string) (*models.Business, *models.Busi
 	query := `
 		SELECT
 			b.id, b.user_id, b.business_name, b.legal_name, b.business_type,
-			b.tax_id, b.avatar_file_id, b.website, b.description,
+			b.tax_id, b.vat_number, b.avatar_file_id, b.website, b.description,
 			b.address_line1, b.address_line2, b.city, b.province, b.postal_code, b.country,
 			b.is_active, b.created_at, b.updated_at,
 			be.id AS email_id, be.email, be.email_type, be.is_primary AS email_is_primary,
@@ -35,7 +35,7 @@ func (s *UserService) GetBusiness(userID string) (*models.Business, *models.Busi
 
 	err := s.db.QueryRow(query, userID).Scan(
 		&business.ID, &business.UserID, &business.BusinessName, &business.LegalName, &business.BusinessType,
-		&business.TaxID, &business.AvatarFileID, &business.Website, &business.Description,
+		&business.TaxID, &business.VATNumber, &business.AvatarFileID, &business.Website, &business.Description,
 		&business.AddressLine1, &business.AddressLine2, &business.City, &business.Province, &business.PostalCode, &business.Country,
 		&business.IsActive, &business.CreatedAt, &business.UpdatedAt,
 		&emailID, &emailAddr, &emailType, &emailIsPrimary,
@@ -93,14 +93,20 @@ func (s *UserService) CreateBusiness(userID string, req *CreateBusinessRequest) 
 	}
 	defer tx.Rollback()
 
+	// Determine business type (default to "individual" if not provided)
+	businessType := "individual"
+	if req.BusinessType != "" {
+		businessType = req.BusinessType
+	}
+
 	// Create business
 	query := `
 		INSERT INTO businesses (
-			user_id, business_name, business_type, description,
+			user_id, business_name, legal_name, business_type, vat_number, description,
 			address_line1, address_line2, city, province, postal_code, country,
 			is_active, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true, NOW(), NOW())
-		RETURNING id, user_id, business_name, business_type, description,
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, true, NOW(), NOW())
+		RETURNING id, user_id, business_name, legal_name, business_type, vat_number, description,
 			address_line1, address_line2, city, province, postal_code, country,
 			is_active, created_at, updated_at
 	`
@@ -110,7 +116,9 @@ func (s *UserService) CreateBusiness(userID string, req *CreateBusinessRequest) 
 		query,
 		userID,
 		req.Name,
-		"individual", // Default business type
+		nullString(req.LegalName),
+		businessType,
+		nullString(req.VATNumber),
 		nullString(req.Description),
 		nullString(req.AddressLine1),
 		nullString(req.AddressLine2),
@@ -119,7 +127,7 @@ func (s *UserService) CreateBusiness(userID string, req *CreateBusinessRequest) 
 		nullString(req.PostalCode),
 		nullString(req.Country),
 	).Scan(
-		&business.ID, &business.UserID, &business.BusinessName, &business.BusinessType, &business.Description,
+		&business.ID, &business.UserID, &business.BusinessName, &business.LegalName, &business.BusinessType, &business.VATNumber, &business.Description,
 		&business.AddressLine1, &business.AddressLine2, &business.City, &business.Province, &business.PostalCode, &business.Country,
 		&business.IsActive, &business.CreatedAt, &business.UpdatedAt,
 	)
@@ -169,6 +177,24 @@ func (s *UserService) UpdateBusiness(userID string, req *UpdateBusinessRequest) 
 	if req.Name != nil {
 		updates = append(updates, fmt.Sprintf("business_name = $%d", argCount))
 		args = append(args, *req.Name)
+		argCount++
+	}
+
+	if req.LegalName != nil {
+		updates = append(updates, fmt.Sprintf("legal_name = $%d", argCount))
+		args = append(args, nullString(*req.LegalName))
+		argCount++
+	}
+
+	if req.BusinessType != nil {
+		updates = append(updates, fmt.Sprintf("business_type = $%d", argCount))
+		args = append(args, *req.BusinessType)
+		argCount++
+	}
+
+	if req.VATNumber != nil {
+		updates = append(updates, fmt.Sprintf("vat_number = $%d", argCount))
+		args = append(args, nullString(*req.VATNumber))
 		argCount++
 	}
 
@@ -389,10 +415,19 @@ func (s *UserService) DeleteBusinessAvatar(userID string) (string, error) {
 // sanitizeBusiness converts business data to response DTO
 func (s *UserService) sanitizeBusiness(business *models.Business, email *models.BusinessEmail, phone *models.BusinessPhone, baseURL string) *BusinessResponse {
 	response := &BusinessResponse{
-		ID:          business.ID,
-		Name:        business.BusinessName,
-		CreatedAt:   business.CreatedAt,
-		UpdatedAt:   business.UpdatedAt,
+		ID:           business.ID,
+		Name:         business.BusinessName,
+		BusinessType: business.BusinessType,
+		CreatedAt:    business.CreatedAt,
+		UpdatedAt:    business.UpdatedAt,
+	}
+
+	if business.LegalName.Valid {
+		response.LegalName = business.LegalName.String
+	}
+
+	if business.VATNumber.Valid {
+		response.VATNumber = business.VATNumber.String
 	}
 
 	if business.Description.Valid {

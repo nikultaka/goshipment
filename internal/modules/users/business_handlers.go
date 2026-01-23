@@ -549,6 +549,18 @@ func (m *UsersModule) adminGetBusinessTypes(c *gin.Context) {
 			"value": "government",
 			"label": "Government Entity",
 		},
+		{
+			"value": "corporation",
+			"label": "Corporation",
+		},
+		{
+			"value": "llc",
+			"label": "LLC",
+		},
+		{
+			"value": "sole_proprietor",
+			"label": "Sole Proprietor",
+		},
 	}
 
 	response.Success(c, http.StatusOK, "Business types retrieved successfully", gin.H{

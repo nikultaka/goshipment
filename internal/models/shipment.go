@@ -131,6 +131,7 @@ type Shipment struct {
 	// Pickup
 	PickupRequired bool           `json:"pickup_required" db:"pickup_required"`
 	PickupID       sql.NullString `json:"pickup_id,omitempty" db:"pickup_id"`
+	PickupStatus   string         `json:"pickup_status,omitempty" db:"-"` // Not a DB column, populated from join
 
 	// UI Archival
 	IsArchived       bool           `json:"is_archived" db:"is_archived"`

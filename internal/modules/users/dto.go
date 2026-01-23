@@ -43,6 +43,7 @@ type UserResponse struct {
 	Avatar        string    `json:"avatar,omitempty"`
 	Role          string    `json:"role"`
 	Status        string    `json:"status"`
+	IsSalesRep    bool      `json:"is_sales_rep"`
 	EmailVerified bool      `json:"email_verified"`
 	PhoneVerified bool      `json:"phone_verified"`
 	CreatedAt     time.Time `json:"created_at"`
@@ -172,13 +173,24 @@ type VerifyPhoneRequest struct {
 
 // AdminCreateUserRequest represents an admin request to create a user
 type AdminCreateUserRequest struct {
-	Email     string `json:"email" binding:"required,email"`
-	Password  string `json:"password" binding:"required,min=8"`
-	FirstName string `json:"first_name" binding:"required"`
-	LastName  string `json:"last_name" binding:"required"`
-	Phone     string `json:"phone"`
-	Role      string `json:"role"` // admin, manager, user (defaults to user)
-	IsActive  *bool  `json:"is_active"`
+	Email      string `json:"email" binding:"required,email"`
+	Password   string `json:"password" binding:"required,min=8"`
+	FirstName  string `json:"first_name" binding:"required"`
+	LastName   string `json:"last_name" binding:"required"`
+	Phone      string `json:"phone"`
+	Role       string `json:"role"`        // admin, manager, user (defaults to user)
+	IsActive   *bool  `json:"is_active"`
+	IsSalesRep *bool  `json:"is_sales_rep"` // Sales representative flag
+}
+
+// AdminUpdateUserRequest represents an admin request to update a user
+type AdminUpdateUserRequest struct {
+	FirstName  *string `json:"first_name" binding:"omitempty,min=1"`
+	LastName   *string `json:"last_name" binding:"omitempty,min=1"`
+	Phone      *string `json:"phone"`
+	Role       *string `json:"role" binding:"omitempty,oneof=admin superadmin manager user"` // admin, superadmin, manager, user
+	IsActive   *bool   `json:"is_active"`
+	IsSalesRep *bool   `json:"is_sales_rep"` // Sales representative flag
 }
 
 // Password Reset DTOs
@@ -234,6 +246,9 @@ type ExportsListResponse struct {
 // CreateBusinessRequest represents a request to create a business profile
 type CreateBusinessRequest struct {
 	Name         string `json:"name" binding:"required,min=2,max=255"`
+	LegalName    string `json:"legal_name" binding:"omitempty,max=255"`                                                                            // Legal business name
+	BusinessType string `json:"business_type" binding:"omitempty,oneof=individual business nonprofit government corporation llc sole_proprietor"` // Business entity type
+	VATNumber    string `json:"vat_number" binding:"omitempty,max=50"`                                                                             // VAT registration number
 	Description  string `json:"description" binding:"omitempty,max=1000"`
 	AddressLine1 string `json:"address_line1" binding:"omitempty,max=255"`
 	AddressLine2 string `json:"address_line2" binding:"omitempty,max=255"`
@@ -248,6 +263,9 @@ type CreateBusinessRequest struct {
 // UpdateBusinessRequest represents a request to update a business profile (partial updates)
 type UpdateBusinessRequest struct {
 	Name         *string `json:"name" binding:"omitempty,min=2,max=255"`
+	LegalName    *string `json:"legal_name" binding:"omitempty,max=255"`                                                                            // Legal business name
+	BusinessType *string `json:"business_type" binding:"omitempty,oneof=individual business nonprofit government corporation llc sole_proprietor"` // Business entity type
+	VATNumber    *string `json:"vat_number" binding:"omitempty,max=50"`                                                                             // VAT registration number
 	Description  *string `json:"description" binding:"omitempty,max=1000"`
 	AddressLine1 *string `json:"address_line1" binding:"omitempty,max=255"`
 	AddressLine2 *string `json:"address_line2" binding:"omitempty,max=255"`
@@ -263,8 +281,11 @@ type UpdateBusinessRequest struct {
 type BusinessResponse struct {
 	ID           string    `json:"id"`
 	Name         string    `json:"name"`
+	LegalName    string    `json:"legal_name,omitempty"`    // Legal business name
+	BusinessType string    `json:"business_type,omitempty"` // Business entity type: individual, business, nonprofit, government, corporation, llc, sole_proprietor
+	VATNumber    string    `json:"vat_number,omitempty"`    // VAT registration number
 	Description  string    `json:"description,omitempty"`
-	Address      string    `json:"address,omitempty"`      // Formatted full address
+	Address      string    `json:"address,omitempty"` // Formatted full address
 	AddressLine1 string    `json:"address_line1,omitempty"`
 	AddressLine2 string    `json:"address_line2,omitempty"`
 	City         string    `json:"city,omitempty"`

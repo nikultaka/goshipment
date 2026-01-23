@@ -457,27 +457,31 @@ func (s *SimpleShipmentService) ListShipments(
 	var selectQuery string
 	if organizationID == "" {
 		selectQuery = `
-			SELECT id, shipment_number, organization_id, created_by_user_id, shipment_estimate_id,
-			       carrier_id, servicelevel_code, servicelevel_name,
-			       from_country, from_region_code, from_city, from_postal_code,
-			       to_country, to_region_code, to_city, to_postal_code,
-			       total_packages, currency, shipment_status, payment_status,
-			       is_archived, master_tracking_number, created_at, updated_at
-			FROM shipments
-			WHERE is_deleted = FALSE
+			SELECT s.id, s.shipment_number, s.organization_id, s.created_by_user_id, s.shipment_estimate_id,
+			       s.carrier_id, s.servicelevel_code, s.servicelevel_name,
+			       s.from_country, s.from_region_code, s.from_city, s.from_postal_code,
+			       s.to_country, s.to_region_code, s.to_city, s.to_postal_code,
+			       s.total_packages, s.currency, s.shipment_status, s.payment_status,
+			       s.is_archived, s.master_tracking_number, s.created_at, s.updated_at,
+			       s.pickup_required, s.pickup_id, p.pickup_status
+			FROM shipments s
+			LEFT JOIN pickups p ON s.pickup_id = p.id
+			WHERE s.is_deleted = FALSE
 		`
 		args = []interface{}{}
 		argIndex = 1
 	} else {
 		selectQuery = `
-			SELECT id, shipment_number, organization_id, created_by_user_id, shipment_estimate_id,
-			       carrier_id, servicelevel_code, servicelevel_name,
-			       from_country, from_region_code, from_city, from_postal_code,
-			       to_country, to_region_code, to_city, to_postal_code,
-			       total_packages, currency, shipment_status, payment_status,
-			       is_archived, master_tracking_number, created_at, updated_at
-			FROM shipments
-			WHERE organization_id = $1 AND is_deleted = FALSE
+			SELECT s.id, s.shipment_number, s.organization_id, s.created_by_user_id, s.shipment_estimate_id,
+			       s.carrier_id, s.servicelevel_code, s.servicelevel_name,
+			       s.from_country, s.from_region_code, s.from_city, s.from_postal_code,
+			       s.to_country, s.to_region_code, s.to_city, s.to_postal_code,
+			       s.total_packages, s.currency, s.shipment_status, s.payment_status,
+			       s.is_archived, s.master_tracking_number, s.created_at, s.updated_at,
+			       s.pickup_required, s.pickup_id, p.pickup_status
+			FROM shipments s
+			LEFT JOIN pickups p ON s.pickup_id = p.id
+			WHERE s.organization_id = $1 AND s.is_deleted = FALSE
 		`
 		args = []interface{}{organizationID}
 		argIndex = 2
@@ -485,18 +489,18 @@ func (s *SimpleShipmentService) ListShipments(
 
 	// Add optional filters
 	if query.Status != nil && *query.Status != "" {
-		selectQuery += fmt.Sprintf(" AND shipment_status = $%d", argIndex)
+		selectQuery += fmt.Sprintf(" AND s.shipment_status = $%d", argIndex)
 		args = append(args, *query.Status)
 		argIndex++
 	}
 	if query.IsArchived != nil {
-		selectQuery += fmt.Sprintf(" AND is_archived = $%d", argIndex)
+		selectQuery += fmt.Sprintf(" AND s.is_archived = $%d", argIndex)
 		args = append(args, *query.IsArchived)
 		argIndex++
 	}
 
 	// Add sorting and pagination
-	selectQuery += " ORDER BY created_at DESC"
+	selectQuery += " ORDER BY s.created_at DESC"
 	selectQuery += fmt.Sprintf(" LIMIT $%d OFFSET $%d", argIndex, argIndex+1)
 	args = append(args, limit, offset)
 
@@ -511,6 +515,7 @@ func (s *SimpleShipmentService) ListShipments(
 	shipments := make([]*models.Shipment, 0)
 	for rows.Next() {
 		var shipment models.Shipment
+		var pickupStatus sql.NullString
 		err := rows.Scan(
 			&shipment.ID, &shipment.ShipmentNumber, &shipment.OrganizationID,
 			&shipment.CreatedByUserID, &shipment.ShipmentEstimateID,
@@ -519,9 +524,14 @@ func (s *SimpleShipmentService) ListShipments(
 			&shipment.ToCountry, &shipment.ToRegionCode, &shipment.ToCity, &shipment.ToPostalCode,
 			&shipment.TotalPackages, &shipment.Currency, &shipment.ShipmentStatus, &shipment.PaymentStatus,
 			&shipment.IsArchived, &shipment.MasterTrackingNumber, &shipment.CreatedAt, &shipment.UpdatedAt,
+			&shipment.PickupRequired, &shipment.PickupID, &pickupStatus,
 		)
 		if err != nil {
 			return nil, 0, fmt.Errorf("failed to scan shipment: %w", err)
+		}
+		// Store pickup status in a temporary field - we'll handle this in the DTO conversion
+		if pickupStatus.Valid {
+			shipment.PickupStatus = pickupStatus.String
 		}
 		shipments = append(shipments, &shipment)
 	}

@@ -208,6 +208,7 @@ func (m *UsersModule) RegisterRoutes(router *gin.RouterGroup) {
 			adminUsers.POST("/:id/avatar", m.adminUploadUserAvatar)
 			adminUsers.GET("/:id/emails", m.adminGetUserEmails)
 			adminUsers.POST("/:id/emails", m.adminAddUserEmail)
+			adminUsers.POST("/:id/emails/:email_id/verify", m.adminVerifyUserEmail)
 			adminUsers.GET("/:id/phones", m.adminGetUserPhones)
 			adminUsers.POST("/:id/phones", m.adminAddUserPhone)
 

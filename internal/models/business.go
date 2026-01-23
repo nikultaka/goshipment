@@ -13,6 +13,7 @@ type Business struct {
 	LegalName    sql.NullString `json:"legal_name,omitempty" db:"legal_name"`
 	BusinessType string         `json:"business_type" db:"business_type"`
 	TaxID        sql.NullString `json:"tax_id,omitempty" db:"tax_id"`
+	VATNumber    sql.NullString `json:"vat_number,omitempty" db:"vat_number"`
 	AvatarFileID sql.NullString `json:"avatar_file_id,omitempty" db:"avatar_file_id"`
 	Website      sql.NullString `json:"website,omitempty" db:"website"`
 	Description  sql.NullString `json:"description,omitempty" db:"description"`

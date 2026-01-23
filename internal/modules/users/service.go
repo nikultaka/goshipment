@@ -474,7 +474,7 @@ func (s *UserService) GetUserByID(userID string) (*models.User, *models.UserEmai
 		SELECT
 			u.id, u.external_id, u.first_name, u.last_name, u.display_name, u.avatar_file_id,
 			u.timezone, u.locale, u.date_format, u.time_format,
-			u.is_active, u.is_verified, u.verification_level,
+			u.is_active, u.is_verified, u.is_sales_rep, u.verification_level,
 			u.last_login_at, u.last_login_ip, u.login_attempts,
 			u.token_version, u.has_2fa_enabled,
 			u.created_at, u.updated_at, u.deleted_at,
@@ -501,7 +501,7 @@ func (s *UserService) GetUserByID(userID string) (*models.User, *models.UserEmai
 	err := s.db.QueryRow(query, userID).Scan(
 		&user.ID, &user.ExternalID, &user.FirstName, &user.LastName, &user.DisplayName, &user.AvatarURL,
 		&user.Timezone, &user.Locale, &user.DateFormat, &user.TimeFormat,
-		&user.IsActive, &user.IsVerified, &user.VerificationLevel,
+		&user.IsActive, &user.IsVerified, &user.IsSalesRep, &user.VerificationLevel,
 		&user.LastLoginAt, &user.LastLoginIP, &user.LoginAttempts,
 		&user.TokenVersion, &user.TOTPEnabled,
 		&user.CreatedAt, &user.UpdatedAt, &user.DeletedAt,
@@ -949,7 +949,7 @@ func (s *UserService) ListUsers(req ListUsersRequest) ([]*UserResponse, int, err
 	query := fmt.Sprintf(`
 		SELECT
 			u.id, u.external_id, u.first_name, u.last_name, u.avatar_file_id,
-			u.is_active, u.is_verified,
+			u.is_active, u.is_verified, u.is_sales_rep,
 			u.created_at, u.updated_at,
 			ue.email, ue.is_verified as email_verified,
 			up.phone, up.is_verified as phone_verified,
@@ -977,12 +977,12 @@ func (s *UserService) ListUsers(req ListUsersRequest) ([]*UserResponse, int, err
 		var email, phone, avatarURL, roleName sql.NullString
 		var emailVerified, phoneVerified sql.NullBool
 		var userID, externalID, firstName, lastName string
-		var isActive, isVerified bool
+		var isActive, isVerified, isSalesRep bool
 		var createdAt, updatedAt time.Time
 
 		err := rows.Scan(
 			&userID, &externalID, &firstName, &lastName, &avatarURL,
-			&isActive, &isVerified,
+			&isActive, &isVerified, &isSalesRep,
 			&createdAt, &updatedAt,
 			&email, &emailVerified,
 			&phone, &phoneVerified,
@@ -1006,6 +1006,7 @@ func (s *UserService) ListUsers(req ListUsersRequest) ([]*UserResponse, int, err
 			Avatar:        avatarURL.String,
 			Role:          roleName.String,
 			Status:        status,
+			IsSalesRep:    isSalesRep,
 			EmailVerified: emailVerified.Bool,
 			PhoneVerified: phoneVerified.Bool,
 			CreatedAt:     createdAt,
@@ -1203,6 +1204,7 @@ func (s *UserService) sanitizeUser(user *models.User, email *models.UserEmail, r
 		Avatar:        avatar,
 		Role:          roleName,
 		Status:        status,
+		IsSalesRep:    user.IsSalesRep,
 		EmailVerified: emailVerified,
 		PhoneVerified: false,
 		CreatedAt:     user.CreatedAt,
@@ -1786,6 +1788,76 @@ func (s *UserService) VerifyEmailWithToken(token string) (*models.UserEmail, err
 	return &email, nil
 }
 
+// AdminVerifyEmail allows an admin to manually verify a user's email
+func (s *UserService) AdminVerifyEmail(userID, emailID string) (*models.UserEmail, error) {
+	// Verify the email belongs to the user
+	query := `
+		SELECT id, user_id, email, is_primary, is_recovery, is_verified,
+		       verified_at, is_active, created_at, updated_at
+		FROM user_emails
+		WHERE id = $1 AND user_id = $2 AND is_active = true
+	`
+
+	var email models.UserEmail
+	err := s.db.DB.QueryRow(query, emailID, userID).Scan(
+		&email.ID,
+		&email.UserID,
+		&email.Email,
+		&email.IsPrimary,
+		&email.IsRecovery,
+		&email.IsVerified,
+		&email.VerifiedAt,
+		&email.IsActive,
+		&email.CreatedAt,
+		&email.UpdatedAt,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("email not found")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to find email: %w", err)
+	}
+
+	// Check if already verified
+	if email.IsVerified {
+		return &email, nil // Already verified, return success
+	}
+
+	// Mark email as verified
+	updateQuery := `
+		UPDATE user_emails
+		SET is_verified = true,
+		    verified_at = $1,
+		    verification_token = NULL,
+		    verification_expires_at = NULL,
+		    updated_at = $2
+		WHERE id = $3
+		RETURNING id, user_id, email, is_primary, is_recovery, is_verified,
+		          verified_at, is_active, created_at, updated_at
+	`
+
+	now := time.Now().UTC()
+	err = s.db.DB.QueryRow(updateQuery, now, now, email.ID).Scan(
+		&email.ID,
+		&email.UserID,
+		&email.Email,
+		&email.IsPrimary,
+		&email.IsRecovery,
+		&email.IsVerified,
+		&email.VerifiedAt,
+		&email.IsActive,
+		&email.CreatedAt,
+		&email.UpdatedAt,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to verify email: %w", err)
+	}
+
+	return &email, nil
+}
+
 // ListUserPhones retrieves all phones for a user
 func (s *UserService) ListUserPhones(userID string) ([]*models.UserPhone, error) {
 	query := `
@@ -2264,6 +2336,10 @@ func (s *UserService) AdminCreateUser(req *AdminCreateUserRequest) (*models.User
 	if req.IsActive != nil {
 		isActive = *req.IsActive
 	}
+	isSalesRep := false
+	if req.IsSalesRep != nil {
+		isSalesRep = *req.IsSalesRep
+	}
 
 	// Start transaction
 	tx, err := s.db.DB.Begin()
@@ -2310,12 +2386,12 @@ func (s *UserService) AdminCreateUser(req *AdminCreateUserRequest) (*models.User
 	userQuery := `
 		INSERT INTO users (
 			id, external_id, primary_email_id, password_hash,
-			first_name, last_name, is_active, is_verified,
+			first_name, last_name, is_active, is_verified, is_sales_rep,
 			timezone, locale, date_format, time_format,
 			token_version, created_at, updated_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, false, 'UTC', 'en', 'YYYY-MM-DD', '24h', 1, $8, $9)
-		RETURNING id, external_id, first_name, last_name, is_active, created_at, updated_at
+		VALUES ($1, $2, $3, $4, $5, $6, $7, false, $8, 'UTC', 'en', 'YYYY-MM-DD', '24h', 1, $9, $10)
+		RETURNING id, external_id, first_name, last_name, is_active, is_sales_rep, created_at, updated_at
 	`
 
 	var user models.User
@@ -2327,6 +2403,7 @@ func (s *UserService) AdminCreateUser(req *AdminCreateUserRequest) (*models.User
 		req.FirstName,
 		req.LastName,
 		isActive,
+		isSalesRep,
 		time.Now().UTC(),
 		time.Now().UTC(),
 	).Scan(
@@ -2335,6 +2412,7 @@ func (s *UserService) AdminCreateUser(req *AdminCreateUserRequest) (*models.User
 		&user.FirstName,
 		&user.LastName,
 		&user.IsActive,
+		&user.IsSalesRep,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -2403,6 +2481,114 @@ func (s *UserService) AdminCreateUser(req *AdminCreateUserRequest) (*models.User
 	}
 
 	return &user, &userEmail, role, nil
+}
+
+// AdminUpdateUser updates a user (admin only) with support for role, is_active, and is_sales_rep
+func (s *UserService) AdminUpdateUser(userID string, req *AdminUpdateUserRequest) (*models.User, *models.UserEmail, string, error) {
+	// Build dynamic UPDATE query
+	updates := []string{}
+	args := []interface{}{}
+	argIndex := 1
+
+	if req.FirstName != nil {
+		updates = append(updates, fmt.Sprintf("first_name = $%d", argIndex))
+		args = append(args, *req.FirstName)
+		argIndex++
+	}
+	if req.LastName != nil {
+		updates = append(updates, fmt.Sprintf("last_name = $%d", argIndex))
+		args = append(args, *req.LastName)
+		argIndex++
+	}
+	if req.IsActive != nil {
+		updates = append(updates, fmt.Sprintf("is_active = $%d", argIndex))
+		args = append(args, *req.IsActive)
+		argIndex++
+	}
+	if req.IsSalesRep != nil {
+		updates = append(updates, fmt.Sprintf("is_sales_rep = $%d", argIndex))
+		args = append(args, *req.IsSalesRep)
+		argIndex++
+	}
+
+	// Always update updated_at
+	updates = append(updates, fmt.Sprintf("updated_at = $%d", argIndex))
+	args = append(args, time.Now().UTC())
+	argIndex++
+
+	// Add user ID to args
+	args = append(args, userID)
+
+	// Execute update if there are changes
+	if len(updates) > 1 { // More than just updated_at
+		query := fmt.Sprintf("UPDATE users SET %s WHERE id = $%d AND deleted_at IS NULL", strings.Join(updates, ", "), argIndex)
+		_, err := s.db.DB.Exec(query, args...)
+		if err != nil {
+			return nil, nil, "", fmt.Errorf("failed to update user: %w", err)
+		}
+	}
+
+	// Update role if provided
+	if req.Role != nil && *req.Role != "" {
+		// Get role ID
+		var roleID string
+		err := s.db.DB.QueryRow("SELECT id FROM roles WHERE name = $1 AND is_active = true", *req.Role).Scan(&roleID)
+		if err != nil {
+			return nil, nil, "", fmt.Errorf("invalid role: %s", *req.Role)
+		}
+
+		// Deactivate all existing roles for this user
+		_, err = s.db.DB.Exec("UPDATE user_roles SET is_active = false, updated_at = $1 WHERE user_id = $2", time.Now().UTC(), userID)
+		if err != nil {
+			return nil, nil, "", fmt.Errorf("failed to update existing roles: %w", err)
+		}
+
+		// Check if user already has this role (even if inactive)
+		var existingRoleID string
+		err = s.db.DB.QueryRow("SELECT id FROM user_roles WHERE user_id = $1 AND role_id = $2", userID, roleID).Scan(&existingRoleID)
+
+		if err == sql.ErrNoRows {
+			// Insert new role assignment
+			_, err = s.db.DB.Exec(`
+				INSERT INTO user_roles (id, user_id, role_id, granted_at, is_active, created_at, updated_at)
+				VALUES ($1, $2, $3, $4, true, $5, $6)
+			`, uuid.New().String(), userID, roleID, time.Now().UTC(), time.Now().UTC(), time.Now().UTC())
+		} else if err == nil {
+			// Reactivate existing role assignment
+			_, err = s.db.DB.Exec(`
+				UPDATE user_roles SET is_active = true, granted_at = $1, updated_at = $2 WHERE id = $3
+			`, time.Now().UTC(), time.Now().UTC(), existingRoleID)
+		}
+
+		if err != nil {
+			return nil, nil, "", fmt.Errorf("failed to assign role: %w", err)
+		}
+	}
+
+	// Update phone if provided
+	if req.Phone != nil {
+		// Check if user has a primary phone
+		var phoneID string
+		err := s.db.DB.QueryRow("SELECT primary_phone_id FROM users WHERE id = $1", userID).Scan(&phoneID)
+		if err == nil && phoneID != "" {
+			// Update existing phone
+			_, err = s.db.DB.Exec("UPDATE user_phones SET phone = $1, updated_at = $2 WHERE id = $3", *req.Phone, time.Now().UTC(), phoneID)
+		} else if *req.Phone != "" {
+			// Create new phone
+			newPhoneID := uuid.New().String()
+			_, err = s.db.DB.Exec(`
+				INSERT INTO user_phones (id, user_id, phone, is_primary, is_verified, is_active, created_at, updated_at)
+				VALUES ($1, $2, $3, true, false, true, $4, $5)
+			`, newPhoneID, userID, *req.Phone, time.Now().UTC(), time.Now().UTC())
+			if err == nil {
+				_, _ = s.db.DB.Exec("UPDATE users SET primary_phone_id = $1 WHERE id = $2", newPhoneID, userID)
+			}
+		}
+	}
+
+	// Fetch updated user
+	user, email, _, roleName, err := s.GetUserByID(userID)
+	return user, email, roleName, err
 }
 
 // =====================================================
