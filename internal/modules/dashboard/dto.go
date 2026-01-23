@@ -122,3 +122,73 @@ type FinancialMetricsResponse struct {
 	Totals      MetricsTotals      `json:"totals"`
 	GeneratedAt time.Time          `json:"generated_at"`
 }
+
+// ============================================================================
+// User Overview DTOs
+// ============================================================================
+
+// UserOverviewRequest represents the request parameters for user overview
+type UserOverviewRequest struct {
+	Period  string `form:"period" binding:"omitempty,oneof=today yesterday last_7_days last_week this_month last_month this_quarter this_year"`
+	Compare bool   `form:"compare"`
+}
+
+// UserMetricWithChange represents a user metric with comparison data
+type UserMetricWithChange struct {
+	Count            int     `json:"count"`
+	Change           int     `json:"change,omitempty"`
+	ChangePercentage float64 `json:"change_percentage,omitempty"`
+	Trend            string  `json:"trend,omitempty"` // "up", "down", "neutral"
+}
+
+// UserMetricWithPercentage represents a user metric with percentage of total
+type UserMetricWithPercentage struct {
+	Count             int     `json:"count"`
+	PercentageOfTotal float64 `json:"percentage_of_total"`
+	Change            int     `json:"change,omitempty"`
+	ChangePercentage  float64 `json:"change_percentage,omitempty"`
+	Trend             string  `json:"trend,omitempty"`
+}
+
+// OnlineUsersMetric represents online users metric
+type OnlineUsersMetric struct {
+	Count             int     `json:"count"`
+	PercentageOfTotal float64 `json:"percentage_of_total"`
+}
+
+// UserMetrics represents all user metrics
+type UserMetrics struct {
+	TotalUsers       UserMetricWithChange     `json:"total_users"`
+	NewUsersToday    UserMetricWithChange     `json:"new_users_today"`
+	OnlineUsers      OnlineUsersMetric        `json:"online_users"`
+	BusinessAccounts UserMetricWithPercentage `json:"business_accounts"`
+	UnverifiedUsers  UserMetricWithPercentage `json:"unverified_users"`
+}
+
+// RoleBreakdown represents user count by role
+type RoleBreakdown struct {
+	Role       string  `json:"role"`
+	Count      int     `json:"count"`
+	Percentage float64 `json:"percentage"`
+}
+
+// UserStatusBreakdown represents user count by status
+type UserStatusBreakdown struct {
+	Status     string  `json:"status"`
+	Count      int     `json:"count"`
+	Percentage float64 `json:"percentage"`
+}
+
+// UserBreakdown represents breakdown of users by role and status
+type UserBreakdown struct {
+	ByRole   []RoleBreakdown       `json:"by_role"`
+	ByStatus []UserStatusBreakdown `json:"by_status"`
+}
+
+// UserOverviewResponse represents the complete user overview response
+type UserOverviewResponse struct {
+	Period      PeriodInfo    `json:"period"`
+	Metrics     UserMetrics   `json:"metrics"`
+	Breakdown   UserBreakdown `json:"breakdown"`
+	GeneratedAt time.Time     `json:"generated_at"`
+}

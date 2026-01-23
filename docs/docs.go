@@ -810,6 +810,96 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/dashboard/user-overview": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve user metrics including total users, new users today, online users, business accounts, and unverified users. Includes breakdown by role and status.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin - Dashboard"
+                ],
+                "summary": "Get user overview metrics for dashboard",
+                "parameters": [
+                    {
+                        "enum": [
+                            "today",
+                            "yesterday",
+                            "last_7_days",
+                            "last_week",
+                            "this_month",
+                            "last_month",
+                            "this_quarter",
+                            "this_year"
+                        ],
+                        "type": "string",
+                        "default": "today",
+                        "description": "Time period filter for new users count",
+                        "name": "period",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Include comparison with previous period",
+                        "name": "compare",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "User overview retrieved successfully",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/dashboard.UserOverviewResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request parameters",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - requires admin role",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/me": {
             "get": {
                 "security": [
@@ -10979,7 +11069,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get a paginated list of all users (admin only)",
+                "description": "Get a paginated list of all users with optional filters (admin only)",
                 "produces": [
                     "application/json"
                 ],
@@ -11001,11 +11091,41 @@ const docTemplate = `{
                         "description": "Items per page",
                         "name": "limit",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by name (searches first_name and last_name)",
+                        "name": "name",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "admin",
+                            "superadmin",
+                            "manager",
+                            "user"
+                        ],
+                        "type": "string",
+                        "description": "Filter by role",
+                        "name": "role",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "today",
+                            "last_week",
+                            "this_month",
+                            "last_month"
+                        ],
+                        "type": "string",
+                        "description": "Filter by creation date",
+                        "name": "period",
+                        "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Users retrieved successfully",
                         "schema": {
                             "allOf": [
                                 {
@@ -11015,31 +11135,17 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "type": "object",
-                                            "properties": {
-                                                "limit": {
-                                                    "type": "integer"
-                                                },
-                                                "page": {
-                                                    "type": "integer"
-                                                },
-                                                "total": {
-                                                    "type": "integer"
-                                                },
-                                                "total_pages": {
-                                                    "type": "integer"
-                                                },
-                                                "users": {
-                                                    "type": "array",
-                                                    "items": {
-                                                        "$ref": "#/definitions/users.UserResponse"
-                                                    }
-                                                }
-                                            }
+                                            "$ref": "#/definitions/users.UsersListResponse"
                                         }
                                     }
                                 }
                             ]
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request parameters",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
                         }
                     },
                     "401": {
@@ -11055,7 +11161,7 @@ const docTemplate = `{
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
                             "$ref": "#/definitions/response.Response"
                         }
@@ -14801,6 +14907,17 @@ const docTemplate = `{
                 }
             }
         },
+        "dashboard.OnlineUsersMetric": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "percentage_of_total": {
+                    "type": "number"
+                }
+            }
+        },
         "dashboard.PeriodInfo": {
             "type": "object",
             "properties": {
@@ -14832,6 +14949,20 @@ const docTemplate = `{
                 },
                 "margin_percentage": {
                     "type": "number"
+                }
+            }
+        },
+        "dashboard.RoleBreakdown": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "percentage": {
+                    "type": "number"
+                },
+                "role": {
+                    "type": "string"
                 }
             }
         },
@@ -14907,6 +15038,112 @@ const docTemplate = `{
                 },
                 "revenue": {
                     "type": "number"
+                }
+            }
+        },
+        "dashboard.UserBreakdown": {
+            "type": "object",
+            "properties": {
+                "by_role": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dashboard.RoleBreakdown"
+                    }
+                },
+                "by_status": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dashboard.UserStatusBreakdown"
+                    }
+                }
+            }
+        },
+        "dashboard.UserMetricWithChange": {
+            "type": "object",
+            "properties": {
+                "change": {
+                    "type": "integer"
+                },
+                "change_percentage": {
+                    "type": "number"
+                },
+                "count": {
+                    "type": "integer"
+                },
+                "trend": {
+                    "description": "\"up\", \"down\", \"neutral\"",
+                    "type": "string"
+                }
+            }
+        },
+        "dashboard.UserMetricWithPercentage": {
+            "type": "object",
+            "properties": {
+                "change": {
+                    "type": "integer"
+                },
+                "change_percentage": {
+                    "type": "number"
+                },
+                "count": {
+                    "type": "integer"
+                },
+                "percentage_of_total": {
+                    "type": "number"
+                },
+                "trend": {
+                    "type": "string"
+                }
+            }
+        },
+        "dashboard.UserMetrics": {
+            "type": "object",
+            "properties": {
+                "business_accounts": {
+                    "$ref": "#/definitions/dashboard.UserMetricWithPercentage"
+                },
+                "new_users_today": {
+                    "$ref": "#/definitions/dashboard.UserMetricWithChange"
+                },
+                "online_users": {
+                    "$ref": "#/definitions/dashboard.OnlineUsersMetric"
+                },
+                "total_users": {
+                    "$ref": "#/definitions/dashboard.UserMetricWithChange"
+                },
+                "unverified_users": {
+                    "$ref": "#/definitions/dashboard.UserMetricWithPercentage"
+                }
+            }
+        },
+        "dashboard.UserOverviewResponse": {
+            "type": "object",
+            "properties": {
+                "breakdown": {
+                    "$ref": "#/definitions/dashboard.UserBreakdown"
+                },
+                "generated_at": {
+                    "type": "string"
+                },
+                "metrics": {
+                    "$ref": "#/definitions/dashboard.UserMetrics"
+                },
+                "period": {
+                    "$ref": "#/definitions/dashboard.PeriodInfo"
+                }
+            }
+        },
+        "dashboard.UserStatusBreakdown": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "percentage": {
+                    "type": "number"
+                },
+                "status": {
+                    "type": "string"
                 }
             }
         },
@@ -19848,6 +20085,29 @@ const docTemplate = `{
                 },
                 "updated_at": {
                     "type": "string"
+                }
+            }
+        },
+        "users.UsersListResponse": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer"
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                },
+                "total_pages": {
+                    "type": "integer"
+                },
+                "users": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/users.UserResponse"
+                    }
                 }
             }
         },

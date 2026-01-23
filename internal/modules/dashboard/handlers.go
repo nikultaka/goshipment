@@ -157,3 +157,34 @@ func (h *DashboardHandlers) GetShipmentStats(c *gin.Context) {
 
 	response.Success(c, http.StatusOK, "Shipment stats retrieved successfully", stats)
 }
+
+// GetUserOverview godoc
+// @Summary Get user overview metrics for dashboard
+// @Description Retrieve user metrics including total users, new users today, online users, business accounts, and unverified users. Includes breakdown by role and status.
+// @Tags Admin - Dashboard
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param period query string false "Time period filter for new users count" Enums(today, yesterday, last_7_days, last_week, this_month, last_month, this_quarter, this_year) default(today)
+// @Param compare query boolean false "Include comparison with previous period" default(false)
+// @Success 200 {object} response.Response{data=UserOverviewResponse} "User overview retrieved successfully"
+// @Failure 400 {object} response.Response "Invalid request parameters"
+// @Failure 401 {object} response.Response "Unauthorized"
+// @Failure 403 {object} response.Response "Forbidden - requires admin role"
+// @Failure 500 {object} response.Response "Internal server error"
+// @Router /admin/dashboard/user-overview [get]
+func (h *DashboardHandlers) GetUserOverview(c *gin.Context) {
+	var req UserOverviewRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		response.BadRequest(c, "Invalid request parameters: "+err.Error())
+		return
+	}
+
+	result, err := h.service.GetUserOverview(req)
+	if err != nil {
+		response.InternalError(c, "Failed to get user overview: "+err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "User overview retrieved successfully", result)
+}

@@ -887,8 +887,10 @@ func (s *UserService) DeleteUser(userID string) error {
 	return nil
 }
 
-// ListUsers lists all users with pagination
-func (s *UserService) ListUsers(page, limit int) ([]*UserResponse, int, error) {
+// ListUsers lists all users with pagination and filters
+func (s *UserService) ListUsers(req ListUsersRequest) ([]*UserResponse, int, error) {
+	page := req.Page
+	limit := req.Limit
 	if page < 1 {
 		page = 1
 	}
@@ -898,16 +900,53 @@ func (s *UserService) ListUsers(page, limit int) ([]*UserResponse, int, error) {
 
 	offset := (page - 1) * limit
 
-	// Get total count
+	// Build WHERE conditions
+	conditions := []string{"u.deleted_at IS NULL"}
+	args := []interface{}{}
+	argIndex := 1
+
+	// Name filter (search in first_name or last_name)
+	if req.Name != "" {
+		conditions = append(conditions, fmt.Sprintf("(LOWER(u.first_name) LIKE LOWER($%d) OR LOWER(u.last_name) LIKE LOWER($%d))", argIndex, argIndex))
+		args = append(args, "%"+req.Name+"%")
+		argIndex++
+	}
+
+	// Role filter
+	if req.Role != "" {
+		conditions = append(conditions, fmt.Sprintf("r.name = $%d", argIndex))
+		args = append(args, req.Role)
+		argIndex++
+	}
+
+	// Period filter
+	if req.Period != "" {
+		dateCondition, dateArg := s.getPeriodCondition(req.Period, argIndex)
+		if dateCondition != "" {
+			conditions = append(conditions, dateCondition)
+			args = append(args, dateArg)
+			argIndex++
+		}
+	}
+
+	whereClause := strings.Join(conditions, " AND ")
+
+	// Get total count with filters
 	var total int
-	countQuery := `SELECT COUNT(*) FROM users WHERE deleted_at IS NULL`
-	err := s.db.QueryRow(countQuery).Scan(&total)
+	countQuery := fmt.Sprintf(`
+		SELECT COUNT(DISTINCT u.id)
+		FROM users u
+		LEFT JOIN user_roles ur ON u.id = ur.user_id AND ur.is_active = true
+		LEFT JOIN roles r ON ur.role_id = r.id AND r.is_active = true
+		WHERE %s
+	`, whereClause)
+	err := s.db.QueryRow(countQuery, args...).Scan(&total)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to count users: %w", err)
 	}
 
 	// Get users with email and role
-	query := `
+	query := fmt.Sprintf(`
 		SELECT
 			u.id, u.external_id, u.first_name, u.last_name, u.avatar_file_id,
 			u.is_active, u.is_verified,
@@ -920,12 +959,14 @@ func (s *UserService) ListUsers(page, limit int) ([]*UserResponse, int, error) {
 		LEFT JOIN user_phones up ON u.primary_phone_id = up.id
 		LEFT JOIN user_roles ur ON u.id = ur.user_id AND ur.is_active = true
 		LEFT JOIN roles r ON ur.role_id = r.id AND r.is_active = true
-		WHERE u.deleted_at IS NULL
+		WHERE %s
 		ORDER BY u.created_at DESC
-		LIMIT $1 OFFSET $2
-	`
+		LIMIT $%d OFFSET $%d
+	`, whereClause, argIndex, argIndex+1)
 
-	rows, err := s.db.Query(query, limit, offset)
+	args = append(args, limit, offset)
+
+	rows, err := s.db.Query(query, args...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to list users: %w", err)
 	}
@@ -973,6 +1014,37 @@ func (s *UserService) ListUsers(page, limit int) ([]*UserResponse, int, error) {
 	}
 
 	return users, total, nil
+}
+
+// getPeriodCondition returns SQL condition and argument for period filter
+func (s *UserService) getPeriodCondition(period string, argIndex int) (string, time.Time) {
+	loc, err := time.LoadLocation("America/Toronto")
+	if err != nil {
+		loc = time.UTC
+	}
+	now := time.Now().In(loc)
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+
+	switch period {
+	case "today":
+		return fmt.Sprintf("u.created_at >= $%d", argIndex), today
+	case "last_week":
+		weekday := int(today.Weekday())
+		if weekday == 0 {
+			weekday = 7
+		}
+		lastMonday := today.AddDate(0, 0, -weekday-6)
+		return fmt.Sprintf("u.created_at >= $%d", argIndex), lastMonday
+	case "this_month":
+		firstOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc)
+		return fmt.Sprintf("u.created_at >= $%d", argIndex), firstOfMonth
+	case "last_month":
+		firstOfThisMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc)
+		firstOfLastMonth := firstOfThisMonth.AddDate(0, -1, 0)
+		return fmt.Sprintf("u.created_at >= $%d AND u.created_at < '%s'", argIndex, firstOfThisMonth.Format("2006-01-02")), firstOfLastMonth
+	default:
+		return "", time.Time{}
+	}
 }
 
 // Helper methods

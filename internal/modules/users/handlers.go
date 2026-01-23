@@ -3,7 +3,6 @@ package users
 import (
 	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"gogin/internal/modules/storage"
@@ -1035,35 +1034,50 @@ func (m *UsersModule) deleteAccount(c *gin.Context) {
 
 // listUsers lists all users (admin only)
 // @Summary List all users
-// @Description Get a paginated list of all users (admin only)
+// @Description Get a paginated list of all users with optional filters (admin only)
 // @Tags Admin
 // @Produce json
 // @Security BearerAuth
 // @Param page query int false "Page number" default(1)
 // @Param limit query int false "Items per page" default(20)
-// @Success 200 {object} response.Response{data=object{users=[]UserResponse,total=int,page=int,limit=int,total_pages=int}}
-// @Failure 401 {object} response.Response
-// @Failure 403 {object} response.Response
-// @Failure 500 {object} response.Response
+// @Param name query string false "Filter by name (searches first_name and last_name)"
+// @Param role query string false "Filter by role" Enums(admin, superadmin, manager, user)
+// @Param period query string false "Filter by creation date" Enums(today, last_week, this_month, last_month)
+// @Success 200 {object} response.Response{data=UsersListResponse} "Users retrieved successfully"
+// @Failure 400 {object} response.Response "Invalid request parameters"
+// @Failure 401 {object} response.Response "Unauthorized"
+// @Failure 403 {object} response.Response "Forbidden"
+// @Failure 500 {object} response.Response "Internal server error"
 // @Router /users [get]
 func (m *UsersModule) listUsers(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
-
-	users, total, err := m.service.ListUsers(page, limit)
-	if err != nil {
-		response.InternalError(c, "Failed to list users")
+	var req ListUsersRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		response.BadRequest(c, "Invalid request parameters: "+err.Error())
 		return
 	}
 
-	totalPages := (total + limit - 1) / limit
+	// Set defaults
+	if req.Page < 1 {
+		req.Page = 1
+	}
+	if req.Limit < 1 {
+		req.Limit = 20
+	}
 
-	response.Success(c, http.StatusOK, "Users retrieved successfully", gin.H{
-		"users":       users,
-		"total":       total,
-		"page":        page,
-		"limit":       limit,
-		"total_pages": totalPages,
+	users, total, err := m.service.ListUsers(req)
+	if err != nil {
+		response.InternalError(c, "Failed to list users: "+err.Error())
+		return
+	}
+
+	totalPages := (total + req.Limit - 1) / req.Limit
+
+	response.Success(c, http.StatusOK, "Users retrieved successfully", UsersListResponse{
+		Users:      users,
+		Total:      total,
+		Page:       req.Page,
+		Limit:      req.Limit,
+		TotalPages: totalPages,
 	})
 }
 

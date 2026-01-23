@@ -58,5 +58,8 @@ func (m *DashboardModule) RegisterRoutes(router *gin.RouterGroup) {
 
 		// GET /admin/dashboard/shipment-stats - Get shipment statistics
 		admin.GET("/shipment-stats", m.handlers.GetShipmentStats)
+
+		// GET /admin/dashboard/user-overview - Get user overview metrics
+		admin.GET("/user-overview", m.handlers.GetUserOverview)
 	}
 }

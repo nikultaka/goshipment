@@ -562,3 +562,284 @@ func formatMoney(amount float64, currency string) string {
 func roundTo2(val float64) float64 {
 	return float64(int(val*100)) / 100
 }
+
+// ============================================================================
+// User Overview Methods
+// ============================================================================
+
+// GetUserOverview retrieves user overview metrics for the dashboard
+func (s *DashboardService) GetUserOverview(req UserOverviewRequest) (*UserOverviewResponse, error) {
+	period := req.Period
+	if period == "" {
+		period = "today"
+	}
+
+	dateRange, err := s.GetDateRange(period, "", "")
+	if err != nil {
+		return nil, err
+	}
+
+	// Get current metrics
+	metrics, err := s.getUserMetrics(dateRange)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user metrics: %w", err)
+	}
+
+	// Get comparison metrics if requested
+	if req.Compare {
+		prevRange := s.GetPreviousPeriodRange(dateRange)
+		s.addUserComparison(metrics, prevRange)
+	}
+
+	// Get breakdowns
+	breakdown, err := s.getUserBreakdown()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user breakdown: %w", err)
+	}
+
+	return &UserOverviewResponse{
+		Period: PeriodInfo{
+			Type:         dateRange.Type,
+			StartDate:    dateRange.StartDate.Format("2006-01-02"),
+			EndDate:      dateRange.EndDate.Format("2006-01-02"),
+			DisplayLabel: dateRange.Label,
+		},
+		Metrics:     *metrics,
+		Breakdown:   *breakdown,
+		GeneratedAt: time.Now(),
+	}, nil
+}
+
+// getUserMetrics retrieves the main user metrics
+func (s *DashboardService) getUserMetrics(dateRange *DateRange) (*UserMetrics, error) {
+	// Total users count
+	var totalUsers int
+	err := s.db.DB.QueryRow("SELECT COUNT(*) FROM users WHERE deleted_at IS NULL").Scan(&totalUsers)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count total users: %w", err)
+	}
+
+	// New users in period
+	var newUsers int
+	err = s.db.DB.QueryRow(
+		"SELECT COUNT(*) FROM users WHERE created_at >= $1 AND created_at <= $2 AND deleted_at IS NULL",
+		dateRange.StartDate, dateRange.EndDate,
+	).Scan(&newUsers)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count new users: %w", err)
+	}
+
+	// Online users (active session in last 15 minutes)
+	var onlineUsers int
+	err = s.db.DB.QueryRow(`
+		SELECT COUNT(DISTINCT user_id)
+		FROM user_sessions
+		WHERE last_activity_at >= NOW() - INTERVAL '15 minutes'
+		AND is_active = true
+	`).Scan(&onlineUsers)
+	if err != nil {
+		onlineUsers = 0 // Default to 0 if table doesn't exist or query fails
+	}
+
+	// Business accounts (users with business profile)
+	var businessAccounts int
+	err = s.db.DB.QueryRow(`
+		SELECT COUNT(DISTINCT b.user_id)
+		FROM businesses b
+		INNER JOIN users u ON b.user_id = u.id
+		WHERE u.deleted_at IS NULL AND b.is_active = true
+	`).Scan(&businessAccounts)
+	if err != nil {
+		businessAccounts = 0
+	}
+
+	// Unverified users (primary email not verified)
+	var unverifiedUsers int
+	err = s.db.DB.QueryRow(`
+		SELECT COUNT(*)
+		FROM users u
+		LEFT JOIN user_emails ue ON u.primary_email_id = ue.id
+		WHERE u.deleted_at IS NULL
+		AND (ue.is_verified = false OR ue.is_verified IS NULL)
+	`).Scan(&unverifiedUsers)
+	if err != nil {
+		unverifiedUsers = 0
+	}
+
+	// Calculate percentages
+	businessPct := 0.0
+	unverifiedPct := 0.0
+	onlinePct := 0.0
+	if totalUsers > 0 {
+		businessPct = roundTo2((float64(businessAccounts) / float64(totalUsers)) * 100)
+		unverifiedPct = roundTo2((float64(unverifiedUsers) / float64(totalUsers)) * 100)
+		onlinePct = roundTo2((float64(onlineUsers) / float64(totalUsers)) * 100)
+	}
+
+	return &UserMetrics{
+		TotalUsers: UserMetricWithChange{
+			Count: totalUsers,
+		},
+		NewUsersToday: UserMetricWithChange{
+			Count: newUsers,
+		},
+		OnlineUsers: OnlineUsersMetric{
+			Count:             onlineUsers,
+			PercentageOfTotal: onlinePct,
+		},
+		BusinessAccounts: UserMetricWithPercentage{
+			Count:             businessAccounts,
+			PercentageOfTotal: businessPct,
+		},
+		UnverifiedUsers: UserMetricWithPercentage{
+			Count:             unverifiedUsers,
+			PercentageOfTotal: unverifiedPct,
+		},
+	}, nil
+}
+
+// addUserComparison adds comparison data to metrics
+func (s *DashboardService) addUserComparison(metrics *UserMetrics, prevRange *DateRange) {
+	// Previous total users (created before end of prev period)
+	var prevTotal int
+	s.db.DB.QueryRow(
+		"SELECT COUNT(*) FROM users WHERE created_at <= $1 AND deleted_at IS NULL",
+		prevRange.EndDate,
+	).Scan(&prevTotal)
+
+	// Previous new users (created during prev period)
+	var prevNew int
+	s.db.DB.QueryRow(
+		"SELECT COUNT(*) FROM users WHERE created_at >= $1 AND created_at <= $2 AND deleted_at IS NULL",
+		prevRange.StartDate, prevRange.EndDate,
+	).Scan(&prevNew)
+
+	// Previous business accounts
+	var prevBusiness int
+	s.db.DB.QueryRow(`
+		SELECT COUNT(DISTINCT b.user_id)
+		FROM businesses b
+		INNER JOIN users u ON b.user_id = u.id
+		WHERE u.deleted_at IS NULL AND b.is_active = true
+		AND b.created_at <= $1
+	`, prevRange.EndDate).Scan(&prevBusiness)
+
+	// Previous unverified users
+	var prevUnverified int
+	s.db.DB.QueryRow(`
+		SELECT COUNT(*)
+		FROM users u
+		LEFT JOIN user_emails ue ON u.primary_email_id = ue.id
+		WHERE u.deleted_at IS NULL
+		AND u.created_at <= $1
+		AND (ue.is_verified = false OR ue.is_verified IS NULL)
+	`, prevRange.EndDate).Scan(&prevUnverified)
+
+	// Total users comparison
+	metrics.TotalUsers.Change = metrics.TotalUsers.Count - prevTotal
+	if prevTotal > 0 {
+		metrics.TotalUsers.ChangePercentage = roundTo2((float64(metrics.TotalUsers.Change) / float64(prevTotal)) * 100)
+	}
+	metrics.TotalUsers.Trend = getTrend(metrics.TotalUsers.Change)
+
+	// New users comparison
+	metrics.NewUsersToday.Change = metrics.NewUsersToday.Count - prevNew
+	if prevNew > 0 {
+		metrics.NewUsersToday.ChangePercentage = roundTo2((float64(metrics.NewUsersToday.Change) / float64(prevNew)) * 100)
+	}
+	metrics.NewUsersToday.Trend = getTrend(metrics.NewUsersToday.Change)
+
+	// Business accounts comparison
+	metrics.BusinessAccounts.Change = metrics.BusinessAccounts.Count - prevBusiness
+	if prevBusiness > 0 {
+		metrics.BusinessAccounts.ChangePercentage = roundTo2((float64(metrics.BusinessAccounts.Change) / float64(prevBusiness)) * 100)
+	}
+	metrics.BusinessAccounts.Trend = getTrend(metrics.BusinessAccounts.Change)
+
+	// Unverified users comparison
+	metrics.UnverifiedUsers.Change = metrics.UnverifiedUsers.Count - prevUnverified
+	if prevUnverified > 0 {
+		metrics.UnverifiedUsers.ChangePercentage = roundTo2((float64(metrics.UnverifiedUsers.Change) / float64(prevUnverified)) * 100)
+	}
+	metrics.UnverifiedUsers.Trend = getTrend(metrics.UnverifiedUsers.Change)
+}
+
+// getUserBreakdown retrieves user breakdown by role and status
+func (s *DashboardService) getUserBreakdown() (*UserBreakdown, error) {
+	// Get total for percentage calculation
+	var totalUsers int
+	err := s.db.DB.QueryRow("SELECT COUNT(*) FROM users WHERE deleted_at IS NULL").Scan(&totalUsers)
+	if err != nil {
+		return nil, err
+	}
+
+	// Role breakdown (join user_roles and roles tables)
+	roleQuery := `
+		SELECT COALESCE(r.name, 'user') as role, COUNT(DISTINCT u.id) as count
+		FROM users u
+		LEFT JOIN user_roles ur ON u.id = ur.user_id AND ur.is_active = true
+		LEFT JOIN roles r ON ur.role_id = r.id AND r.is_active = true
+		WHERE u.deleted_at IS NULL
+		GROUP BY r.name
+		ORDER BY count DESC
+	`
+	roleRows, err := s.db.DB.Query(roleQuery)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query role breakdown: %w", err)
+	}
+	defer roleRows.Close()
+
+	var roleBreakdown []RoleBreakdown
+	for roleRows.Next() {
+		var rb RoleBreakdown
+		if err := roleRows.Scan(&rb.Role, &rb.Count); err != nil {
+			return nil, err
+		}
+		if totalUsers > 0 {
+			rb.Percentage = roundTo2((float64(rb.Count) / float64(totalUsers)) * 100)
+		}
+		roleBreakdown = append(roleBreakdown, rb)
+	}
+
+	// Status breakdown (based on is_active field)
+	statusQuery := `
+		SELECT
+			CASE WHEN is_active = true THEN 'active' ELSE 'inactive' END as status,
+			COUNT(*) as count
+		FROM users
+		WHERE deleted_at IS NULL
+		GROUP BY is_active
+		ORDER BY count DESC
+	`
+	statusRows, err := s.db.DB.Query(statusQuery)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query status breakdown: %w", err)
+	}
+	defer statusRows.Close()
+
+	var statusBreakdown []UserStatusBreakdown
+	for statusRows.Next() {
+		var sb UserStatusBreakdown
+		if err := statusRows.Scan(&sb.Status, &sb.Count); err != nil {
+			return nil, err
+		}
+		if totalUsers > 0 {
+			sb.Percentage = roundTo2((float64(sb.Count) / float64(totalUsers)) * 100)
+		}
+		statusBreakdown = append(statusBreakdown, sb)
+	}
+
+	return &UserBreakdown{
+		ByRole:   roleBreakdown,
+		ByStatus: statusBreakdown,
+	}, nil
+}
+
+func getTrend(change int) string {
+	if change > 0 {
+		return "up"
+	} else if change < 0 {
+		return "down"
+	}
+	return "neutral"
+}

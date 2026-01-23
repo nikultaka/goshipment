@@ -339,3 +339,12 @@ type ToggleSalesRepRequest struct {
 type AnonymizeUserRequest struct {
 	Reason string `json:"reason" binding:"required,min=10,max=500"` // Reason for anonymization (audit)
 }
+
+// ListUsersRequest represents the request parameters for listing users
+type ListUsersRequest struct {
+	Page   int    `form:"page" binding:"omitempty,min=1"`
+	Limit  int    `form:"limit" binding:"omitempty,min=1,max=100"`
+	Name   string `form:"name" binding:"omitempty"`                                                              // Filter by first_name or last_name (partial match)
+	Role   string `form:"role" binding:"omitempty,oneof=admin superadmin manager user"`                          // Filter by role
+	Period string `form:"period" binding:"omitempty,oneof=today last_week this_month last_month"` // Filter by creation date
+}
