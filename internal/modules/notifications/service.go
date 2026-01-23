@@ -30,20 +30,23 @@ func NewNotificationsService(db *clients.Database, nats *clients.NATSClient) *No
 // SendNotification creates and queues a notification
 func (s *NotificationsService) SendNotification(req *SendNotificationRequest) (*NotificationResponse, error) {
 	id := uuid.New().String()
+	queueID := fmt.Sprintf("nq_%s", id[:8])
+
 	query := `
-		INSERT INTO user_notifications (id, user_id, type, title, message, is_read)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO notification_queue (id, queue_id, user_id, subject, body, channel, status, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
 		RETURNING created_at
 	`
 
 	var createdAt time.Time
 	err := s.db.QueryRow(query,
 		id,
+		queueID,
 		req.UserID,
-		req.Type,
 		req.Title,
 		req.Content,
-		false,
+		req.Channel,
+		"queued",
 	).Scan(&createdAt)
 
 	if err != nil {
@@ -63,7 +66,7 @@ func (s *NotificationsService) SendNotification(req *SendNotificationRequest) (*
 		Title:     req.Title,
 		Content:   req.Content,
 		IsRead:    false,
-		Status:    "pending",
+		Status:    "queued",
 		CreatedAt: createdAt,
 		UpdatedAt: createdAt,
 	}, nil
@@ -76,8 +79,8 @@ func (s *NotificationsService) ListNotifications(userID string, page, limit int)
 	// Get total count
 	var total, unread int
 	err := s.db.QueryRow(`
-		SELECT COUNT(*), COALESCE(SUM(CASE WHEN is_read = FALSE THEN 1 ELSE 0 END), 0)
-		FROM user_notifications
+		SELECT COUNT(*), COALESCE(SUM(CASE WHEN status != 'sent' THEN 1 ELSE 0 END), 0)
+		FROM notification_queue
 		WHERE user_id = $1
 	`, userID).Scan(&total, &unread)
 	if err != nil {
@@ -86,8 +89,8 @@ func (s *NotificationsService) ListNotifications(userID string, page, limit int)
 
 	// Get notifications
 	query := `
-		SELECT id, user_id, type, title, message, is_read, created_at
-		FROM user_notifications
+		SELECT id, user_id, channel, subject, body, status, created_at
+		FROM notification_queue
 		WHERE user_id = $1
 		ORDER BY created_at DESC
 		LIMIT $2 OFFSET $3
@@ -101,20 +104,30 @@ func (s *NotificationsService) ListNotifications(userID string, page, limit int)
 
 	var notifications []*NotificationResponse
 	for rows.Next() {
-		var notif models.UserNotification
-		err := rows.Scan(
-			&notif.ID,
-			&notif.UserID,
-			&notif.Type,
-			&notif.Title,
-			&notif.Message,
-			&notif.IsRead,
-			&notif.CreatedAt,
+		var (
+			id, channel, status string
+			userIDVal           sql.NullString
+			subject, body       sql.NullString
+			createdAt           time.Time
 		)
+		err := rows.Scan(&id, &userIDVal, &channel, &subject, &body, &status, &createdAt)
 		if err != nil {
 			return nil, 0, 0, err
 		}
-		notifications = append(notifications, s.toUserNotificationResponse(&notif))
+
+		notif := &NotificationResponse{
+			ID:        id,
+			UserID:    userID,
+			Type:      channel,
+			Channel:   channel,
+			Title:     subject.String,
+			Content:   body.String,
+			IsRead:    status == "sent",
+			Status:    status,
+			CreatedAt: createdAt,
+			UpdatedAt: createdAt,
+		}
+		notifications = append(notifications, notif)
 	}
 
 	return notifications, total, unread, nil
@@ -122,33 +135,50 @@ func (s *NotificationsService) ListNotifications(userID string, page, limit int)
 
 // GetNotification retrieves a notification by ID
 func (s *NotificationsService) GetNotification(id, userID string) (*NotificationResponse, error) {
-	var notif models.UserNotification
 	query := `
-		SELECT id, user_id, type, title, message, is_read, created_at
-		FROM user_notifications
+		SELECT id, user_id, channel, subject, body, status, created_at
+		FROM notification_queue
 		WHERE id = $1 AND user_id = $2
 	`
 
+	var (
+		notifID, channel, status string
+		userIDVal                sql.NullString
+		subject, body            sql.NullString
+		createdAt                time.Time
+	)
+
 	err := s.db.QueryRow(query, id, userID).Scan(
-		&notif.ID,
-		&notif.UserID,
-		&notif.Type,
-		&notif.Title,
-		&notif.Message,
-		&notif.IsRead,
-		&notif.CreatedAt,
+		&notifID,
+		&userIDVal,
+		&channel,
+		&subject,
+		&body,
+		&status,
+		&createdAt,
 	)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return s.toUserNotificationResponse(&notif), nil
+	return &NotificationResponse{
+		ID:        notifID,
+		UserID:    userID,
+		Type:      channel,
+		Channel:   channel,
+		Title:     subject.String,
+		Content:   body.String,
+		IsRead:    status == "sent",
+		Status:    status,
+		CreatedAt: createdAt,
+		UpdatedAt: createdAt,
+	}, nil
 }
 
 // MarkAsRead marks a notification as read
 func (s *NotificationsService) MarkAsRead(id, userID string) error {
-	query := `UPDATE user_notifications SET is_read = TRUE WHERE id = $1 AND user_id = $2`
+	query := `UPDATE notification_queue SET status = 'sent', updated_at = NOW() WHERE id = $1 AND user_id = $2`
 	result, err := s.db.Exec(query, id, userID)
 	if err != nil {
 		return err
@@ -164,7 +194,7 @@ func (s *NotificationsService) MarkAsRead(id, userID string) error {
 
 // MarkAllAsRead marks all notifications as read for a user
 func (s *NotificationsService) MarkAllAsRead(userID string) (int64, error) {
-	query := `UPDATE user_notifications SET is_read = TRUE WHERE user_id = $1 AND is_read = FALSE`
+	query := `UPDATE notification_queue SET status = 'sent', updated_at = NOW() WHERE user_id = $1 AND status != 'sent'`
 	result, err := s.db.Exec(query, userID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to mark notifications as read: %w", err)
@@ -180,7 +210,7 @@ func (s *NotificationsService) MarkAllAsRead(userID string) (int64, error) {
 
 // DeleteNotification deletes a notification
 func (s *NotificationsService) DeleteNotification(id, userID string) error {
-	query := `DELETE FROM user_notifications WHERE id = $1 AND user_id = $2`
+	query := `DELETE FROM notification_queue WHERE id = $1 AND user_id = $2`
 	result, err := s.db.Exec(query, id, userID)
 	if err != nil {
 		return err
@@ -575,25 +605,25 @@ func (s *NotificationsService) GetUserNotifications(userID string, page, limit i
 
 	offset := (page - 1) * limit
 
-	// Build where clause
+	// Build where clause using notification_queue table
 	whereClause := "WHERE user_id = $1"
 	args := []interface{}{userID}
 	if unreadOnly {
-		whereClause += " AND is_read = false"
+		whereClause += " AND status != 'sent'"
 	}
 
 	// Count total
 	var total int
-	countQuery := `SELECT COUNT(*) FROM user_notifications ` + whereClause
+	countQuery := `SELECT COUNT(*) FROM notification_queue ` + whereClause
 	err := s.db.QueryRow(countQuery, args...).Scan(&total)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to count notifications: %w", err)
 	}
 
-	// Get notifications
+	// Get notifications from notification_queue
 	query := `
-		SELECT id, user_id, type, title, message, is_read, created_at
-		FROM user_notifications
+		SELECT id, user_id, channel, subject, body, status, created_at
+		FROM notification_queue
 		` + whereClause + `
 		ORDER BY created_at DESC
 		LIMIT $2 OFFSET $3
@@ -607,13 +637,30 @@ func (s *NotificationsService) GetUserNotifications(userID string, page, limit i
 
 	var notifications []*NotificationResponse
 	for rows.Next() {
-		var notif models.UserNotification
-		err := rows.Scan(&notif.ID, &notif.UserID, &notif.Type, &notif.Title,
-			&notif.Message, &notif.IsRead, &notif.CreatedAt)
+		var (
+			id, channel, status string
+			userIDVal           sql.NullString
+			subject, body       sql.NullString
+			createdAt           time.Time
+		)
+		err := rows.Scan(&id, &userIDVal, &channel, &subject, &body, &status, &createdAt)
 		if err != nil {
 			return nil, 0, fmt.Errorf("failed to scan notification: %w", err)
 		}
-		notifications = append(notifications, s.toUserNotificationResponse(&notif))
+
+		notif := &NotificationResponse{
+			ID:        id,
+			UserID:    userID,
+			Type:      channel,
+			Channel:   channel,
+			Title:     subject.String,
+			Content:   body.String,
+			IsRead:    status == "sent",
+			Status:    status,
+			CreatedAt: createdAt,
+			UpdatedAt: createdAt,
+		}
+		notifications = append(notifications, notif)
 	}
 
 	if notifications == nil {
@@ -626,8 +673,8 @@ func (s *NotificationsService) GetUserNotifications(userID string, page, limit i
 // MarkNotificationAsRead marks a notification as read (NEW)
 func (s *NotificationsService) MarkNotificationAsRead(notificationID, userID string) error {
 	query := `
-		UPDATE user_notifications
-		SET is_read = true
+		UPDATE notification_queue
+		SET status = 'sent', updated_at = NOW()
 		WHERE id = $1 AND user_id = $2
 	`
 
@@ -651,9 +698,9 @@ func (s *NotificationsService) MarkNotificationAsRead(notificationID, userID str
 // MarkAllNotificationsAsRead marks all notifications as read for a user (NEW)
 func (s *NotificationsService) MarkAllNotificationsAsRead(userID string) error {
 	query := `
-		UPDATE user_notifications
-		SET is_read = true
-		WHERE user_id = $1 AND is_read = false
+		UPDATE notification_queue
+		SET status = 'sent', updated_at = NOW()
+		WHERE user_id = $1 AND status != 'sent'
 	`
 
 	_, err := s.db.Exec(query, userID)
