@@ -46,6 +46,10 @@ func (m *WalletModule) RegisterRoutes(router *gin.RouterGroup) {
 		// Scope: wallet.read
 		wallet.GET("/overview", m.handlers.GetWalletOverview)
 
+		// GET /wallet/transactions - List transactions with filters
+		// Scope: wallet.read
+		wallet.GET("/transactions", m.handlers.ListTransactions)
+
 		// GET /wallet/transactions/export - Export transactions to CSV or JSON
 		// Scope: wallet.read
 		wallet.GET("/transactions/export", m.handlers.ExportTransactions)

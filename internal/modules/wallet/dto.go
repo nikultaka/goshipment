@@ -10,7 +10,7 @@ import "time"
 type TopUpRequest struct {
 	Amount          float64 `json:"amount" binding:"required,gt=0" example:"100.00"`
 	PaymentMethodID string  `json:"payment_method_id" binding:"required" example:"pm_1234567890abcdef"`
-	IdempotencyKey  string  `json:"idempotency_key" binding:"required,min=1,max=100" example:"topup_2026-01-11_abc123"`
+	IdempotencyKey  string  `json:"idempotency_key" binding:"omitempty,max=100" example:"topup_2026-01-11_abc123"`
 }
 
 // RefundRequest represents a wallet refund request (shipment refund to wallet)
@@ -18,7 +18,7 @@ type RefundRequest struct {
 	ShipmentID     string  `json:"shipment_id" binding:"required,uuid" example:"550e8400-e29b-41d4-a716-446655440000"`
 	Amount         float64 `json:"amount" binding:"required,gt=0" example:"45.50"`
 	Reason         string  `json:"reason" binding:"required,min=1,max=255" example:"Shipment cancelled by customer"`
-	IdempotencyKey string  `json:"idempotency_key" binding:"required,min=1,max=100" example:"refund_2026-01-11_xyz789"`
+	IdempotencyKey string  `json:"idempotency_key" binding:"omitempty,max=100" example:"refund_2026-01-11_xyz789"`
 }
 
 // =====================================================
@@ -30,11 +30,25 @@ type WalletResponse struct {
 	ID                      string                  `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
 	WalletNumber            string                  `json:"wallet_number" example:"WAL-ABC12345"`
 	OrganizationID          string                  `json:"organization_id" example:"550e8400-e29b-41d4-a716-446655440001"`
+
+	// Balance Information
+	AvailableBalance        float64                 `json:"available_balance" example:"1250.75"`
+	TotalInTransit          float64                 `json:"total_in_transit" example:"150.00"`
+	Reserved                float64                 `json:"reserved" example:"50.00"`
+	TotalBalance            float64                 `json:"total_balance" example:"1450.75"`
+
+	// Financial Summary (This Month)
+	TotalDeposits           float64                 `json:"total_deposits" example:"500.00"`
+	TotalOutflow            float64                 `json:"total_outflow" example:"320.50"`
+	NetMovement             float64                 `json:"net_movement" example:"179.50"`
+
+	// Legacy fields (kept for backwards compatibility)
 	Balance                 float64                 `json:"balance" example:"1250.75"`
 	HeldBalance             float64                 `json:"held_balance" example:"50.00"`
 	CarrierRefundInProgress float64                 `json:"carrier_refund_in_progress" example:"75.00"`
-	TotalBalance            float64                 `json:"total_balance" example:"1300.75"`
+
 	Status                  string                  `json:"status" example:"active"`
+	Currency                string                  `json:"currency" example:"CAD"`
 	MinTopUpAmount          float64                 `json:"min_topup_amount" example:"10.00"`
 	MaxTopUpAmount          *float64                `json:"max_topup_amount,omitempty" example:"10000.00"`
 	MaxBalance              *float64                `json:"max_balance,omitempty" example:"50000.00"`
@@ -101,10 +115,32 @@ type WalletStatusResponse struct {
 // TransactionsListResponse represents paginated transactions
 type TransactionsListResponse struct {
 	Transactions []TransactionResponse `json:"transactions"`
-	Total        int                   `json:"total" example:"150"`
-	Page         int                   `json:"page" example:"1"`
-	PageSize     int                   `json:"page_size" example:"20"`
-	TotalPages   int                   `json:"total_pages" example:"8"`
+	Pagination   PaginationMeta        `json:"pagination"`
+}
+
+// PaginationMeta represents pagination metadata
+type PaginationMeta struct {
+	Page       int `json:"page" example:"1"`
+	PerPage    int `json:"per_page" example:"20"`
+	Total      int `json:"total" example:"150"`
+	TotalPages int `json:"total_pages" example:"8"`
+}
+
+// ListTransactionsRequest represents query parameters for listing transactions
+type ListTransactionsRequest struct {
+	Page              int     `form:"page" binding:"omitempty,min=1" example:"1"`
+	Limit             int     `form:"limit" binding:"omitempty,min=1,max=100" example:"20"`
+	TransactionNumber *string `form:"transaction_number" binding:"omitempty" example:"TRX-ABC12345"`
+	TransactionID     *string `form:"transaction_id" binding:"omitempty" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Direction         *string `form:"direction" binding:"omitempty,oneof=credit debit" example:"credit"`
+	TxType            *string `form:"tx_type" binding:"omitempty" example:"topup"`
+	Status            *string `form:"status" binding:"omitempty" example:"completed"`
+	MinAmount         *float64 `form:"min_amount" binding:"omitempty" example:"10.00"`
+	MaxAmount         *float64 `form:"max_amount" binding:"omitempty" example:"1000.00"`
+	FromDate          *string `form:"from_date" binding:"omitempty" example:"2026-01-01"`
+	ToDate            *string `form:"to_date" binding:"omitempty" example:"2026-01-31"`
+	SortBy            *string `form:"sort_by" binding:"omitempty,oneof=created_at amount" example:"created_at"`
+	SortOrder         *string `form:"sort_order" binding:"omitempty,oneof=asc desc" example:"desc"`
 }
 
 // ExportTransactionsRequest represents filter options for exporting transactions

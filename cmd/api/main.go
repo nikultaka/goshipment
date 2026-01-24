@@ -17,6 +17,7 @@ import (
 	"gogin/internal/modules/audit"
 	"gogin/internal/modules/commissions"
 	"gogin/internal/modules/dashboard"
+	"gogin/internal/modules/discounts"
 	"gogin/internal/modules/core"
 	"gogin/internal/modules/invoices"
 	"gogin/internal/modules/labels"
@@ -339,6 +340,11 @@ func main() {
 	referralsModule := referrals.NewReferralModule(db, redis, cfg)
 	referralsModule.RegisterRoutes(v1)
 	log.Println("✓ Referrals module registered")
+
+	// Discounts module (promo codes and discount management)
+	discountsModule := discounts.NewDiscountModule(db, redis, cfg)
+	discountsModule.RegisterRoutes(v1)
+	log.Println("✓ Discounts module registered")
 
 	// Geo module (countries, regions - reference data)
 	geoModule := geo.NewGeoModule(db, redis, cfg)

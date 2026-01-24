@@ -7,8 +7,8 @@ import (
 
 // CreateShipmentRequest represents the request to create a shipment from an estimate
 type CreateShipmentRequest struct {
-	EstimateID           string  `json:"estimate_id" binding:"required"`
-	SelectedCarrierID    string  `json:"selected_carrier_id" binding:"required"`
+	EstimateID           string  `json:"estimate_id" binding:"required,uuid"`
+	SelectedCarrierID    string  `json:"selected_carrier_id" binding:"required,uuid"`
 	SelectedServiceCode  string  `json:"selected_service_code" binding:"required"`
 	RequireSignature     *bool   `json:"require_signature,omitempty"`
 	EmailNotifications   *bool   `json:"email_notifications,omitempty"`
@@ -140,7 +140,9 @@ type ShipmentListItem struct {
 	Status          ShipmentStatusInfo `json:"status"`
 	PaymentStatus   string             `json:"payment_status"`
 	Pickup          *PickupListInfo    `json:"pickup,omitempty"`
-	TrackingNumber  *string            `json:"tracking_number,omitempty"`
+	TrackingNumber  *string            `json:"tracking_number"`
+	TrackingURL     *string            `json:"tracking_url"`
+	Packages        []PackageResponse  `json:"packages"`
 	IsArchived      bool               `json:"is_archived"`
 	CreatedAt       string             `json:"created_at"`
 }
@@ -435,6 +437,7 @@ func ToShipmentListItem(shipment *models.Shipment) ShipmentListItem {
 		},
 		PaymentStatus:  string(shipment.PaymentStatus),
 		TrackingNumber: nullStringToPtr(shipment.MasterTrackingNumber),
+		TrackingURL:    nullStringToPtr(shipment.MasterTrackingURL),
 		IsArchived:     shipment.IsArchived,
 		CreatedAt:      shipment.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
@@ -448,6 +451,23 @@ func ToShipmentListItem(shipment *models.Shipment) ShipmentListItem {
 		pickup.Status = &shipment.PickupStatus
 	}
 	item.Pickup = pickup
+
+	return item
+}
+
+// ToShipmentListItemWithPackages converts a Shipment model to ShipmentListItem DTO with packages
+func ToShipmentListItemWithPackages(shipment *models.Shipment, packages []*models.ShipmentPackage) ShipmentListItem {
+	item := ToShipmentListItem(shipment)
+
+	// Convert packages
+	if len(packages) > 0 {
+		item.Packages = make([]PackageResponse, len(packages))
+		for i, pkg := range packages {
+			item.Packages[i] = toPackageResponse(pkg)
+		}
+	} else {
+		item.Packages = []PackageResponse{}
+	}
 
 	return item
 }

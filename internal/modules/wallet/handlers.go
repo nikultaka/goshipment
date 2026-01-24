@@ -316,6 +316,75 @@ func (h *WalletHandlers) UnlockWallet(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Wallet unlocked successfully", result)
 }
 
+// ListTransactions godoc
+// @Summary List wallet transactions
+// @Description Retrieve paginated list of wallet transactions with optional filters
+// @Tags Wallet
+// @Produce json
+// @Security BearerAuth
+// @Param page query int false "Page number" default(1)
+// @Param limit query int false "Items per page" default(20)
+// @Param transaction_id query string false "Filter by transaction ID"
+// @Param transaction_number query string false "Search by transaction number"
+// @Param direction query string false "Filter by direction" Enums(credit, debit)
+// @Param tx_type query string false "Filter by transaction type (topup, shipment_payment, shipment_refund, adjustment)"
+// @Param status query string false "Filter by status"
+// @Param min_amount query number false "Filter by minimum amount"
+// @Param max_amount query number false "Filter by maximum amount"
+// @Param from_date query string false "Filter from date (YYYY-MM-DD)"
+// @Param to_date query string false "Filter to date (YYYY-MM-DD)"
+// @Param sort_by query string false "Sort by field" Enums(created_at, amount) default(created_at)
+// @Param sort_order query string false "Sort order" Enums(asc, desc) default(desc)
+// @Success 200 {object} response.Response{data=TransactionsListResponse} "Transactions retrieved successfully"
+// @Failure 400 {object} response.Response "Invalid request parameters"
+// @Failure 401 {object} response.Response "Unauthorized"
+// @Failure 403 {object} response.Response "Forbidden - user not in organization"
+// @Failure 404 {object} response.Response "Wallet not found"
+// @Failure 500 {object} response.Response "Internal server error"
+// @Router /wallet/transactions [get]
+func (h *WalletHandlers) ListTransactions(c *gin.Context) {
+	// Get user ID from context
+	userID, exists := c.Get("user_id")
+	if !exists || userID == nil {
+		response.Unauthorized(c, "User context required")
+		return
+	}
+
+	// Get organization ID from user membership (admin users can access via query param)
+	organizationID, isAdminUser := middleware.GetOrganizationContext(c)
+	if isAdminUser && organizationID == "" {
+		response.BadRequest(c, "organization_id query parameter is required for admin users")
+		return
+	} else if !isAdminUser {
+		var err error
+		organizationID, err = h.service.GetOrganizationIDFromUser(userID.(string))
+		if err != nil {
+			response.Forbidden(c, "User is not a member of any organization")
+			return
+		}
+	}
+
+	// Parse query parameters
+	var req ListTransactionsRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		response.BadRequest(c, "Invalid request parameters: "+err.Error())
+		return
+	}
+
+	// Get transactions
+	result, err := h.service.ListTransactions(organizationID, req)
+	if err != nil {
+		if contains(err.Error(), "not found") {
+			response.NotFound(c, "Wallet not found for organization")
+			return
+		}
+		response.InternalError(c, "Failed to list transactions: "+err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Transactions retrieved successfully", result)
+}
+
 // ExportTransactions godoc
 // @Summary Export wallet transactions
 // @Description Export wallet transactions to CSV or JSON format with optional date and type filters

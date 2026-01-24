@@ -12,6 +12,7 @@ import (
 	"gogin/internal/models"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 // SimpleShipmentService handles simplified shipment operations
@@ -51,6 +52,17 @@ func (s *SimpleShipmentService) CreateShipment(
 	organizationID string,
 	userID string,
 ) (*models.Shipment, error) {
+	// Validate required fields before hitting database
+	if req.EstimateID == "" {
+		return nil, errors.New("estimate_id is required")
+	}
+	if organizationID == "" {
+		return nil, errors.New("organization_id is required")
+	}
+	if req.SelectedCarrierID == "" {
+		return nil, errors.New("selected_carrier_id is required")
+	}
+
 	// Start transaction
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -403,11 +415,11 @@ func (s *SimpleShipmentService) CreateShipment(
 	return shipment, nil
 }
 
-// ListShipments returns a paginated list of shipments
+// ListShipments returns a paginated list of shipments with their packages
 func (s *SimpleShipmentService) ListShipments(
 	organizationID string,
 	query ListShipmentsQuery,
-) ([]*models.Shipment, int, error) {
+) ([]*models.Shipment, map[string][]*models.ShipmentPackage, int, error) {
 	// Set defaults for pagination
 	page := query.Page
 	if page < 1 {
@@ -479,7 +491,7 @@ func (s *SimpleShipmentService) ListShipments(
 
 	err := s.db.QueryRow(countQuery, args...).Scan(&total)
 	if err != nil {
-		return nil, 0, fmt.Errorf("failed to count shipments: %w", err)
+		return nil, nil, 0, fmt.Errorf("failed to count shipments: %w", err)
 	}
 
 	// Build the main query
@@ -491,7 +503,7 @@ func (s *SimpleShipmentService) ListShipments(
 			       s.from_country, s.from_region_code, s.from_city, s.from_postal_code,
 			       s.to_country, s.to_region_code, s.to_city, s.to_postal_code,
 			       s.total_packages, s.currency, s.shipment_status, s.payment_status,
-			       s.is_archived, s.master_tracking_number, s.created_at, s.updated_at,
+			       s.is_archived, s.master_tracking_number, s.master_tracking_url, s.created_at, s.updated_at,
 			       s.pickup_required, s.pickup_id, p.pickup_status
 			FROM shipments s
 			LEFT JOIN pickups p ON s.pickup_id = p.id
@@ -506,7 +518,7 @@ func (s *SimpleShipmentService) ListShipments(
 			       s.from_country, s.from_region_code, s.from_city, s.from_postal_code,
 			       s.to_country, s.to_region_code, s.to_city, s.to_postal_code,
 			       s.total_packages, s.currency, s.shipment_status, s.payment_status,
-			       s.is_archived, s.master_tracking_number, s.created_at, s.updated_at,
+			       s.is_archived, s.master_tracking_number, s.master_tracking_url, s.created_at, s.updated_at,
 			       s.pickup_required, s.pickup_id, p.pickup_status
 			FROM shipments s
 			LEFT JOIN pickups p ON s.pickup_id = p.id
@@ -565,7 +577,7 @@ func (s *SimpleShipmentService) ListShipments(
 	// Execute query
 	rows, err := s.db.Query(selectQuery, args...)
 	if err != nil {
-		return nil, 0, fmt.Errorf("failed to query shipments: %w", err)
+		return nil, nil, 0, fmt.Errorf("failed to query shipments: %w", err)
 	}
 	defer rows.Close()
 
@@ -581,11 +593,11 @@ func (s *SimpleShipmentService) ListShipments(
 			&shipment.FromCountry, &shipment.FromRegionCode, &shipment.FromCity, &shipment.FromPostalCode,
 			&shipment.ToCountry, &shipment.ToRegionCode, &shipment.ToCity, &shipment.ToPostalCode,
 			&shipment.TotalPackages, &shipment.Currency, &shipment.ShipmentStatus, &shipment.PaymentStatus,
-			&shipment.IsArchived, &shipment.MasterTrackingNumber, &shipment.CreatedAt, &shipment.UpdatedAt,
+			&shipment.IsArchived, &shipment.MasterTrackingNumber, &shipment.MasterTrackingURL, &shipment.CreatedAt, &shipment.UpdatedAt,
 			&shipment.PickupRequired, &shipment.PickupID, &pickupStatus,
 		)
 		if err != nil {
-			return nil, 0, fmt.Errorf("failed to scan shipment: %w", err)
+			return nil, nil, 0, fmt.Errorf("failed to scan shipment: %w", err)
 		}
 		// Store pickup status in a temporary field - we'll handle this in the DTO conversion
 		if pickupStatus.Valid {
@@ -595,10 +607,56 @@ func (s *SimpleShipmentService) ListShipments(
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, 0, fmt.Errorf("error iterating shipments: %w", err)
+		return nil, nil, 0, fmt.Errorf("error iterating shipments: %w", err)
 	}
 
-	return shipments, total, nil
+	// Fetch packages for all shipments
+	packagesMap := make(map[string][]*models.ShipmentPackage)
+	if len(shipments) > 0 {
+		// Collect shipment IDs
+		shipmentIDs := make([]string, len(shipments))
+		for i, s := range shipments {
+			shipmentIDs[i] = s.ID
+		}
+
+		// Query packages for all shipments
+		packageQuery := `
+			SELECT id, shipment_id, package_number, package_index, package_name,
+			       length, width, height, dimension_unit,
+			       weight, weight_unit, declared_value,
+			       tracking_number, tracking_url, label_url, package_status
+			FROM shipment_packages
+			WHERE shipment_id = ANY($1)
+			ORDER BY shipment_id, package_index
+		`
+
+		packageRows, err := s.db.Query(packageQuery, pq.Array(shipmentIDs))
+		if err != nil {
+			return nil, nil, 0, fmt.Errorf("failed to query packages: %w", err)
+		}
+		defer packageRows.Close()
+
+		for packageRows.Next() {
+			var pkg models.ShipmentPackage
+			var shipmentID string
+			err := packageRows.Scan(
+				&pkg.ID, &shipmentID, &pkg.PackageNumber, &pkg.PackageIndex, &pkg.PackageName,
+				&pkg.Length, &pkg.Width, &pkg.Height, &pkg.DimensionUnit,
+				&pkg.Weight, &pkg.WeightUnit, &pkg.DeclaredValue,
+				&pkg.TrackingNumber, &pkg.TrackingURL, &pkg.LabelURL, &pkg.PackageStatus,
+			)
+			if err != nil {
+				return nil, nil, 0, fmt.Errorf("failed to scan package: %w", err)
+			}
+			packagesMap[shipmentID] = append(packagesMap[shipmentID], &pkg)
+		}
+
+		if err := packageRows.Err(); err != nil {
+			return nil, nil, 0, fmt.Errorf("error iterating packages: %w", err)
+		}
+	}
+
+	return shipments, packagesMap, total, nil
 }
 
 // GetShipmentByID returns a shipment

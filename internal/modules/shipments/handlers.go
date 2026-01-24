@@ -15,7 +15,7 @@ import (
 type IShipmentService interface {
 	GetOrganizationIDFromUser(userID string) (string, error)
 	CreateShipment(req CreateShipmentRequest, organizationID string, userID string) (*models.Shipment, error)
-	ListShipments(organizationID string, query ListShipmentsQuery) ([]*models.Shipment, int, error)
+	ListShipments(organizationID string, query ListShipmentsQuery) ([]*models.Shipment, map[string][]*models.ShipmentPackage, int, error)
 	GetShipmentByID(shipmentID string, organizationID string) (*models.Shipment, []*models.ShipmentPackage, []*models.ShipmentEvent, error)
 	CancelShipment(shipmentID, organizationID, userID, reason string) error
 	VoidShipment(shipmentID, organizationID, userID, reason string) error
@@ -62,7 +62,11 @@ func (h *ShipmentHandlers) CreateShipment(c *gin.Context) {
 
 	// Get organization ID from user membership (admin users can access all)
 	organizationID, isAdminUser := middleware.GetOrganizationContext(c)
-	if !isAdminUser {
+	if isAdminUser && organizationID == "" {
+		// Admin users must provide organization_id for shipment creation
+		response.BadRequest(c, "organization_id query parameter is required for admin users")
+		return
+	} else if !isAdminUser {
 		var err error
 		organizationID, err = h.service.GetOrganizationIDFromUser(userID.(string))
 		if err != nil {
@@ -147,7 +151,7 @@ func (h *ShipmentHandlers) ListShipments(c *gin.Context) {
 	}
 
 	// List shipments
-	shipments, total, err := h.service.ListShipments(
+	shipments, packagesMap, total, err := h.service.ListShipments(
 		organizationID,
 		query,
 	)
@@ -166,8 +170,15 @@ func (h *ShipmentHandlers) ListShipments(c *gin.Context) {
 		page = 1
 	}
 
+	// Convert shipments to list items with packages
+	shipmentItems := make([]ShipmentListItem, len(shipments))
+	for i, shipment := range shipments {
+		packages := packagesMap[shipment.ID]
+		shipmentItems[i] = ToShipmentListItemWithPackages(shipment, packages)
+	}
+
 	result := map[string]interface{}{
-		"shipments": shipments,
+		"shipments": shipmentItems,
 		"pagination": map[string]interface{}{
 			"page":       page,
 			"per_page":   limit,

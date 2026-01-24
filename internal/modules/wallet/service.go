@@ -96,16 +96,67 @@ func (s *WalletService) GetWallet(organizationID string) (*WalletResponse, error
 		carrierRefundInProgress = 0
 	}
 
+	// Get total in-transit (pending wallet holds)
+	var totalInTransit float64
+	err = s.db.DB.QueryRow(`
+		SELECT COALESCE(SUM(amount), 0)
+		FROM wallet_holds
+		WHERE wallet_id = $1 AND status IN ('pending', 'active')
+	`, wallet.ID).Scan(&totalInTransit)
+	if err != nil && err != sql.ErrNoRows {
+		totalInTransit = 0
+	}
+
+	// Get this month's deposits and outflow
+	now := time.Now()
+	startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+
+	var totalDeposits float64
+	err = s.db.DB.QueryRow(`
+		SELECT COALESCE(SUM(amount), 0)
+		FROM wallet_transactions
+		WHERE wallet_id = $1 AND direction = 'credit' AND created_at >= $2
+	`, wallet.ID, startOfMonth).Scan(&totalDeposits)
+	if err != nil && err != sql.ErrNoRows {
+		totalDeposits = 0
+	}
+
+	var totalOutflow float64
+	err = s.db.DB.QueryRow(`
+		SELECT COALESCE(SUM(amount), 0)
+		FROM wallet_transactions
+		WHERE wallet_id = $1 AND direction = 'debit' AND created_at >= $2
+	`, wallet.ID, startOfMonth).Scan(&totalOutflow)
+	if err != nil && err != sql.ErrNoRows {
+		totalOutflow = 0
+	}
+
+	netMovement := totalDeposits - totalOutflow
+
 	// Build response
 	resp := &WalletResponse{
 		ID:                      wallet.ID,
 		WalletNumber:            wallet.WalletNumber,
 		OrganizationID:          wallet.OrganizationID,
+
+		// New balance fields
+		AvailableBalance:        wallet.Balance,
+		TotalInTransit:          totalInTransit,
+		Reserved:                wallet.HeldBalance,
+		TotalBalance:            wallet.Balance + wallet.HeldBalance + totalInTransit,
+
+		// Financial summary
+		TotalDeposits:           totalDeposits,
+		TotalOutflow:            totalOutflow,
+		NetMovement:             netMovement,
+
+		// Legacy fields
 		Balance:                 wallet.Balance,
 		HeldBalance:             wallet.HeldBalance,
 		CarrierRefundInProgress: carrierRefundInProgress,
-		TotalBalance:            wallet.Balance + wallet.HeldBalance,
+
 		Status:                  wallet.Status,
+		Currency:                "CAD",
 		MinTopUpAmount:          wallet.MinTopUpAmount,
 		CreatedAt:               wallet.CreatedAt,
 		UpdatedAt:               wallet.UpdatedAt,
@@ -139,8 +190,193 @@ func (s *WalletService) GetWalletWithTransactions(organizationID string, page, p
 	return wallet, nil
 }
 
+// ListTransactions retrieves paginated transactions with filters
+func (s *WalletService) ListTransactions(organizationID string, req ListTransactionsRequest) (*TransactionsListResponse, error) {
+	// Get wallet
+	wallet, err := s.getWallet(organizationID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set defaults
+	page := req.Page
+	if page < 1 {
+		page = 1
+	}
+	limit := req.Limit
+	if limit < 1 {
+		limit = 20
+	}
+	offset := (page - 1) * limit
+
+	// Build count query
+	countQuery := `SELECT COUNT(*) FROM wallet_transactions WHERE wallet_id = $1`
+	countArgs := []interface{}{wallet.ID}
+	argIndex := 2
+
+	// Build select query
+	selectQuery := `
+		SELECT
+			id, transaction_number, direction, tx_type,
+			amount, currency, balance_before, balance_after,
+			description, reference_type, reference_id,
+			performed_by_user_id, is_system_generated, created_at
+		FROM wallet_transactions
+		WHERE wallet_id = $1
+	`
+	selectArgs := []interface{}{wallet.ID}
+
+	// Add filters
+	if req.TransactionID != nil && *req.TransactionID != "" {
+		countQuery += fmt.Sprintf(" AND id = $%d", argIndex)
+		selectQuery += fmt.Sprintf(" AND id = $%d", argIndex)
+		countArgs = append(countArgs, *req.TransactionID)
+		selectArgs = append(selectArgs, *req.TransactionID)
+		argIndex++
+	}
+
+	if req.TransactionNumber != nil && *req.TransactionNumber != "" {
+		countQuery += fmt.Sprintf(" AND transaction_number ILIKE $%d", argIndex)
+		selectQuery += fmt.Sprintf(" AND transaction_number ILIKE $%d", argIndex)
+		searchTerm := "%" + *req.TransactionNumber + "%"
+		countArgs = append(countArgs, searchTerm)
+		selectArgs = append(selectArgs, searchTerm)
+		argIndex++
+	}
+
+	if req.Direction != nil && *req.Direction != "" {
+		countQuery += fmt.Sprintf(" AND direction = $%d", argIndex)
+		selectQuery += fmt.Sprintf(" AND direction = $%d", argIndex)
+		countArgs = append(countArgs, *req.Direction)
+		selectArgs = append(selectArgs, *req.Direction)
+		argIndex++
+	}
+
+	if req.TxType != nil && *req.TxType != "" {
+		countQuery += fmt.Sprintf(" AND tx_type = $%d", argIndex)
+		selectQuery += fmt.Sprintf(" AND tx_type = $%d", argIndex)
+		countArgs = append(countArgs, *req.TxType)
+		selectArgs = append(selectArgs, *req.TxType)
+		argIndex++
+	}
+
+	if req.MinAmount != nil {
+		countQuery += fmt.Sprintf(" AND amount >= $%d", argIndex)
+		selectQuery += fmt.Sprintf(" AND amount >= $%d", argIndex)
+		countArgs = append(countArgs, *req.MinAmount)
+		selectArgs = append(selectArgs, *req.MinAmount)
+		argIndex++
+	}
+
+	if req.MaxAmount != nil {
+		countQuery += fmt.Sprintf(" AND amount <= $%d", argIndex)
+		selectQuery += fmt.Sprintf(" AND amount <= $%d", argIndex)
+		countArgs = append(countArgs, *req.MaxAmount)
+		selectArgs = append(selectArgs, *req.MaxAmount)
+		argIndex++
+	}
+
+	if req.FromDate != nil && *req.FromDate != "" {
+		countQuery += fmt.Sprintf(" AND created_at >= $%d::date", argIndex)
+		selectQuery += fmt.Sprintf(" AND created_at >= $%d::date", argIndex)
+		countArgs = append(countArgs, *req.FromDate)
+		selectArgs = append(selectArgs, *req.FromDate)
+		argIndex++
+	}
+
+	if req.ToDate != nil && *req.ToDate != "" {
+		countQuery += fmt.Sprintf(" AND created_at < ($%d::date + INTERVAL '1 day')", argIndex)
+		selectQuery += fmt.Sprintf(" AND created_at < ($%d::date + INTERVAL '1 day')", argIndex)
+		countArgs = append(countArgs, *req.ToDate)
+		selectArgs = append(selectArgs, *req.ToDate)
+		argIndex++
+	}
+
+	// Get total count
+	var total int
+	err = s.db.DB.QueryRow(countQuery, countArgs...).Scan(&total)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count transactions: %w", err)
+	}
+
+	// Add sorting
+	sortBy := "created_at"
+	if req.SortBy != nil && *req.SortBy != "" {
+		sortBy = *req.SortBy
+	}
+	sortOrder := "DESC"
+	if req.SortOrder != nil && *req.SortOrder == "asc" {
+		sortOrder = "ASC"
+	}
+	selectQuery += fmt.Sprintf(" ORDER BY %s %s", sortBy, sortOrder)
+
+	// Add pagination
+	selectQuery += fmt.Sprintf(" LIMIT $%d OFFSET $%d", argIndex, argIndex+1)
+	selectArgs = append(selectArgs, limit, offset)
+
+	// Execute query
+	rows, err := s.db.DB.Query(selectQuery, selectArgs...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query transactions: %w", err)
+	}
+	defer rows.Close()
+
+	// Parse results
+	transactions := make([]TransactionResponse, 0)
+	for rows.Next() {
+		var t TransactionResponse
+		var description, refType, refID, performedBy sql.NullString
+
+		if err := rows.Scan(
+			&t.ID, &t.TransactionNumber, &t.Direction, &t.TxType,
+			&t.Amount, &t.Currency, &t.BalanceBefore, &t.BalanceAfter,
+			&description, &refType, &refID,
+			&performedBy, &t.IsSystemGenerated, &t.CreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan transaction: %w", err)
+		}
+
+		if description.Valid {
+			t.Description = &description.String
+		}
+		if refType.Valid {
+			t.ReferenceType = &refType.String
+		}
+		if refID.Valid {
+			t.ReferenceID = &refID.String
+		}
+		if performedBy.Valid {
+			t.PerformedByUserID = &performedBy.String
+		}
+
+		transactions = append(transactions, t)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating transactions: %w", err)
+	}
+
+	// Calculate total pages
+	totalPages := (total + limit - 1) / limit
+
+	return &TransactionsListResponse{
+		Transactions: transactions,
+		Pagination: PaginationMeta{
+			Page:       page,
+			PerPage:    limit,
+			Total:      total,
+			TotalPages: totalPages,
+		},
+	}, nil
+}
+
 // TopUp adds funds to wallet via Stripe
 func (s *WalletService) TopUp(req TopUpRequest, organizationID string, userID string) (*TopUpResponse, error) {
+	// Auto-generate idempotency key if not provided
+	if req.IdempotencyKey == "" {
+		req.IdempotencyKey = fmt.Sprintf("topup_%s_%s", organizationID, generateRandomID(16))
+	}
+
 	// Get wallet
 	wallet, err := s.getWallet(organizationID)
 	if err != nil {
@@ -198,6 +434,11 @@ func (s *WalletService) TopUp(req TopUpRequest, organizationID string, userID st
 
 // Refund processes a shipment refund to wallet
 func (s *WalletService) Refund(req RefundRequest, organizationID string, userID string) (*RefundResponse, error) {
+	// Auto-generate idempotency key if not provided
+	if req.IdempotencyKey == "" {
+		req.IdempotencyKey = fmt.Sprintf("refund_%s_%s", req.ShipmentID, generateRandomID(16))
+	}
+
 	// Get wallet
 	wallet, err := s.getWallet(organizationID)
 	if err != nil {

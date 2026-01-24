@@ -116,6 +116,11 @@ func (s *LabelService) PurchaseLabels(
 	userID string,
 ) (*PurchaseLabelsResponse, error) {
 
+	// Auto-generate idempotency key if not provided
+	if req.IdempotencyKey == "" {
+		req.IdempotencyKey = fmt.Sprintf("label_%s_%s", req.ShipmentID, generateRandomID(16))
+	}
+
 	// Start transaction
 	tx, err := s.db.DB.Begin()
 	if err != nil {
@@ -236,7 +241,17 @@ func (s *LabelService) PurchaseLabels(
 		newPaymentStatus = "carrier_billed"
 	}
 
-	if err := s.updateShipmentStatus(tx, req.ShipmentID, walletTransactionID, newPaymentStatus); err != nil {
+	// Use first package's tracking info as master tracking for the shipment
+	masterTrackingNumber := ""
+	masterTrackingURL := ""
+	if len(packageLabels) > 0 && packageLabels[0].TrackingNumber != nil {
+		masterTrackingNumber = *packageLabels[0].TrackingNumber
+		if packageLabels[0].TrackingURL != nil {
+			masterTrackingURL = *packageLabels[0].TrackingURL
+		}
+	}
+
+	if err := s.updateShipmentStatus(tx, req.ShipmentID, walletTransactionID, newPaymentStatus, masterTrackingNumber, masterTrackingURL); err != nil {
 		return nil, fmt.Errorf("failed to update shipment status: %w", err)
 	}
 
@@ -257,15 +272,17 @@ func (s *LabelService) PurchaseLabels(
 
 	// Build response
 	resp := &PurchaseLabelsResponse{
-		ShipmentID:     shipment.ID,
-		ShipmentNumber: shipment.ShipmentNumber,
-		ShipmentStatus: "label_purchased",
-		PaymentStatus:  newPaymentStatus,
-		TotalAmount:    shipment.BaseAmount,
-		Currency:       shipment.Currency,
-		Packages:       packageLabels,
-		PurchasedAt:    now,
-		PurchasedBy:    userID,
+		ShipmentID:           shipment.ID,
+		ShipmentNumber:       shipment.ShipmentNumber,
+		ShipmentStatus:       "label_purchased",
+		PaymentStatus:        newPaymentStatus,
+		TotalAmount:          shipment.BaseAmount,
+		Currency:             shipment.Currency,
+		MasterTrackingNumber: &masterTrackingNumber,
+		MasterTrackingURL:    &masterTrackingURL,
+		Packages:             packageLabels,
+		PurchasedAt:          now,
+		PurchasedBy:          userID,
 	}
 
 	if walletTransactionID != nil {
@@ -607,17 +624,19 @@ func (s *LabelService) updatePackageLabel(tx *sql.Tx, packageID string, label *c
 	return err
 }
 
-func (s *LabelService) updateShipmentStatus(tx *sql.Tx, shipmentID string, walletTxnID *string, paymentStatus string) error {
+func (s *LabelService) updateShipmentStatus(tx *sql.Tx, shipmentID string, walletTxnID *string, paymentStatus string, masterTrackingNumber string, masterTrackingURL string) error {
 	query := `
 		UPDATE shipments
 		SET shipment_status = 'label_purchased',
 		    wallet_transaction_id = $1,
 		    payment_status = $2,
+		    master_tracking_number = $3,
+		    master_tracking_url = $4,
 		    updated_at = NOW()
-		WHERE id = $3
+		WHERE id = $5
 	`
 
-	_, err := tx.Exec(query, walletTxnID, paymentStatus, shipmentID)
+	_, err := tx.Exec(query, walletTxnID, paymentStatus, masterTrackingNumber, masterTrackingURL, shipmentID)
 	return err
 }
 

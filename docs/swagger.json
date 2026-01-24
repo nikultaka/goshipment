@@ -5631,6 +5631,536 @@
                 }
             }
         },
+        "/discounts": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve paginated list of discounts with optional filters",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Discounts"
+                ],
+                "summary": "List discounts",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Items per page",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search by discount code",
+                        "name": "code",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "percent",
+                            "fixed_amount",
+                            "free_shipping"
+                        ],
+                        "type": "string",
+                        "description": "Filter by type",
+                        "name": "discount_type",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "invoice",
+                            "shipment"
+                        ],
+                        "type": "string",
+                        "description": "Filter by scope",
+                        "name": "scope",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Filter by active status",
+                        "name": "is_active",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "created_at",
+                            "code",
+                            "value"
+                        ],
+                        "type": "string",
+                        "description": "Sort by field",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "asc",
+                            "desc"
+                        ],
+                        "type": "string",
+                        "description": "Sort order",
+                        "name": "sort_order",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Discounts retrieved successfully",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/discounts.DiscountsListResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create a new discount/promo code for the organization",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Discounts"
+                ],
+                "summary": "Create a new discount",
+                "parameters": [
+                    {
+                        "description": "Discount details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/discounts.CreateDiscountRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Discount created successfully",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/discounts.DiscountResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Discount code already exists",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/discounts/apply": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Apply a discount code to a shipment or invoice",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Discounts"
+                ],
+                "summary": "Apply a discount code",
+                "parameters": [
+                    {
+                        "description": "Apply discount request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/discounts.ApplyDiscountRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Discount applied successfully",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/discounts.ApplyDiscountResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request or discount validation failed",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/discounts/validate": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Validate if a discount code can be applied to an order",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Discounts"
+                ],
+                "summary": "Validate a discount code",
+                "parameters": [
+                    {
+                        "description": "Validation request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/discounts.ValidateDiscountRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Discount validation result",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/discounts.ValidateDiscountResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/discounts/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve a specific discount by its ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Discounts"
+                ],
+                "summary": "Get discount by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Discount ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Discount retrieved successfully",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/discounts.DiscountResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Discount not found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update an existing discount",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Discounts"
+                ],
+                "summary": "Update a discount",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Discount ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Discount update details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/discounts.UpdateDiscountRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Discount updated successfully",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/discounts.DiscountResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Discount not found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Delete an existing discount (only if no active redemptions)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Discounts"
+                ],
+                "summary": "Delete a discount",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Discount ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Discount deleted successfully",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Cannot delete discount with active redemptions",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Discount not found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/forgot-password": {
             "post": {
                 "description": "Send password reset email to user's email address",
@@ -14977,6 +15507,169 @@
                 }
             }
         },
+        "/wallet/transactions": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve paginated list of wallet transactions with optional filters",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Wallet"
+                ],
+                "summary": "List wallet transactions",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Items per page",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by transaction ID",
+                        "name": "transaction_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search by transaction number",
+                        "name": "transaction_number",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "credit",
+                            "debit"
+                        ],
+                        "type": "string",
+                        "description": "Filter by direction",
+                        "name": "direction",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by transaction type (topup, shipment_payment, shipment_refund, adjustment)",
+                        "name": "tx_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by status",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "number",
+                        "description": "Filter by minimum amount",
+                        "name": "min_amount",
+                        "in": "query"
+                    },
+                    {
+                        "type": "number",
+                        "description": "Filter by maximum amount",
+                        "name": "max_amount",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter from date (YYYY-MM-DD)",
+                        "name": "from_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter to date (YYYY-MM-DD)",
+                        "name": "to_date",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "created_at",
+                            "amount"
+                        ],
+                        "type": "string",
+                        "default": "created_at",
+                        "description": "Sort by field",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "asc",
+                            "desc"
+                        ],
+                        "type": "string",
+                        "default": "desc",
+                        "description": "Sort order",
+                        "name": "sort_order",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Transactions retrieved successfully",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/wallet.TransactionsListResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request parameters",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - user not in organization",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Wallet not found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/wallet/transactions/export": {
             "get": {
                 "security": [
@@ -16806,6 +17499,404 @@
                 }
             }
         },
+        "discounts.ApplyDiscountRequest": {
+            "type": "object",
+            "required": [
+                "code",
+                "subtotal"
+            ],
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "example": "SAVE10"
+                },
+                "invoice_id": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440001"
+                },
+                "shipment_id": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                },
+                "subtotal": {
+                    "type": "number",
+                    "example": 100
+                }
+            }
+        },
+        "discounts.ApplyDiscountResponse": {
+            "type": "object",
+            "properties": {
+                "applied_at": {
+                    "type": "string",
+                    "example": "2026-01-15T14:30:00Z"
+                },
+                "code": {
+                    "type": "string",
+                    "example": "SAVE10"
+                },
+                "currency": {
+                    "type": "string",
+                    "example": "CAD"
+                },
+                "discount_amount": {
+                    "type": "number",
+                    "example": 10
+                },
+                "discount_id": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                },
+                "discount_type": {
+                    "type": "string",
+                    "example": "percent"
+                },
+                "redemption_id": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440002"
+                },
+                "usage_number": {
+                    "type": "string",
+                    "example": "RDM-ABC12345"
+                }
+            }
+        },
+        "discounts.CreateDiscountRequest": {
+            "type": "object",
+            "required": [
+                "code",
+                "discount_type",
+                "value"
+            ],
+            "properties": {
+                "allowed_country": {
+                    "type": "string",
+                    "example": "CA"
+                },
+                "code": {
+                    "type": "string",
+                    "maxLength": 50,
+                    "minLength": 3,
+                    "example": "SAVE10"
+                },
+                "description": {
+                    "type": "string",
+                    "example": "Get 10% off on all shipments"
+                },
+                "discount_type": {
+                    "type": "string",
+                    "enum": [
+                        "percent",
+                        "fixed_amount",
+                        "free_shipping"
+                    ],
+                    "example": "percent"
+                },
+                "ends_at": {
+                    "type": "string",
+                    "example": "2026-12-31T23:59:59Z"
+                },
+                "first_time_only": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "is_active": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "max_discount_amount": {
+                    "type": "number",
+                    "example": 100
+                },
+                "max_total_discount_amount": {
+                    "type": "number",
+                    "example": 10000
+                },
+                "max_uses_per_user": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "max_uses_total": {
+                    "type": "integer",
+                    "example": 1000
+                },
+                "min_subtotal_amount": {
+                    "type": "number",
+                    "minimum": 0,
+                    "example": 50
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 120,
+                    "example": "10% Off Summer Sale"
+                },
+                "scope": {
+                    "type": "string",
+                    "enum": [
+                        "invoice",
+                        "shipment"
+                    ],
+                    "example": "invoice"
+                },
+                "starts_at": {
+                    "type": "string",
+                    "example": "2026-01-01T00:00:00Z"
+                },
+                "value": {
+                    "type": "number",
+                    "example": 10
+                }
+            }
+        },
+        "discounts.DiscountResponse": {
+            "type": "object",
+            "properties": {
+                "allowed_country": {
+                    "type": "string",
+                    "example": "CA"
+                },
+                "code": {
+                    "type": "string",
+                    "example": "SAVE10"
+                },
+                "created_at": {
+                    "type": "string",
+                    "example": "2026-01-01T10:00:00Z"
+                },
+                "currency": {
+                    "type": "string",
+                    "example": "CAD"
+                },
+                "description": {
+                    "type": "string",
+                    "example": "Get 10% off on all shipments"
+                },
+                "discount_number": {
+                    "type": "string",
+                    "example": "DSC-ABC12345"
+                },
+                "discount_type": {
+                    "type": "string",
+                    "example": "percent"
+                },
+                "ends_at": {
+                    "type": "string",
+                    "example": "2026-12-31T23:59:59Z"
+                },
+                "first_time_only": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "id": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                },
+                "is_active": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "is_valid": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "max_discount_amount": {
+                    "type": "number",
+                    "example": 100
+                },
+                "max_total_discount_amount": {
+                    "type": "number",
+                    "example": 10000
+                },
+                "max_uses_per_user": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "max_uses_total": {
+                    "type": "integer",
+                    "example": 1000
+                },
+                "min_subtotal_amount": {
+                    "type": "number",
+                    "example": 50
+                },
+                "name": {
+                    "type": "string",
+                    "example": "10% Off Summer Sale"
+                },
+                "scope": {
+                    "type": "string",
+                    "example": "invoice"
+                },
+                "starts_at": {
+                    "type": "string",
+                    "example": "2026-01-01T00:00:00Z"
+                },
+                "updated_at": {
+                    "type": "string",
+                    "example": "2026-01-15T14:30:00Z"
+                },
+                "usage_count": {
+                    "type": "integer",
+                    "example": 150
+                },
+                "value": {
+                    "type": "number",
+                    "example": 10
+                }
+            }
+        },
+        "discounts.DiscountsListResponse": {
+            "type": "object",
+            "properties": {
+                "discounts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/discounts.DiscountResponse"
+                    }
+                },
+                "pagination": {
+                    "$ref": "#/definitions/discounts.PaginationMeta"
+                }
+            }
+        },
+        "discounts.PaginationMeta": {
+            "type": "object",
+            "properties": {
+                "page": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "per_page": {
+                    "type": "integer",
+                    "example": 20
+                },
+                "total": {
+                    "type": "integer",
+                    "example": 150
+                },
+                "total_pages": {
+                    "type": "integer",
+                    "example": 8
+                }
+            }
+        },
+        "discounts.UpdateDiscountRequest": {
+            "type": "object",
+            "properties": {
+                "allowed_country": {
+                    "type": "string",
+                    "example": "US"
+                },
+                "description": {
+                    "type": "string",
+                    "example": "Updated description"
+                },
+                "ends_at": {
+                    "type": "string",
+                    "example": "2026-12-31T23:59:59Z"
+                },
+                "first_time_only": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "is_active": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "max_discount_amount": {
+                    "type": "number",
+                    "example": 150
+                },
+                "max_total_discount_amount": {
+                    "type": "number",
+                    "example": 20000
+                },
+                "max_uses_per_user": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "max_uses_total": {
+                    "type": "integer",
+                    "example": 2000
+                },
+                "min_subtotal_amount": {
+                    "type": "number",
+                    "minimum": 0,
+                    "example": 75
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 120,
+                    "example": "Updated Discount Name"
+                },
+                "starts_at": {
+                    "type": "string",
+                    "example": "2026-02-01T00:00:00Z"
+                },
+                "value": {
+                    "type": "number",
+                    "example": 15
+                }
+            }
+        },
+        "discounts.ValidateDiscountRequest": {
+            "type": "object",
+            "required": [
+                "code",
+                "subtotal"
+            ],
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "example": "SAVE10"
+                },
+                "country": {
+                    "type": "string",
+                    "example": "CA"
+                },
+                "subtotal": {
+                    "type": "number",
+                    "example": 100
+                }
+            }
+        },
+        "discounts.ValidateDiscountResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "example": "SAVE10"
+                },
+                "discount_amount": {
+                    "type": "number",
+                    "example": 10
+                },
+                "discount_type": {
+                    "type": "string",
+                    "example": "percent"
+                },
+                "error_reason": {
+                    "type": "string",
+                    "example": "Discount code has expired"
+                },
+                "final_amount": {
+                    "type": "number",
+                    "example": 90
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Discount applied successfully"
+                },
+                "valid": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "value": {
+                    "type": "number",
+                    "example": 10
+                }
+            }
+        },
         "invoices.BillingAddressSnapshot": {
             "type": "object",
             "properties": {
@@ -17652,14 +18743,12 @@
         "labels.PurchaseLabelsRequest": {
             "type": "object",
             "required": [
-                "idempotency_key",
                 "shipment_id"
             ],
             "properties": {
                 "idempotency_key": {
                     "type": "string",
                     "maxLength": 100,
-                    "minLength": 1,
                     "example": "purchase_2026-01-11_abc123"
                 },
                 "shipment_id": {
@@ -20209,6 +21298,12 @@
                 "is_archived": {
                     "type": "boolean"
                 },
+                "packages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/shipments.PackageResponse"
+                    }
+                },
                 "payment_status": {
                     "type": "string"
                 },
@@ -20237,6 +21332,9 @@
                     "type": "integer"
                 },
                 "tracking_number": {
+                    "type": "string"
+                },
+                "tracking_url": {
                     "type": "string"
                 }
             }
@@ -22014,11 +23112,31 @@
                 }
             }
         },
+        "wallet.PaginationMeta": {
+            "type": "object",
+            "properties": {
+                "page": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "per_page": {
+                    "type": "integer",
+                    "example": 20
+                },
+                "total": {
+                    "type": "integer",
+                    "example": 150
+                },
+                "total_pages": {
+                    "type": "integer",
+                    "example": 8
+                }
+            }
+        },
         "wallet.RefundRequest": {
             "type": "object",
             "required": [
                 "amount",
-                "idempotency_key",
                 "reason",
                 "shipment_id"
             ],
@@ -22030,7 +23148,6 @@
                 "idempotency_key": {
                     "type": "string",
                     "maxLength": 100,
-                    "minLength": 1,
                     "example": "refund_2026-01-11_xyz789"
                 },
                 "reason": {
@@ -22090,7 +23207,6 @@
             "type": "object",
             "required": [
                 "amount",
-                "idempotency_key",
                 "payment_method_id"
             ],
             "properties": {
@@ -22101,7 +23217,6 @@
                 "idempotency_key": {
                     "type": "string",
                     "maxLength": 100,
-                    "minLength": 1,
                     "example": "topup_2026-01-11_abc123"
                 },
                 "payment_method_id": {
@@ -22220,6 +23335,20 @@
                 }
             }
         },
+        "wallet.TransactionsListResponse": {
+            "type": "object",
+            "properties": {
+                "pagination": {
+                    "$ref": "#/definitions/wallet.PaginationMeta"
+                },
+                "transactions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/wallet.TransactionResponse"
+                    }
+                }
+            }
+        },
         "wallet.WalletOverviewPeriod": {
             "type": "object",
             "properties": {
@@ -22290,7 +23419,13 @@
         "wallet.WalletResponse": {
             "type": "object",
             "properties": {
+                "available_balance": {
+                    "description": "Balance Information",
+                    "type": "number",
+                    "example": 1250.75
+                },
                 "balance": {
+                    "description": "Legacy fields (kept for backwards compatibility)",
                     "type": "number",
                     "example": 1250.75
                 },
@@ -22301,6 +23436,10 @@
                 "created_at": {
                     "type": "string",
                     "example": "2026-01-01T10:00:00Z"
+                },
+                "currency": {
+                    "type": "string",
+                    "example": "CAD"
                 },
                 "held_balance": {
                     "type": "number",
@@ -22322,6 +23461,10 @@
                     "type": "number",
                     "example": 10
                 },
+                "net_movement": {
+                    "type": "number",
+                    "example": 179.5
+                },
                 "organization_id": {
                     "type": "string",
                     "example": "550e8400-e29b-41d4-a716-446655440001"
@@ -22332,13 +23475,30 @@
                         "$ref": "#/definitions/wallet.TransactionResponse"
                     }
                 },
+                "reserved": {
+                    "type": "number",
+                    "example": 50
+                },
                 "status": {
                     "type": "string",
                     "example": "active"
                 },
                 "total_balance": {
                     "type": "number",
-                    "example": 1300.75
+                    "example": 1450.75
+                },
+                "total_deposits": {
+                    "description": "Financial Summary (This Month)",
+                    "type": "number",
+                    "example": 500
+                },
+                "total_in_transit": {
+                    "type": "number",
+                    "example": 150
+                },
+                "total_outflow": {
+                    "type": "number",
+                    "example": 320.5
                 },
                 "updated_at": {
                     "type": "string",

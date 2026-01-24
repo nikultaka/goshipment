@@ -8,9 +8,9 @@ import "time"
 
 // PurchaseLabelsRequest represents the request to purchase labels
 type PurchaseLabelsRequest struct {
-	ShipmentID      string `json:"shipment_id" binding:"required,uuid" example:"550e8400-e29b-41d4-a716-446655440000"`
-	IdempotencyKey  string `json:"idempotency_key" binding:"required,min=1,max=100" example:"purchase_2026-01-11_abc123"`
-	UseCarrierBilling *bool `json:"use_carrier_billing" example:"false"` // If true, skip wallet payment
+	ShipmentID        string `json:"shipment_id" binding:"required,uuid" example:"550e8400-e29b-41d4-a716-446655440000"`
+	IdempotencyKey    string `json:"idempotency_key" binding:"omitempty,max=100" example:"purchase_2026-01-11_abc123"`
+	UseCarrierBilling *bool  `json:"use_carrier_billing" example:"false"` // If true, skip wallet payment
 }
 
 // =====================================================

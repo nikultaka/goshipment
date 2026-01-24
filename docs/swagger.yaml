@@ -1130,6 +1130,299 @@ definitions:
       status:
         type: string
     type: object
+  discounts.ApplyDiscountRequest:
+    properties:
+      code:
+        example: SAVE10
+        type: string
+      invoice_id:
+        example: 550e8400-e29b-41d4-a716-446655440001
+        type: string
+      shipment_id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      subtotal:
+        example: 100
+        type: number
+    required:
+    - code
+    - subtotal
+    type: object
+  discounts.ApplyDiscountResponse:
+    properties:
+      applied_at:
+        example: "2026-01-15T14:30:00Z"
+        type: string
+      code:
+        example: SAVE10
+        type: string
+      currency:
+        example: CAD
+        type: string
+      discount_amount:
+        example: 10
+        type: number
+      discount_id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      discount_type:
+        example: percent
+        type: string
+      redemption_id:
+        example: 550e8400-e29b-41d4-a716-446655440002
+        type: string
+      usage_number:
+        example: RDM-ABC12345
+        type: string
+    type: object
+  discounts.CreateDiscountRequest:
+    properties:
+      allowed_country:
+        example: CA
+        type: string
+      code:
+        example: SAVE10
+        maxLength: 50
+        minLength: 3
+        type: string
+      description:
+        example: Get 10% off on all shipments
+        type: string
+      discount_type:
+        enum:
+        - percent
+        - fixed_amount
+        - free_shipping
+        example: percent
+        type: string
+      ends_at:
+        example: "2026-12-31T23:59:59Z"
+        type: string
+      first_time_only:
+        example: false
+        type: boolean
+      is_active:
+        example: true
+        type: boolean
+      max_discount_amount:
+        example: 100
+        type: number
+      max_total_discount_amount:
+        example: 10000
+        type: number
+      max_uses_per_user:
+        example: 1
+        type: integer
+      max_uses_total:
+        example: 1000
+        type: integer
+      min_subtotal_amount:
+        example: 50
+        minimum: 0
+        type: number
+      name:
+        example: 10% Off Summer Sale
+        maxLength: 120
+        type: string
+      scope:
+        enum:
+        - invoice
+        - shipment
+        example: invoice
+        type: string
+      starts_at:
+        example: "2026-01-01T00:00:00Z"
+        type: string
+      value:
+        example: 10
+        type: number
+    required:
+    - code
+    - discount_type
+    - value
+    type: object
+  discounts.DiscountResponse:
+    properties:
+      allowed_country:
+        example: CA
+        type: string
+      code:
+        example: SAVE10
+        type: string
+      created_at:
+        example: "2026-01-01T10:00:00Z"
+        type: string
+      currency:
+        example: CAD
+        type: string
+      description:
+        example: Get 10% off on all shipments
+        type: string
+      discount_number:
+        example: DSC-ABC12345
+        type: string
+      discount_type:
+        example: percent
+        type: string
+      ends_at:
+        example: "2026-12-31T23:59:59Z"
+        type: string
+      first_time_only:
+        example: false
+        type: boolean
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      is_active:
+        example: true
+        type: boolean
+      is_valid:
+        example: true
+        type: boolean
+      max_discount_amount:
+        example: 100
+        type: number
+      max_total_discount_amount:
+        example: 10000
+        type: number
+      max_uses_per_user:
+        example: 1
+        type: integer
+      max_uses_total:
+        example: 1000
+        type: integer
+      min_subtotal_amount:
+        example: 50
+        type: number
+      name:
+        example: 10% Off Summer Sale
+        type: string
+      scope:
+        example: invoice
+        type: string
+      starts_at:
+        example: "2026-01-01T00:00:00Z"
+        type: string
+      updated_at:
+        example: "2026-01-15T14:30:00Z"
+        type: string
+      usage_count:
+        example: 150
+        type: integer
+      value:
+        example: 10
+        type: number
+    type: object
+  discounts.DiscountsListResponse:
+    properties:
+      discounts:
+        items:
+          $ref: '#/definitions/discounts.DiscountResponse'
+        type: array
+      pagination:
+        $ref: '#/definitions/discounts.PaginationMeta'
+    type: object
+  discounts.PaginationMeta:
+    properties:
+      page:
+        example: 1
+        type: integer
+      per_page:
+        example: 20
+        type: integer
+      total:
+        example: 150
+        type: integer
+      total_pages:
+        example: 8
+        type: integer
+    type: object
+  discounts.UpdateDiscountRequest:
+    properties:
+      allowed_country:
+        example: US
+        type: string
+      description:
+        example: Updated description
+        type: string
+      ends_at:
+        example: "2026-12-31T23:59:59Z"
+        type: string
+      first_time_only:
+        example: false
+        type: boolean
+      is_active:
+        example: true
+        type: boolean
+      max_discount_amount:
+        example: 150
+        type: number
+      max_total_discount_amount:
+        example: 20000
+        type: number
+      max_uses_per_user:
+        example: 2
+        type: integer
+      max_uses_total:
+        example: 2000
+        type: integer
+      min_subtotal_amount:
+        example: 75
+        minimum: 0
+        type: number
+      name:
+        example: Updated Discount Name
+        maxLength: 120
+        type: string
+      starts_at:
+        example: "2026-02-01T00:00:00Z"
+        type: string
+      value:
+        example: 15
+        type: number
+    type: object
+  discounts.ValidateDiscountRequest:
+    properties:
+      code:
+        example: SAVE10
+        type: string
+      country:
+        example: CA
+        type: string
+      subtotal:
+        example: 100
+        type: number
+    required:
+    - code
+    - subtotal
+    type: object
+  discounts.ValidateDiscountResponse:
+    properties:
+      code:
+        example: SAVE10
+        type: string
+      discount_amount:
+        example: 10
+        type: number
+      discount_type:
+        example: percent
+        type: string
+      error_reason:
+        example: Discount code has expired
+        type: string
+      final_amount:
+        example: 90
+        type: number
+      message:
+        example: Discount applied successfully
+        type: string
+      valid:
+        example: true
+        type: boolean
+      value:
+        example: 10
+        type: number
+    type: object
   invoices.BillingAddressSnapshot:
     properties:
       address_line1:
@@ -1755,7 +2048,6 @@ definitions:
       idempotency_key:
         example: purchase_2026-01-11_abc123
         maxLength: 100
-        minLength: 1
         type: string
       shipment_id:
         example: 550e8400-e29b-41d4-a716-446655440000
@@ -1765,7 +2057,6 @@ definitions:
         example: false
         type: boolean
     required:
-    - idempotency_key
     - shipment_id
     type: object
   labels.PurchaseLabelsResponse:
@@ -3502,6 +3793,10 @@ definitions:
         type: string
       is_archived:
         type: boolean
+      packages:
+        items:
+          $ref: '#/definitions/shipments.PackageResponse'
+        type: array
       payment_status:
         type: string
       pickup:
@@ -3521,6 +3816,8 @@ definitions:
       total_packages:
         type: integer
       tracking_number:
+        type: string
+      tracking_url:
         type: string
     type: object
   shipments.ShipmentResponse:
@@ -4737,6 +5034,21 @@ definitions:
         example: WAL-ABC12345
         type: string
     type: object
+  wallet.PaginationMeta:
+    properties:
+      page:
+        example: 1
+        type: integer
+      per_page:
+        example: 20
+        type: integer
+      total:
+        example: 150
+        type: integer
+      total_pages:
+        example: 8
+        type: integer
+    type: object
   wallet.RefundRequest:
     properties:
       amount:
@@ -4745,7 +5057,6 @@ definitions:
       idempotency_key:
         example: refund_2026-01-11_xyz789
         maxLength: 100
-        minLength: 1
         type: string
       reason:
         example: Shipment cancelled by customer
@@ -4757,7 +5068,6 @@ definitions:
         type: string
     required:
     - amount
-    - idempotency_key
     - reason
     - shipment_id
     type: object
@@ -4799,14 +5109,12 @@ definitions:
       idempotency_key:
         example: topup_2026-01-11_abc123
         maxLength: 100
-        minLength: 1
         type: string
       payment_method_id:
         example: pm_1234567890abcdef
         type: string
     required:
     - amount
-    - idempotency_key
     - payment_method_id
     type: object
   wallet.TopUpResponse:
@@ -4890,6 +5198,15 @@ definitions:
         example: topup
         type: string
     type: object
+  wallet.TransactionsListResponse:
+    properties:
+      pagination:
+        $ref: '#/definitions/wallet.PaginationMeta'
+      transactions:
+        items:
+          $ref: '#/definitions/wallet.TransactionResponse'
+        type: array
+    type: object
   wallet.WalletOverviewPeriod:
     properties:
       end_date:
@@ -4939,7 +5256,12 @@ definitions:
     type: object
   wallet.WalletResponse:
     properties:
+      available_balance:
+        description: Balance Information
+        example: 1250.75
+        type: number
       balance:
+        description: Legacy fields (kept for backwards compatibility)
         example: 1250.75
         type: number
       carrier_refund_in_progress:
@@ -4947,6 +5269,9 @@ definitions:
         type: number
       created_at:
         example: "2026-01-01T10:00:00Z"
+        type: string
+      currency:
+        example: CAD
         type: string
       held_balance:
         example: 50
@@ -4963,6 +5288,9 @@ definitions:
       min_topup_amount:
         example: 10
         type: number
+      net_movement:
+        example: 179.5
+        type: number
       organization_id:
         example: 550e8400-e29b-41d4-a716-446655440001
         type: string
@@ -4970,11 +5298,24 @@ definitions:
         items:
           $ref: '#/definitions/wallet.TransactionResponse'
         type: array
+      reserved:
+        example: 50
+        type: number
       status:
         example: active
         type: string
       total_balance:
-        example: 1300.75
+        example: 1450.75
+        type: number
+      total_deposits:
+        description: Financial Summary (This Month)
+        example: 500
+        type: number
+      total_in_transit:
+        example: 150
+        type: number
+      total_outflow:
+        example: 320.5
         type: number
       updated_at:
         example: "2026-01-11T14:30:00Z"
@@ -8506,6 +8847,332 @@ paths:
       summary: Create a commission transaction manually
       tags:
       - Commissions
+  /discounts:
+    get:
+      description: Retrieve paginated list of discounts with optional filters
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      - description: Search by discount code
+        in: query
+        name: code
+        type: string
+      - description: Filter by type
+        enum:
+        - percent
+        - fixed_amount
+        - free_shipping
+        in: query
+        name: discount_type
+        type: string
+      - description: Filter by scope
+        enum:
+        - invoice
+        - shipment
+        in: query
+        name: scope
+        type: string
+      - description: Filter by active status
+        in: query
+        name: is_active
+        type: boolean
+      - description: Sort by field
+        enum:
+        - created_at
+        - code
+        - value
+        in: query
+        name: sort_by
+        type: string
+      - description: Sort order
+        enum:
+        - asc
+        - desc
+        in: query
+        name: sort_order
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Discounts retrieved successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/discounts.DiscountsListResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: List discounts
+      tags:
+      - Discounts
+    post:
+      consumes:
+      - application/json
+      description: Create a new discount/promo code for the organization
+      parameters:
+      - description: Discount details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/discounts.CreateDiscountRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Discount created successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/discounts.DiscountResponse'
+              type: object
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "409":
+          description: Discount code already exists
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Create a new discount
+      tags:
+      - Discounts
+  /discounts/{id}:
+    delete:
+      description: Delete an existing discount (only if no active redemptions)
+      parameters:
+      - description: Discount ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Discount deleted successfully
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Cannot delete discount with active redemptions
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Discount not found
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete a discount
+      tags:
+      - Discounts
+    get:
+      description: Retrieve a specific discount by its ID
+      parameters:
+      - description: Discount ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Discount retrieved successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/discounts.DiscountResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Discount not found
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Get discount by ID
+      tags:
+      - Discounts
+    put:
+      consumes:
+      - application/json
+      description: Update an existing discount
+      parameters:
+      - description: Discount ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Discount update details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/discounts.UpdateDiscountRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Discount updated successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/discounts.DiscountResponse'
+              type: object
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Discount not found
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Update a discount
+      tags:
+      - Discounts
+  /discounts/apply:
+    post:
+      consumes:
+      - application/json
+      description: Apply a discount code to a shipment or invoice
+      parameters:
+      - description: Apply discount request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/discounts.ApplyDiscountRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Discount applied successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/discounts.ApplyDiscountResponse'
+              type: object
+        "400":
+          description: Invalid request or discount validation failed
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Apply a discount code
+      tags:
+      - Discounts
+  /discounts/validate:
+    post:
+      consumes:
+      - application/json
+      description: Validate if a discount code can be applied to an order
+      parameters:
+      - description: Validation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/discounts.ValidateDiscountRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Discount validation result
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/discounts.ValidateDiscountResponse'
+              type: object
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Validate a discount code
+      tags:
+      - Discounts
   /forgot-password:
     post:
       consumes:
@@ -14288,6 +14955,113 @@ paths:
       security:
       - BearerAuth: []
       summary: Top up wallet via Stripe
+      tags:
+      - Wallet
+  /wallet/transactions:
+    get:
+      description: Retrieve paginated list of wallet transactions with optional filters
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      - description: Filter by transaction ID
+        in: query
+        name: transaction_id
+        type: string
+      - description: Search by transaction number
+        in: query
+        name: transaction_number
+        type: string
+      - description: Filter by direction
+        enum:
+        - credit
+        - debit
+        in: query
+        name: direction
+        type: string
+      - description: Filter by transaction type (topup, shipment_payment, shipment_refund,
+          adjustment)
+        in: query
+        name: tx_type
+        type: string
+      - description: Filter by status
+        in: query
+        name: status
+        type: string
+      - description: Filter by minimum amount
+        in: query
+        name: min_amount
+        type: number
+      - description: Filter by maximum amount
+        in: query
+        name: max_amount
+        type: number
+      - description: Filter from date (YYYY-MM-DD)
+        in: query
+        name: from_date
+        type: string
+      - description: Filter to date (YYYY-MM-DD)
+        in: query
+        name: to_date
+        type: string
+      - default: created_at
+        description: Sort by field
+        enum:
+        - created_at
+        - amount
+        in: query
+        name: sort_by
+        type: string
+      - default: desc
+        description: Sort order
+        enum:
+        - asc
+        - desc
+        in: query
+        name: sort_order
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Transactions retrieved successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/wallet.TransactionsListResponse'
+              type: object
+        "400":
+          description: Invalid request parameters
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden - user not in organization
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Wallet not found
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: List wallet transactions
       tags:
       - Wallet
   /wallet/transactions/export:
