@@ -1087,6 +1087,282 @@ func escapeCSV(s string) string {
 	return strings.ReplaceAll(s, "\"", "\"\"")
 }
 
+// ListCarrierRefunds retrieves paginated carrier refunds with filters
+func (s *WalletService) ListCarrierRefunds(organizationID string, req ListCarrierRefundsRequest) (*CarrierRefundsListResponse, error) {
+	// Get wallet
+	wallet, err := s.getWallet(organizationID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set defaults
+	page := req.Page
+	if page < 1 {
+		page = 1
+	}
+	limit := req.Limit
+	if limit < 1 {
+		limit = 20
+	}
+	offset := (page - 1) * limit
+
+	// Build count query
+	countQuery := `SELECT COUNT(*) FROM carrier_refunds WHERE organization_id = $1`
+	countArgs := []interface{}{organizationID}
+	argIndex := 2
+
+	// Build select query
+	selectQuery := `
+		SELECT
+			cr.id, cr.refund_number, cr.organization_id, cr.wallet_id,
+			cr.shipment_id, cr.invoice_id, cr.carrier_id,
+			cr.carrier_tracking_number, cr.carrier_refund_reference,
+			cr.requested_amount, cr.approved_amount, cr.currency, cr.status,
+			cr.refund_reason, cr.reason_notes,
+			cr.requested_at, cr.carrier_acknowledged_at, cr.completed_at,
+			cr.expected_completion_date, cr.wallet_transaction_id,
+			cr.requested_by_user_id, cr.processed_by_user_id,
+			cr.carrier_response_code, cr.carrier_response_message,
+			cr.notes, cr.created_at, cr.updated_at,
+			s.shipment_number, c.name as carrier_name
+		FROM carrier_refunds cr
+		LEFT JOIN shipments s ON cr.shipment_id = s.id
+		LEFT JOIN carriers c ON cr.carrier_id = c.id
+		WHERE cr.organization_id = $1
+	`
+	selectArgs := []interface{}{organizationID}
+
+	// Add filters
+	if req.RefundNumber != nil && *req.RefundNumber != "" {
+		countQuery += fmt.Sprintf(" AND refund_number ILIKE $%d", argIndex)
+		selectQuery += fmt.Sprintf(" AND cr.refund_number ILIKE $%d", argIndex)
+		searchTerm := "%" + *req.RefundNumber + "%"
+		countArgs = append(countArgs, searchTerm)
+		selectArgs = append(selectArgs, searchTerm)
+		argIndex++
+	}
+
+	if req.ShipmentID != nil && *req.ShipmentID != "" {
+		countQuery += fmt.Sprintf(" AND shipment_id = $%d", argIndex)
+		selectQuery += fmt.Sprintf(" AND cr.shipment_id = $%d", argIndex)
+		countArgs = append(countArgs, *req.ShipmentID)
+		selectArgs = append(selectArgs, *req.ShipmentID)
+		argIndex++
+	}
+
+	if req.CarrierID != nil && *req.CarrierID != "" {
+		countQuery += fmt.Sprintf(" AND carrier_id = $%d", argIndex)
+		selectQuery += fmt.Sprintf(" AND cr.carrier_id = $%d", argIndex)
+		countArgs = append(countArgs, *req.CarrierID)
+		selectArgs = append(selectArgs, *req.CarrierID)
+		argIndex++
+	}
+
+	if req.Status != nil && *req.Status != "" {
+		countQuery += fmt.Sprintf(" AND status = $%d", argIndex)
+		selectQuery += fmt.Sprintf(" AND cr.status = $%d", argIndex)
+		countArgs = append(countArgs, *req.Status)
+		selectArgs = append(selectArgs, *req.Status)
+		argIndex++
+	}
+
+	if req.RefundReason != nil && *req.RefundReason != "" {
+		countQuery += fmt.Sprintf(" AND refund_reason = $%d", argIndex)
+		selectQuery += fmt.Sprintf(" AND cr.refund_reason = $%d", argIndex)
+		countArgs = append(countArgs, *req.RefundReason)
+		selectArgs = append(selectArgs, *req.RefundReason)
+		argIndex++
+	}
+
+	if req.FromDate != nil && *req.FromDate != "" {
+		countQuery += fmt.Sprintf(" AND requested_at >= $%d::date", argIndex)
+		selectQuery += fmt.Sprintf(" AND cr.requested_at >= $%d::date", argIndex)
+		countArgs = append(countArgs, *req.FromDate)
+		selectArgs = append(selectArgs, *req.FromDate)
+		argIndex++
+	}
+
+	if req.ToDate != nil && *req.ToDate != "" {
+		countQuery += fmt.Sprintf(" AND requested_at < ($%d::date + INTERVAL '1 day')", argIndex)
+		selectQuery += fmt.Sprintf(" AND cr.requested_at < ($%d::date + INTERVAL '1 day')", argIndex)
+		countArgs = append(countArgs, *req.ToDate)
+		selectArgs = append(selectArgs, *req.ToDate)
+		argIndex++
+	}
+
+	// Get total count
+	var total int
+	err = s.db.DB.QueryRow(countQuery, countArgs...).Scan(&total)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count carrier refunds: %w", err)
+	}
+
+	// Add sorting
+	sortBy := "cr.requested_at"
+	if req.SortBy != nil && *req.SortBy != "" {
+		switch *req.SortBy {
+		case "requested_at":
+			sortBy = "cr.requested_at"
+		case "requested_amount":
+			sortBy = "cr.requested_amount"
+		case "status":
+			sortBy = "cr.status"
+		}
+	}
+	sortOrder := "DESC"
+	if req.SortOrder != nil && *req.SortOrder == "asc" {
+		sortOrder = "ASC"
+	}
+	selectQuery += fmt.Sprintf(" ORDER BY %s %s", sortBy, sortOrder)
+
+	// Add pagination
+	selectQuery += fmt.Sprintf(" LIMIT $%d OFFSET $%d", argIndex, argIndex+1)
+	selectArgs = append(selectArgs, limit, offset)
+
+	// Execute query
+	rows, err := s.db.DB.Query(selectQuery, selectArgs...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query carrier refunds: %w", err)
+	}
+	defer rows.Close()
+
+	// Parse results
+	refunds := make([]CarrierRefundResponse, 0)
+	for rows.Next() {
+		var r CarrierRefundResponse
+		var invoiceID, carrierTrackingNumber, carrierRefundReference sql.NullString
+		var approvedAmount sql.NullFloat64
+		var reasonNotes, walletTransactionID, requestedByUserID, processedByUserID sql.NullString
+		var carrierResponseCode, carrierResponseMessage, notes sql.NullString
+		var carrierAcknowledgedAt, completedAt, expectedCompletionDate sql.NullTime
+		var shipmentNumber, carrierName sql.NullString
+		var walletID string
+
+		if err := rows.Scan(
+			&r.ID, &r.RefundNumber, &r.OrganizationID, &walletID,
+			&r.ShipmentID, &invoiceID, &r.CarrierID,
+			&carrierTrackingNumber, &carrierRefundReference,
+			&r.RequestedAmount, &approvedAmount, &r.Currency, &r.Status,
+			&r.RefundReason, &reasonNotes,
+			&r.RequestedAt, &carrierAcknowledgedAt, &completedAt,
+			&expectedCompletionDate, &walletTransactionID,
+			&requestedByUserID, &processedByUserID,
+			&carrierResponseCode, &carrierResponseMessage,
+			&notes, &r.CreatedAt, &r.UpdatedAt,
+			&shipmentNumber, &carrierName,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan carrier refund: %w", err)
+		}
+
+		// Handle nullable fields
+		if carrierTrackingNumber.Valid {
+			r.CarrierTrackingNumber = &carrierTrackingNumber.String
+		}
+		if carrierRefundReference.Valid {
+			r.CarrierRefundReference = &carrierRefundReference.String
+		}
+		if approvedAmount.Valid {
+			r.ApprovedAmount = &approvedAmount.Float64
+		}
+		if reasonNotes.Valid {
+			r.ReasonNotes = &reasonNotes.String
+		}
+		if carrierAcknowledgedAt.Valid {
+			r.CarrierAcknowledgedAt = &carrierAcknowledgedAt.Time
+		}
+		if completedAt.Valid {
+			r.CompletedAt = &completedAt.Time
+		}
+		if expectedCompletionDate.Valid {
+			dateStr := expectedCompletionDate.Time.Format("2006-01-02")
+			r.ExpectedCompletionDate = &dateStr
+		}
+		if walletTransactionID.Valid {
+			r.WalletTransactionID = &walletTransactionID.String
+		}
+		if requestedByUserID.Valid {
+			r.RequestedByUserID = &requestedByUserID.String
+		}
+		if carrierResponseCode.Valid {
+			r.CarrierResponseCode = &carrierResponseCode.String
+		}
+		if carrierResponseMessage.Valid {
+			r.CarrierResponseMessage = &carrierResponseMessage.String
+		}
+		if notes.Valid {
+			r.Notes = &notes.String
+		}
+		if shipmentNumber.Valid {
+			r.ShipmentNumber = &shipmentNumber.String
+		}
+		if carrierName.Valid {
+			r.CarrierName = &carrierName.String
+		}
+
+		refunds = append(refunds, r)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating carrier refunds: %w", err)
+	}
+
+	// Get summary statistics
+	summary, err := s.getCarrierRefundSummary(wallet.ID)
+	if err != nil {
+		// Don't fail, just use empty summary
+		summary = &CarrierRefundSummary{Currency: "CAD"}
+	}
+
+	// Calculate total pages
+	totalPages := (total + limit - 1) / limit
+
+	return &CarrierRefundsListResponse{
+		Refunds: refunds,
+		Summary: *summary,
+		Pagination: PaginationMeta{
+			Page:       page,
+			PerPage:    limit,
+			Total:      total,
+			TotalPages: totalPages,
+		},
+	}, nil
+}
+
+// getCarrierRefundSummary retrieves summary statistics for carrier refunds
+func (s *WalletService) getCarrierRefundSummary(walletID string) (*CarrierRefundSummary, error) {
+	query := `
+		SELECT
+			COUNT(*) FILTER (WHERE status = 'requested') as total_requested,
+			COUNT(*) FILTER (WHERE status = 'processing') as total_processing,
+			COUNT(*) FILTER (WHERE status = 'completed') as total_completed,
+			COUNT(*) FILTER (WHERE status = 'rejected') as total_rejected,
+			COUNT(*) FILTER (WHERE status = 'failed') as total_failed,
+			COUNT(*) FILTER (WHERE status = 'cancelled') as total_cancelled,
+			COALESCE(SUM(requested_amount) FILTER (WHERE status IN ('requested', 'processing')), 0) as amount_pending,
+			COALESCE(SUM(COALESCE(approved_amount, requested_amount)) FILTER (WHERE status = 'completed'), 0) as amount_completed
+		FROM carrier_refunds
+		WHERE wallet_id = $1
+	`
+
+	var summary CarrierRefundSummary
+	err := s.db.DB.QueryRow(query, walletID).Scan(
+		&summary.TotalRequested,
+		&summary.TotalProcessing,
+		&summary.TotalCompleted,
+		&summary.TotalRejected,
+		&summary.TotalFailed,
+		&summary.TotalCancelled,
+		&summary.AmountPending,
+		&summary.AmountCompleted,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get carrier refund summary: %w", err)
+	}
+
+	summary.Currency = "CAD"
+	return &summary, nil
+}
+
 // GetWalletOverview retrieves wallet overview with financial summary
 func (s *WalletService) GetWalletOverview(organizationID string, period string) (*WalletOverviewResponse, error) {
 	// Get wallet info

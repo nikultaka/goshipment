@@ -213,3 +213,72 @@ type WalletOverviewPeriod struct {
 	EndDate   string `json:"end_date" example:"2026-01-31"`
 	Label     string `json:"label" example:"This Month"`
 }
+
+// =====================================================
+// CARRIER REFUND DTOs
+// =====================================================
+
+// ListCarrierRefundsRequest represents query parameters for listing carrier refunds
+type ListCarrierRefundsRequest struct {
+	Page         int     `form:"page" binding:"omitempty,min=1" example:"1"`
+	Limit        int     `form:"limit" binding:"omitempty,min=1,max=100" example:"20"`
+	RefundNumber *string `form:"refund_number" binding:"omitempty" example:"CRF-ABC12345"`
+	ShipmentID   *string `form:"shipment_id" binding:"omitempty,uuid" example:"550e8400-e29b-41d4-a716-446655440000"`
+	CarrierID    *string `form:"carrier_id" binding:"omitempty,uuid" example:"550e8400-e29b-41d4-a716-446655440001"`
+	Status       *string `form:"status" binding:"omitempty,oneof=requested processing completed rejected failed cancelled" example:"requested"`
+	RefundReason *string `form:"refund_reason" binding:"omitempty" example:"shipment_cancelled"`
+	FromDate     *string `form:"from_date" binding:"omitempty" example:"2026-01-01"`
+	ToDate       *string `form:"to_date" binding:"omitempty" example:"2026-01-31"`
+	SortBy       *string `form:"sort_by" binding:"omitempty,oneof=requested_at requested_amount status" example:"requested_at"`
+	SortOrder    *string `form:"sort_order" binding:"omitempty,oneof=asc desc" example:"desc"`
+}
+
+// CarrierRefundResponse represents a carrier refund in responses
+type CarrierRefundResponse struct {
+	ID                     string     `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	RefundNumber           string     `json:"refund_number" example:"CRF-ABC12345"`
+	OrganizationID         string     `json:"organization_id" example:"550e8400-e29b-41d4-a716-446655440001"`
+	ShipmentID             string     `json:"shipment_id" example:"550e8400-e29b-41d4-a716-446655440002"`
+	ShipmentNumber         *string    `json:"shipment_number,omitempty" example:"SHP-XYZ98765"`
+	CarrierID              string     `json:"carrier_id" example:"550e8400-e29b-41d4-a716-446655440003"`
+	CarrierName            *string    `json:"carrier_name,omitempty" example:"Canada Post"`
+	CarrierTrackingNumber  *string    `json:"carrier_tracking_number,omitempty" example:"1234567890"`
+	CarrierRefundReference *string    `json:"carrier_refund_reference,omitempty" example:"REF-123456"`
+	RequestedAmount        float64    `json:"requested_amount" example:"45.50"`
+	ApprovedAmount         *float64   `json:"approved_amount,omitempty" example:"45.50"`
+	Currency               string     `json:"currency" example:"CAD"`
+	Status                 string     `json:"status" example:"requested"`
+	RefundReason           string     `json:"refund_reason" example:"shipment_cancelled"`
+	ReasonNotes            *string    `json:"reason_notes,omitempty" example:"Customer requested cancellation"`
+	RequestedAt            time.Time  `json:"requested_at" example:"2026-01-15T10:00:00Z"`
+	CarrierAcknowledgedAt  *time.Time `json:"carrier_acknowledged_at,omitempty" example:"2026-01-15T12:00:00Z"`
+	CompletedAt            *time.Time `json:"completed_at,omitempty" example:"2026-01-20T15:00:00Z"`
+	ExpectedCompletionDate *string    `json:"expected_completion_date,omitempty" example:"2026-01-25"`
+	WalletTransactionID    *string    `json:"wallet_transaction_id,omitempty" example:"550e8400-e29b-41d4-a716-446655440004"`
+	RequestedByUserID      *string    `json:"requested_by_user_id,omitempty" example:"550e8400-e29b-41d4-a716-446655440005"`
+	CarrierResponseCode    *string    `json:"carrier_response_code,omitempty" example:"APPROVED"`
+	CarrierResponseMessage *string    `json:"carrier_response_message,omitempty" example:"Refund approved"`
+	Notes                  *string    `json:"notes,omitempty" example:"Additional notes"`
+	CreatedAt              time.Time  `json:"created_at" example:"2026-01-15T10:00:00Z"`
+	UpdatedAt              time.Time  `json:"updated_at" example:"2026-01-15T10:00:00Z"`
+}
+
+// CarrierRefundsListResponse represents paginated carrier refunds
+type CarrierRefundsListResponse struct {
+	Refunds    []CarrierRefundResponse `json:"refunds"`
+	Summary    CarrierRefundSummary    `json:"summary"`
+	Pagination PaginationMeta          `json:"pagination"`
+}
+
+// CarrierRefundSummary represents summary statistics for carrier refunds
+type CarrierRefundSummary struct {
+	TotalRequested  int     `json:"total_requested" example:"10"`
+	TotalProcessing int     `json:"total_processing" example:"5"`
+	TotalCompleted  int     `json:"total_completed" example:"20"`
+	TotalRejected   int     `json:"total_rejected" example:"2"`
+	TotalFailed     int     `json:"total_failed" example:"1"`
+	TotalCancelled  int     `json:"total_cancelled" example:"0"`
+	AmountPending   float64 `json:"amount_pending" example:"250.00"`
+	AmountCompleted float64 `json:"amount_completed" example:"1500.00"`
+	Currency        string  `json:"currency" example:"CAD"`
+}

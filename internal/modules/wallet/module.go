@@ -54,6 +54,10 @@ func (m *WalletModule) RegisterRoutes(router *gin.RouterGroup) {
 		// Scope: wallet.read
 		wallet.GET("/transactions/export", m.handlers.ExportTransactions)
 
+		// GET /wallet/refunds - List carrier refund requests
+		// Scope: wallet.read
+		wallet.GET("/refunds", m.handlers.ListCarrierRefunds)
+
 		// POST /wallet/topup - Add funds via Stripe (all authenticated users)
 		// Scope: wallet.topup
 		wallet.POST("/topup", m.handlers.TopUp)
