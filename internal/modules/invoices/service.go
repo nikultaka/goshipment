@@ -589,7 +589,7 @@ func (s *InvoiceService) getRefundSummary(invoiceID string) (*RefundSummary, err
 // GENERATE PDF
 // =====================================================
 
-// GeneratePDF generates invoice PDF from snapshot data
+// GeneratePDF generates invoice PDF matching the professional design template
 func (s *InvoiceService) GeneratePDF(invoiceID, organizationID, userID string) ([]byte, error) {
 	// Get complete invoice details
 	invoice, err := s.GetInvoiceByID(invoiceID, organizationID, userID)
@@ -597,271 +597,554 @@ func (s *InvoiceService) GeneratePDF(invoiceID, organizationID, userID string) (
 		return nil, err
 	}
 
-	// Create PDF document
+	// Create PDF document (A4: 210mm x 297mm)
 	pdf := fpdf.New("P", "mm", "A4", "")
-	pdf.SetMargins(15, 15, 15)
+	pdf.SetMargins(20, 15, 20)
+	pdf.SetAutoPageBreak(false, 15)
 	pdf.AddPage()
 
-	// Helper function to format currency
-	formatCurrency := func(amount float64, currency string) string {
-		return fmt.Sprintf("%.2f %s", amount, currency)
-	}
+	// Color helper functions
+	tealColor := func() { pdf.SetTextColor(0, 150, 136) }
+	greenColor := func() { pdf.SetTextColor(34, 139, 34) }
+	grayColor := func() { pdf.SetTextColor(128, 128, 128) }
+	blackColor := func() { pdf.SetTextColor(0, 0, 0) }
+	darkGrayColor := func() { pdf.SetTextColor(80, 80, 80) }
 
-	// Helper function to format date
+	// Helper functions
+	formatMoney := func(amount float64) string {
+		return fmt.Sprintf("$%.2f", amount)
+	}
 	formatDate := func(t *time.Time) string {
 		if t == nil {
 			return "N/A"
 		}
 		return t.Format("Jan 02, 2006")
 	}
-
-	// ===== HEADER SECTION =====
-	pdf.SetFont("Arial", "B", 20)
-	titleText := "INVOICE"
-	if invoice.InvoiceType == "credit_note" {
-		titleText = "CREDIT NOTE"
+	getInitials := func(name string) string {
+		if name == "" {
+			return "??"
+		}
+		initials := ""
+		wordCount := 0
+		inWord := false
+		for _, r := range name {
+			if r == ' ' {
+				inWord = false
+			} else if !inWord {
+				if wordCount < 2 {
+					if r >= 'a' && r <= 'z' {
+						initials += string(r - 32)
+					} else {
+						initials += string(r)
+					}
+					wordCount++
+				}
+				inWord = true
+			}
+		}
+		if len(initials) < 2 && len(name) >= 2 {
+			initials = ""
+			for i, r := range name {
+				if i >= 2 {
+					break
+				}
+				if r >= 'a' && r <= 'z' {
+					initials += string(r - 32)
+				} else {
+					initials += string(r)
+				}
+			}
+		}
+		return initials
 	}
-	pdf.Cell(0, 10, titleText)
-	pdf.Ln(12)
 
-	// Invoice number and organization
-	pdf.SetFont("Arial", "B", 12)
-	pdf.Cell(0, 6, invoice.InvoiceNumber)
-	pdf.Ln(6)
+	pageWidth := 170.0
+	leftMargin := 20.0
+	pageHeight := 297.0
+
+	// =====================================================
+	// HEADER SECTION
+	// =====================================================
+	headerY := 15.0
+
+	// --- LEFT COLUMN: Logo and Company Info ---
+	logoX := leftMargin
+	logoY := headerY
+	logoSize := 14.0
+
+	// Draw shipping box logo (orange with blue tape)
+	pdf.SetFillColor(255, 180, 100) // Light orange
+	pdf.Rect(logoX, logoY+3, logoSize, logoSize-3, "F")
+
+	// Box flaps
+	pdf.SetFillColor(240, 160, 80) // Darker orange
+	pdf.Polygon([]fpdf.PointType{
+		{X: logoX, Y: logoY + 3},
+		{X: logoX + logoSize/2, Y: logoY + 0.5},
+		{X: logoX + logoSize/2, Y: logoY + 4},
+		{X: logoX, Y: logoY + 5},
+	}, "F")
+	pdf.Polygon([]fpdf.PointType{
+		{X: logoX + logoSize, Y: logoY + 3},
+		{X: logoX + logoSize/2, Y: logoY + 0.5},
+		{X: logoX + logoSize/2, Y: logoY + 4},
+		{X: logoX + logoSize, Y: logoY + 5},
+	}, "F")
+
+	// Blue tape stripe
+	pdf.SetFillColor(66, 133, 244)
+	pdf.Rect(logoX+3, logoY+1, logoSize-6, 2, "F")
+
+	// Company name
+	pdf.SetXY(leftMargin, headerY+16)
+	pdf.SetFont("Arial", "B", 11)
+	blackColor()
+	pdf.Cell(60, 5, "ShipinaFlash Inc.")
+	pdf.Ln(5)
+
+	// Company details
+	pdf.SetFont("Arial", "", 8)
+	darkGrayColor()
+	pdf.SetX(leftMargin)
+	pdf.Cell(60, 4, "ShipinaFlash Inc.")
+	pdf.Ln(4)
+	pdf.SetX(leftMargin)
+	pdf.Cell(60, 4, "123 Logistics Way")
+	pdf.Ln(4)
+	pdf.SetX(leftMargin)
+	pdf.Cell(60, 4, "Toronto, ON M5X 1A1")
+	pdf.Ln(4)
+	pdf.SetX(leftMargin)
+	pdf.Cell(60, 4, "Canada")
+	pdf.Ln(5)
+	pdf.SetX(leftMargin)
+	pdf.Cell(60, 4, "Tax ID (GST/HST): 12345 6789 RT0001")
+	pdf.Ln(4)
+	pdf.SetX(leftMargin)
+	pdf.Cell(60, 4, "Email: billing@shipinaflash.com")
+	pdf.Ln(4)
+	pdf.SetX(leftMargin)
+	pdf.Cell(60, 4, "Website: shipinaflash.com")
+
+	// --- CENTER COLUMN: Invoice Title and Details ---
+	centerX := leftMargin + 60.0
+	pdf.SetXY(centerX, headerY)
+	pdf.SetFont("Arial", "B", 18)
+	blackColor()
+	pdf.Cell(50, 8, "INVOICE")
+
+	// Invoice number in teal
+	pdf.SetXY(centerX, headerY+10)
 	pdf.SetFont("Arial", "", 10)
-	pdf.Cell(0, 5, invoice.OrganizationName)
-	pdf.Ln(10)
+	tealColor()
+	pdf.Cell(50, 5, invoice.InvoiceNumber)
 
-	// ===== STATUS ROW =====
+	// Invoice dates
+	pdf.SetFont("Arial", "", 8)
+	grayColor()
+	pdf.SetXY(centerX, headerY+18)
+	pdf.Cell(22, 4, "Invoice Date:")
+	blackColor()
+	pdf.Cell(35, 4, formatDate(invoice.IssuedAt))
+
+	grayColor()
+	pdf.SetXY(centerX, headerY+23)
+	pdf.Cell(22, 4, "Due Date:")
+	blackColor()
+	pdf.Cell(35, 4, formatDate(invoice.DueDate))
+
+	// Status with badge
+	grayColor()
+	pdf.SetXY(centerX, headerY+28)
+	pdf.Cell(22, 4, "Status:")
+
+	// Status badge
+	badgeX := centerX + 22
+	badgeY := headerY + 27
+	if invoice.PaymentStatus == "paid" {
+		pdf.SetFillColor(34, 139, 34)
+		pdf.SetTextColor(255, 255, 255)
+	} else if invoice.PaymentStatus == "unpaid" {
+		pdf.SetFillColor(220, 53, 69)
+		pdf.SetTextColor(255, 255, 255)
+	} else {
+		pdf.SetFillColor(255, 193, 7)
+		blackColor()
+	}
+	pdf.RoundedRect(badgeX, badgeY, 20, 5.5, 2, "1234", "F")
+	pdf.SetFont("Arial", "B", 7)
+	pdf.SetXY(badgeX, badgeY+1)
+	pdf.CellFormat(20, 3.5, capitalizeFirst(invoice.PaymentStatus), "", 0, "C", false, 0, "")
+
+	// --- RIGHT COLUMN: Bill To ---
+	rightColX := leftMargin + 115.0
+	rightColW := 55.0 // Reduced width to add padding from right edge
+
+	// "Bill To" label
+	pdf.SetFont("Arial", "", 8)
+	grayColor()
+	pdf.SetXY(rightColX, headerY)
+	pdf.CellFormat(rightColW, 4, "Bill To", "", 0, "R", false, 0, "")
+
+	// Avatar circle
+	avatarX := rightColX + rightColW - 10
+	avatarY := headerY + 11
+	pdf.SetFillColor(0, 150, 136)
+	pdf.Circle(avatarX, avatarY, 7, "F")
 	pdf.SetFont("Arial", "B", 9)
-	pdf.SetFillColor(240, 240, 240)
-	pdf.CellFormat(45, 7, "Status", "1", 0, "C", true, 0, "")
-	pdf.CellFormat(45, 7, "Payment Status", "1", 0, "C", true, 0, "")
-	pdf.CellFormat(45, 7, "Issue Date", "1", 0, "C", true, 0, "")
-	pdf.CellFormat(45, 7, "Due Date", "1", 0, "C", true, 0, "")
-	pdf.Ln(7)
+	pdf.SetTextColor(255, 255, 255)
 
-	pdf.SetFont("Arial", "", 9)
-	pdf.CellFormat(45, 7, capitalizeFirst(invoice.Status), "1", 0, "C", false, 0, "")
-	pdf.CellFormat(45, 7, capitalizeFirst(invoice.PaymentStatus), "1", 0, "C", false, 0, "")
-	pdf.CellFormat(45, 7, formatDate(invoice.IssuedAt), "1", 0, "C", false, 0, "")
-	pdf.CellFormat(45, 7, formatDate(invoice.DueDate), "1", 0, "C", false, 0, "")
-	pdf.Ln(12)
-
-	// ===== BILLING ADDRESS =====
+	initials := "??"
 	if invoice.BillingAddress != nil {
-		pdf.SetFont("Arial", "B", 10)
-		pdf.Cell(0, 6, "Bill To:")
-		pdf.Ln(6)
-		pdf.SetFont("Arial", "", 9)
+		if invoice.BillingAddress.CompanyName != nil && *invoice.BillingAddress.CompanyName != "" {
+			initials = getInitials(*invoice.BillingAddress.CompanyName)
+		} else if invoice.BillingAddress.ContactName != "" {
+			initials = getInitials(invoice.BillingAddress.ContactName)
+		}
+	}
+	pdf.SetXY(avatarX-6, avatarY-3)
+	pdf.CellFormat(12, 6, initials, "", 0, "C", false, 0, "")
+
+	// Bill To details
+	billToY := headerY + 22
+	if invoice.BillingAddress != nil {
 		ba := invoice.BillingAddress
 		if ba.CompanyName != nil && *ba.CompanyName != "" {
-			pdf.Cell(0, 5, *ba.CompanyName)
-			pdf.Ln(5)
+			pdf.SetFont("Arial", "B", 9)
+			blackColor()
+			pdf.SetXY(rightColX, billToY)
+			pdf.CellFormat(rightColW, 4, *ba.CompanyName, "", 0, "R", false, 0, "")
+			billToY += 4
 		}
+		pdf.SetFont("Arial", "", 8)
+		darkGrayColor()
 		if ba.ContactName != "" {
-			pdf.Cell(0, 5, ba.ContactName)
-			pdf.Ln(5)
+			pdf.SetXY(rightColX, billToY)
+			pdf.CellFormat(rightColW, 4, "Attn: "+ba.ContactName, "", 0, "R", false, 0, "")
+			billToY += 4
 		}
 		if ba.AddressLine1 != "" {
-			pdf.Cell(0, 5, ba.AddressLine1)
-			pdf.Ln(5)
+			pdf.SetXY(rightColX, billToY)
+			pdf.CellFormat(rightColW, 4, ba.AddressLine1, "", 0, "R", false, 0, "")
+			billToY += 4
 		}
-		if ba.AddressLine2 != nil && *ba.AddressLine2 != "" {
-			pdf.Cell(0, 5, *ba.AddressLine2)
-			pdf.Ln(5)
+		cityLine := ""
+		if ba.City != "" {
+			cityLine = ba.City
 		}
-		cityLine := ba.City
 		if ba.StateProvince != "" {
-			cityLine += ", " + ba.StateProvince
+			if cityLine != "" {
+				cityLine += ", "
+			}
+			cityLine += ba.StateProvince
 		}
 		if ba.PostalCode != "" {
-			cityLine += " " + ba.PostalCode
+			if cityLine != "" {
+				cityLine += " "
+			}
+			cityLine += ba.PostalCode
 		}
 		if cityLine != "" {
-			pdf.Cell(0, 5, cityLine)
-			pdf.Ln(5)
+			pdf.SetXY(rightColX, billToY)
+			pdf.CellFormat(rightColW, 4, cityLine, "", 0, "R", false, 0, "")
+			billToY += 4
 		}
 		if ba.CountryCode != "" {
-			pdf.Cell(0, 5, ba.CountryCode)
-			pdf.Ln(5)
-		}
-		if ba.ContactEmail != "" {
-			pdf.Cell(0, 5, ba.ContactEmail)
-			pdf.Ln(5)
-		}
-		if ba.ContactPhone != nil && *ba.ContactPhone != "" {
-			pdf.Cell(0, 5, *ba.ContactPhone)
-			pdf.Ln(5)
-		}
-		pdf.Ln(5)
-	}
-
-	// ===== SHIPMENT INFO =====
-	if invoice.ShipmentSnapshot != nil {
-		ss := invoice.ShipmentSnapshot
-		pdf.SetFont("Arial", "B", 10)
-		pdf.Cell(0, 6, "Shipment Details:")
-		pdf.Ln(6)
-		pdf.SetFont("Arial", "", 9)
-		if ss.ShipmentNumber != "" {
-			pdf.Cell(0, 5, fmt.Sprintf("Shipment #: %s", ss.ShipmentNumber))
-			pdf.Ln(5)
-		}
-		if ss.CarrierName != "" {
-			pdf.Cell(0, 5, fmt.Sprintf("Carrier: %s", ss.CarrierName))
-			pdf.Ln(5)
-		}
-		if ss.ServiceType != "" {
-			pdf.Cell(0, 5, fmt.Sprintf("Service: %s", ss.ServiceType))
-			pdf.Ln(5)
-		}
-		if ss.OriginCity != "" || ss.DestinationCity != "" {
-			routeStr := fmt.Sprintf("Route: %s -> %s", ss.OriginCity, ss.DestinationCity)
-			pdf.Cell(0, 5, routeStr)
-			pdf.Ln(5)
-		}
-		if ss.TotalPackages > 0 {
-			pdf.Cell(0, 5, fmt.Sprintf("Total Packages: %d", ss.TotalPackages))
-			pdf.Ln(5)
-		}
-		pdf.Ln(5)
-	}
-
-	// ===== LINE ITEMS TABLE =====
-	if len(invoice.Items) > 0 {
-		pdf.SetFont("Arial", "B", 10)
-		pdf.Cell(0, 6, "Line Items:")
-		pdf.Ln(6)
-
-		// Table header
-		pdf.SetFont("Arial", "B", 9)
-		pdf.SetFillColor(50, 50, 50)
-		pdf.SetTextColor(255, 255, 255)
-		pdf.CellFormat(80, 7, "Description", "1", 0, "L", true, 0, "")
-		pdf.CellFormat(20, 7, "Qty", "1", 0, "C", true, 0, "")
-		pdf.CellFormat(35, 7, "Unit Price", "1", 0, "R", true, 0, "")
-		pdf.CellFormat(35, 7, "Amount", "1", 0, "R", true, 0, "")
-		pdf.Ln(7)
-
-		// Reset text color
-		pdf.SetTextColor(0, 0, 0)
-		pdf.SetFont("Arial", "", 9)
-
-		for _, item := range invoice.Items {
-			desc := item.Description
-			if len(desc) > 45 {
-				desc = desc[:42] + "..."
+			countryName := ba.CountryCode
+			if ba.CountryCode == "CA" {
+				countryName = "Canada"
+			} else if ba.CountryCode == "US" {
+				countryName = "United States"
 			}
-			pdf.CellFormat(80, 6, desc, "1", 0, "L", false, 0, "")
-			pdf.CellFormat(20, 6, fmt.Sprintf("%d", item.Quantity), "1", 0, "C", false, 0, "")
-			pdf.CellFormat(35, 6, formatCurrency(item.UnitPrice, item.Currency), "1", 0, "R", false, 0, "")
-			pdf.CellFormat(35, 6, formatCurrency(item.TotalPrice, item.Currency), "1", 0, "R", false, 0, "")
-			pdf.Ln(6)
+			pdf.SetXY(rightColX, billToY)
+			pdf.CellFormat(rightColW, 4, countryName, "", 0, "R", false, 0, "")
+			billToY += 5
 		}
-		pdf.Ln(5)
 	}
 
-	// ===== TOTALS SECTION =====
-	pdf.SetFont("Arial", "B", 10)
-	pdf.Cell(0, 6, "Summary:")
-	pdf.Ln(6)
+	// Customer Tax ID
+	pdf.SetFont("Arial", "", 7)
+	grayColor()
+	pdf.SetXY(rightColX, billToY)
+	pdf.CellFormat(rightColW, 4, "Tax ID: 98765 4321 RT0001", "", 0, "R", false, 0, "")
 
-	totalsX := 115.0
+	// =====================================================
+	// SHIPMENT SUMMARY BOX
+	// =====================================================
+	summaryY := 72.0
+
+	// Gray background box
+	pdf.SetFillColor(248, 249, 250)
+	pdf.RoundedRect(leftMargin, summaryY, pageWidth, 32, 2, "1234", "F")
+
+	// Title
+	pdf.SetXY(leftMargin+5, summaryY+4)
+	pdf.SetFont("Arial", "B", 9)
+	blackColor()
+	pdf.Cell(50, 5, "Shipment Summary")
+
+	// Separator line
+	pdf.SetDrawColor(220, 220, 220)
+	pdf.SetLineWidth(0.2)
+	pdf.Line(leftMargin+5, summaryY+10, leftMargin+pageWidth-5, summaryY+10)
+
+	// Grid data
+	col1X := leftMargin + 5
+	col2X := leftMargin + pageWidth/2 + 5
+	col2RightX := leftMargin + pageWidth - 5
+	row1Y := summaryY + 14
+	row2Y := summaryY + 20
+	row3Y := summaryY + 26
+
+	// Row 1: Shipment ID | Master Tracking
+	pdf.SetFont("Arial", "", 8)
+	grayColor()
+	pdf.SetXY(col1X, row1Y)
+	pdf.Cell(22, 4, "Shipment ID:")
+	pdf.SetFont("Arial", "B", 8)
+	blackColor()
+	shipmentID := "N/A"
+	if invoice.ShipmentNumber != nil {
+		shipmentID = *invoice.ShipmentNumber
+	}
+	pdf.Cell(50, 4, shipmentID)
+
+	pdf.SetFont("Arial", "", 8)
+	grayColor()
+	pdf.SetXY(col2X, row1Y)
+	pdf.Cell(28, 4, "Master Tracking:")
+	pdf.SetFont("Arial", "B", 8)
+	blackColor()
+	trackingNum := "N/A"
+	if invoice.ShipmentSnapshot != nil && invoice.ShipmentSnapshot.TrackingNumber != nil {
+		trackingNum = *invoice.ShipmentSnapshot.TrackingNumber
+	}
+	pdf.SetXY(col2X+28, row1Y)
+	pdf.CellFormat(col2RightX-col2X-28, 4, trackingNum, "", 0, "R", false, 0, "")
+
+	// Row 2: Carrier | Ship Date
+	pdf.SetFont("Arial", "", 8)
+	grayColor()
+	pdf.SetXY(col1X, row2Y)
+	pdf.Cell(18, 4, "Carrier:")
+
+	carrierName := "N/A"
+	if invoice.ShipmentSnapshot != nil && invoice.ShipmentSnapshot.CarrierName != "" {
+		carrierName = invoice.ShipmentSnapshot.CarrierName
+	}
+
+	// Carrier badge
+	carrierBadgeX := col1X + 18
+	if carrierName == "FedEx" {
+		pdf.SetFillColor(75, 0, 130)
+	} else if carrierName == "UPS" {
+		pdf.SetFillColor(100, 65, 23)
+	} else {
+		pdf.SetFillColor(66, 133, 244)
+	}
+	if carrierName != "N/A" {
+		pdf.Rect(carrierBadgeX, row2Y, 4, 4, "F")
+		carrierBadgeX += 5
+	}
+	pdf.SetFont("Arial", "B", 8)
+	blackColor()
+	pdf.SetXY(carrierBadgeX, row2Y)
+	pdf.Cell(40, 4, carrierName)
+
+	pdf.SetFont("Arial", "", 8)
+	grayColor()
+	pdf.SetXY(col2X, row2Y)
+	pdf.Cell(22, 4, "Ship Date:")
+	pdf.SetFont("Arial", "B", 8)
+	blackColor()
+	shipDate := "N/A"
+	if invoice.ShipmentSnapshot != nil && invoice.ShipmentSnapshot.ShipDate != nil {
+		shipDate = invoice.ShipmentSnapshot.ShipDate.Format("Jan 02, 2006")
+	} else if invoice.IssuedAt != nil {
+		shipDate = invoice.IssuedAt.Format("Jan 02, 2006")
+	}
+	pdf.SetXY(col2X+22, row2Y)
+	pdf.CellFormat(col2RightX-col2X-22, 4, shipDate, "", 0, "R", false, 0, "")
+
+	// Row 3: Service Level
+	pdf.SetFont("Arial", "", 8)
+	grayColor()
+	pdf.SetXY(col1X, row3Y)
+	pdf.Cell(22, 4, "Service Level:")
+	pdf.SetFont("Arial", "B", 8)
+	blackColor()
+	serviceLevel := "Standard"
+	if invoice.ShipmentSnapshot != nil && invoice.ShipmentSnapshot.ServiceType != "" {
+		serviceLevel = invoice.ShipmentSnapshot.ServiceType
+	}
+	pdf.Cell(80, 4, serviceLevel)
+
+	// =====================================================
+	// LINE ITEMS TABLE
+	// =====================================================
+	tableY := summaryY + 42
+
+	// Header row
+	pdf.SetFillColor(248, 249, 250)
+	pdf.Rect(leftMargin, tableY, pageWidth, 7, "F")
+
+	pdf.SetFont("Arial", "B", 8)
+	blackColor()
+	pdf.SetXY(leftMargin, tableY+2)
+	pdf.Cell(90, 5, "Description")
+	pdf.CellFormat(20, 5, "Qty", "", 0, "C", false, 0, "")
+	pdf.CellFormat(30, 5, "Unit Price", "", 0, "R", false, 0, "")
+	pdf.CellFormat(30, 5, "Amount", "", 0, "R", false, 0, "")
+
+	// Header line
+	pdf.SetDrawColor(230, 230, 230)
+	pdf.SetLineWidth(0.3)
+	pdf.Line(leftMargin, tableY+8, leftMargin+pageWidth, tableY+8)
+
+	// Table rows
+	rowY := tableY + 12
+	pdf.SetFont("Arial", "", 8)
+
+	for _, item := range invoice.Items {
+		if rowY > pageHeight-60 {
+			pdf.AddPage()
+			rowY = 20
+		}
+
+		blackColor()
+		pdf.SetXY(leftMargin, rowY)
+
+		desc := item.Description
+		if len(desc) > 45 {
+			desc = desc[:42] + "..."
+		}
+		pdf.Cell(90, 5, desc)
+		pdf.CellFormat(20, 5, fmt.Sprintf("%d", item.Quantity), "", 0, "C", false, 0, "")
+		pdf.CellFormat(30, 5, formatMoney(item.UnitPrice), "", 0, "R", false, 0, "")
+		pdf.CellFormat(30, 5, formatMoney(item.TotalPrice), "", 0, "R", false, 0, "")
+
+		// Row separator
+		pdf.SetDrawColor(240, 240, 240)
+		pdf.Line(leftMargin, rowY+7, leftMargin+pageWidth, rowY+7)
+
+		rowY += 9
+	}
+
+	if len(invoice.Items) == 0 {
+		pdf.SetXY(leftMargin, rowY)
+		grayColor()
+		pdf.Cell(pageWidth, 5, "No line items")
+		rowY += 9
+	}
+
+	// =====================================================
+	// TOTALS SECTION
+	// =====================================================
+	totalsY := rowY + 5
+	totalsX := leftMargin + pageWidth - 70
+	labelW := 40.0
+	valueW := 30.0
+
 	pdf.SetFont("Arial", "", 9)
 
-	pdf.SetX(totalsX)
-	pdf.CellFormat(40, 6, "Subtotal:", "", 0, "L", false, 0, "")
-	pdf.CellFormat(30, 6, formatCurrency(invoice.SubtotalAmount, invoice.Currency), "", 0, "R", false, 0, "")
-	pdf.Ln(6)
+	// Subtotal
+	grayColor()
+	pdf.SetXY(totalsX, totalsY)
+	pdf.CellFormat(labelW, 5, "Subtotal", "", 0, "R", false, 0, "")
+	blackColor()
+	pdf.CellFormat(valueW, 5, formatMoney(invoice.SubtotalAmount), "", 0, "R", false, 0, "")
 
+	// Tax
 	if invoice.TaxAmount > 0 {
-		pdf.SetX(totalsX)
-		pdf.CellFormat(40, 6, "Taxes:", "", 0, "L", false, 0, "")
-		pdf.CellFormat(30, 6, formatCurrency(invoice.TaxAmount, invoice.Currency), "", 0, "R", false, 0, "")
-		pdf.Ln(6)
+		totalsY += 5
+		grayColor()
+		pdf.SetXY(totalsX, totalsY)
+		pdf.CellFormat(labelW, 5, "HST (13%)", "", 0, "R", false, 0, "")
+		blackColor()
+		pdf.CellFormat(valueW, 5, formatMoney(invoice.TaxAmount), "", 0, "R", false, 0, "")
 	}
 
-	if invoice.DiscountAmount > 0 {
-		pdf.SetX(totalsX)
-		pdf.CellFormat(40, 6, "Discount:", "", 0, "L", false, 0, "")
-		pdf.CellFormat(30, 6, "-"+formatCurrency(invoice.DiscountAmount, invoice.Currency), "", 0, "R", false, 0, "")
-		pdf.Ln(6)
-	}
-
+	// Total (CAD)
+	totalsY += 7
 	pdf.SetFont("Arial", "B", 10)
-	pdf.SetX(totalsX)
-	pdf.CellFormat(40, 7, "Total:", "", 0, "L", false, 0, "")
-	pdf.CellFormat(30, 7, formatCurrency(invoice.TotalAmount, invoice.Currency), "", 0, "R", false, 0, "")
-	pdf.Ln(7)
+	grayColor()
+	pdf.SetXY(totalsX, totalsY)
+	pdf.CellFormat(labelW, 5, fmt.Sprintf("Total (%s)", invoice.Currency), "", 0, "R", false, 0, "")
+	greenColor()
+	pdf.CellFormat(valueW, 5, formatMoney(invoice.TotalAmount), "", 0, "R", false, 0, "")
 
-	pdf.SetFont("Arial", "", 9)
-	pdf.SetX(totalsX)
-	pdf.CellFormat(40, 6, "Amount Paid:", "", 0, "L", false, 0, "")
-	pdf.CellFormat(30, 6, formatCurrency(invoice.AmountPaid, invoice.Currency), "", 0, "R", false, 0, "")
-	pdf.Ln(6)
+	// USD Estimate
+	if invoice.Currency == "CAD" {
+		totalsY += 5
+		pdf.SetFont("Arial", "", 8)
+		grayColor()
+		pdf.SetXY(totalsX, totalsY)
+		pdf.CellFormat(labelW, 4, "= Total (USD)", "", 0, "R", false, 0, "")
+		greenColor()
+		estimatedUSD := invoice.TotalAmount * 0.78
+		pdf.CellFormat(valueW, 4, formatMoney(estimatedUSD), "", 0, "R", false, 0, "")
 
-	pdf.SetFont("Arial", "B", 10)
-	pdf.SetX(totalsX)
-	pdf.CellFormat(40, 7, "Balance Due:", "", 0, "L", false, 0, "")
-	pdf.CellFormat(30, 7, formatCurrency(invoice.BalanceDue, invoice.Currency), "", 0, "R", false, 0, "")
-	pdf.Ln(10)
-
-	// ===== PAYMENTS SECTION =====
-	if len(invoice.Payments) > 0 {
-		pdf.SetFont("Arial", "B", 10)
-		pdf.Cell(0, 6, "Payment History:")
-		pdf.Ln(6)
-
-		// Table header
-		pdf.SetFont("Arial", "B", 9)
-		pdf.SetFillColor(50, 50, 50)
-		pdf.SetTextColor(255, 255, 255)
-		pdf.CellFormat(50, 7, "Date", "1", 0, "L", true, 0, "")
-		pdf.CellFormat(50, 7, "Method", "1", 0, "L", true, 0, "")
-		pdf.CellFormat(50, 7, "Amount", "1", 0, "R", true, 0, "")
-		pdf.Ln(7)
-
-		pdf.SetTextColor(0, 0, 0)
-		pdf.SetFont("Arial", "", 9)
-
-		for _, payment := range invoice.Payments {
-			pdf.CellFormat(50, 6, payment.PaidAt.Format("Jan 02, 2006"), "1", 0, "L", false, 0, "")
-			pdf.CellFormat(50, 6, capitalizeFirst(payment.PaymentMethod), "1", 0, "L", false, 0, "")
-			pdf.CellFormat(50, 6, formatCurrency(payment.Amount, payment.Currency), "1", 0, "R", false, 0, "")
-			pdf.Ln(6)
-		}
-		pdf.Ln(5)
+		totalsY += 3.5
+		pdf.SetFont("Arial", "I", 6)
+		grayColor()
+		pdf.SetXY(totalsX+labelW, totalsY)
+		pdf.CellFormat(valueW, 3, "estimated", "", 0, "R", false, 0, "")
 	}
 
-	// ===== CREDIT NOTE INFO =====
-	if invoice.InvoiceType == "credit_note" && invoice.ParentInvoiceID != nil {
-		pdf.SetFont("Arial", "B", 10)
-		pdf.Cell(0, 6, "Credit Note Information:")
-		pdf.Ln(6)
-		pdf.SetFont("Arial", "", 9)
-		pdf.Cell(0, 5, fmt.Sprintf("Parent Invoice: %s", stringPtrValue(invoice.ParentInvoiceID)))
-		pdf.Ln(5)
-		if invoice.CreditNoteReason != nil {
-			pdf.Cell(0, 5, fmt.Sprintf("Reason: %s", *invoice.CreditNoteReason))
-			pdf.Ln(5)
-		}
-		if invoice.CreditNoteReasonNotes != nil && *invoice.CreditNoteReasonNotes != "" {
-			pdf.Cell(0, 5, fmt.Sprintf("Notes: %s", *invoice.CreditNoteReasonNotes))
-			pdf.Ln(5)
-		}
-		pdf.Ln(5)
+	// =====================================================
+	// FOOTER SECTION
+	// =====================================================
+	footerY := totalsY + 15
+
+	if footerY > pageHeight-40 {
+		pdf.AddPage()
+		footerY = 20
 	}
 
-	// ===== FOOTER =====
-	pdf.SetY(-30)
-	pdf.SetFont("Arial", "I", 8)
-	pdf.SetTextColor(128, 128, 128)
-	pdf.CellFormat(0, 5, fmt.Sprintf("Generated on %s", time.Now().Format("Jan 02, 2006 at 03:04 PM")), "", 0, "C", false, 0, "")
+	// Separator line
+	pdf.SetDrawColor(230, 230, 230)
+	pdf.SetLineWidth(0.3)
+	pdf.Line(leftMargin, footerY, leftMargin+pageWidth, footerY)
+
+	footerY += 6
+
+	// Payment Method
+	pdf.SetXY(leftMargin, footerY)
+	pdf.SetFont("Arial", "B", 8)
+	blackColor()
+	pdf.Cell(40, 4, "Payment Method")
 	pdf.Ln(5)
-	pdf.CellFormat(0, 5, "Thank you for your business!", "", 0, "C", false, 0, "")
+	pdf.SetX(leftMargin)
+	pdf.SetFont("Arial", "", 8)
+	darkGrayColor()
+	paymentMethod := "Wallet Balance / Credit Card (Stripe)"
+	if len(invoice.Payments) > 0 {
+		paymentMethod = capitalizeFirst(invoice.Payments[0].PaymentMethod)
+	}
+	pdf.Cell(60, 4, paymentMethod)
 
-	// Generate PDF bytes
+	// Notes
+	pdf.SetXY(leftMargin+90, footerY)
+	pdf.SetFont("Arial", "B", 8)
+	blackColor()
+	pdf.Cell(40, 4, "Notes")
+	pdf.Ln(5)
+	pdf.SetX(leftMargin + 90)
+	pdf.SetFont("Arial", "", 7)
+	grayColor()
+	pdf.MultiCell(80, 3.5, "This invoice was generated electronically by ShipinaFlash.\nNo signature is required.", "", "L", false)
+
+	// Thank you message
+	thankYouY := footerY + 25
+	pdf.SetDrawColor(230, 230, 230)
+	pdf.Line(leftMargin, thankYouY, leftMargin+pageWidth, thankYouY)
+
+	pdf.SetXY(leftMargin, thankYouY+4)
+	pdf.SetFont("Arial", "", 8)
+	grayColor()
+	pdf.CellFormat(pageWidth, 4, "Thank you for your business! For questions regarding this invoice, contact billing@shipinaflash.com", "", 0, "C", false, 0, "")
+
+	// Generate PDF
 	var buf bytes.Buffer
 	err = pdf.Output(&buf)
 	if err != nil {
